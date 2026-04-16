@@ -1,6 +1,9 @@
 import type { GroupFormModalRef } from '~/components/GroupFormModal'
 import type { DraggingResource } from '~/constants'
 import type { GroupsQuery, NodesQuery, SubscriptionsQuery } from '~/schemas/gql/graphql'
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
+import type { DraggableStateSnapshot } from '@hello-pangea/dnd'
+import { Draggable, Droppable } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
 import { Settings2, Table2 } from 'lucide-react'
 
@@ -30,20 +33,27 @@ import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { DraggableResourceType } from '~/constants'
 import { useDisclosure } from '~/hooks'
-import { defaultResourcesAtom } from '~/store'
+import { cn } from '~/lib/utils'
+import { getInstantDropStyle } from '~/utils'
+import { appStateAtom, defaultResourcesAtom } from '~/store'
+
+const GROUP_DROPPABLE_ID = 'group-list'
 
 export function GroupResource({
   highlight,
   draggingResource,
   dragDestinationDroppableId,
+  hoveredGroupId,
 }: {
   highlight?: boolean
   draggingResource?: DraggingResource | null
   dragDestinationDroppableId?: string | null
+  hoveredGroupId?: string | null
 }) {
   const { t } = useTranslation()
   const { data: groupsQuery } = useGroupsQuery()
   const { data: nodesQuery } = useNodesQuery()
+  const appState = useStore(appStateAtom)
   const { defaultGroupID } = useStore(defaultResourcesAtom)
   const [openedCreateGroupFormModal, { open: openCreateGroupFormModal, close: closeCreateGroupFormModal }] =
     useDisclosure(false)
@@ -82,6 +92,7 @@ export function GroupResource({
   const groups: GroupsQuery['groups'] = groupsQuery?.groups || []
   const nodes: NodesQuery['nodes']['edges'] = nodesQuery?.nodes.edges || []
   const subscriptions: SubscriptionsQuery['subscriptions'] = subscriptionsQuery?.subscriptions || []
+  const groupSortOrder = appState.groupSortableKeys as string[]
 
   const setGroupExpanded = useCallback((groupId: string, expanded: boolean) => {
     setExpandedGroupIds((current) => {
@@ -107,6 +118,12 @@ export function GroupResource({
       setGroupExpanded(dragDestinationDroppableId.replace('-subscriptions', ''), true)
     }
   }, [dragDestinationDroppableId, setGroupExpanded])
+
+  useEffect(() => {
+    if (hoveredGroupId) {
+      setGroupExpanded(hoveredGroupId, true)
+    }
+  }, [hoveredGroupId, setGroupExpanded])
 
   const addingNodesGroup = useMemo(
     () => groups.find((group) => group.id === addingNodesGroupId) || null,
@@ -185,6 +202,116 @@ export function GroupResource({
       })
   }, [addingSubscriptionsGroup, subscriptions, t])
 
+  const sortedGroupIds = useMemo(() => {
+    const currentIds = groups.map((group) => group.id)
+    const currentIdSet = new Set(currentIds)
+    const result = groupSortOrder.filter((id) => currentIdSet.has(id))
+    const resultSet = new Set(result)
+
+    for (const id of currentIds) {
+      if (!resultSet.has(id)) result.push(id)
+    }
+
+    return result
+  }, [groupSortOrder, groups])
+
+  const sortedGroups = useMemo(() => {
+    const groupMap = new Map(groups.map((group) => [group.id, group]))
+    return sortedGroupIds.map((id) => groupMap.get(id)).filter(Boolean) as GroupsQuery['groups']
+  }, [groups, sortedGroupIds])
+
+  const renderGroupCard = (
+    {
+      groupId,
+      name,
+      policy,
+      groupNodes,
+      groupSubscriptions,
+      dragHandleProps,
+      snapshot,
+    }: {
+      groupId: string
+      name: string
+      policy: string
+      groupNodes: GroupsQuery['groups'][number]['nodes']
+      groupSubscriptions: GroupsQuery['groups'][number]['subscriptions']
+      dragHandleProps?: DraggableProvidedDragHandleProps | null
+      snapshot?: DraggableStateSnapshot
+    },
+  ) => (
+    <div
+      data-group-card-id={groupId}
+      className={cn(snapshot?.isDragging && 'z-50 opacity-90')}
+    >
+      <DroppableGroupCard
+        id={groupId}
+        name={name}
+        summary={
+          <>
+            <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground/80">{policy}</span>
+            <span>{t('groupPicker.nodesCount', { count: groupNodes.length })}</span>
+            <span>{t('groupPicker.subscriptionGroupsCount', { count: groupSubscriptions.length })}</span>
+          </>
+        }
+        collapsed={!expandedGroupIds.has(groupId)}
+        dragHandleProps={dragHandleProps}
+        onToggleCollapsed={() => setGroupExpanded(groupId, !expandedGroupIds.has(groupId))}
+        onRemove={defaultGroupID !== groupId ? () => removeGroupMutation.mutate(groupId) : undefined}
+        onRename={(newName) => renameGroupMutation.mutate({ id: groupId, name: newName })}
+        actions={
+          <SimpleTooltip label={t('actions.settings')}>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={() => {
+                updateGroupFormModalRef.current?.setEditingID(groupId)
+
+                updateGroupFormModalRef.current?.initOrigins({
+                  name,
+                  policy,
+                })
+
+                openUpdateGroupFormModal()
+              }}
+            >
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          </SimpleTooltip>
+        }
+      >
+        <SortableGroupContent
+          groupId={groupId}
+          nodes={groupNodes}
+          subscriptions={groupSubscriptions}
+          allSubscriptions={subscriptionsQuery?.subscriptions}
+          autoExpandValue={autoExpandValue}
+          collapsed={!expandedGroupIds.has(groupId)}
+          onExpand={() => setGroupExpanded(groupId, true)}
+          onDelNode={(nodeId) =>
+            groupDelNodesMutation.mutate({
+              id: groupId,
+              nodeIDs: [nodeId],
+            })
+          }
+          onDelSubscription={(subscriptionId) =>
+            groupDelSubscriptionsMutation.mutate({
+              id: groupId,
+              subscriptionIDs: [subscriptionId],
+            })
+          }
+          onOpenAddNodes={() => {
+            setGroupExpanded(groupId, true)
+            setAddingNodesGroupId(groupId)
+          }}
+          onOpenAddSubscriptions={() => {
+            setGroupExpanded(groupId, true)
+            setAddingSubscriptionsGroupId(groupId)
+          }}
+        />
+      </DroppableGroupCard>
+    </div>
+  )
+
   return (
     <Section
       title={t('group')}
@@ -193,82 +320,34 @@ export function GroupResource({
       highlight={highlight}
       bordered
     >
-      {groups.map(
-        ({
-          id: groupId,
-          name,
-          policy,
-          nodes: groupNodes,
-          subscriptions: groupSubscriptions,
-        }: GroupsQuery['groups'][number]) => (
-          <DroppableGroupCard
-            key={groupId}
-            id={groupId}
-            name={name}
-            summary={
-              <>
-                <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground/80">{policy}</span>
-                <span>{t('groupPicker.nodesCount', { count: groupNodes.length })}</span>
-                <span>{t('groupPicker.subscriptionGroupsCount', { count: groupSubscriptions.length })}</span>
-              </>
-            }
-            collapsed={!expandedGroupIds.has(groupId)}
-            onToggleCollapsed={() => setGroupExpanded(groupId, !expandedGroupIds.has(groupId))}
-            onRemove={defaultGroupID !== groupId ? () => removeGroupMutation.mutate(groupId) : undefined}
-            onRename={(newName) => renameGroupMutation.mutate({ id: groupId, name: newName })}
-            actions={
-              <SimpleTooltip label={t('actions.settings')}>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => {
-                    updateGroupFormModalRef.current?.setEditingID(groupId)
-
-                    updateGroupFormModalRef.current?.initOrigins({
+      <Droppable droppableId={GROUP_DROPPABLE_ID} type="GROUP">
+        {(provided) => (
+          <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-3">
+            {sortedGroups.map(({ id: groupId, name, policy, nodes: groupNodes, subscriptions: groupSubscriptions }, index) => (
+              <Draggable key={groupId} draggableId={`group-${groupId}`} index={index}>
+                {(draggableProvided, snapshot) => (
+                  <div
+                    ref={draggableProvided.innerRef}
+                    {...draggableProvided.draggableProps}
+                    style={getInstantDropStyle(draggableProvided, snapshot)}
+                  >
+                    {renderGroupCard({
+                      groupId,
                       name,
                       policy,
-                    })
-
-                    openUpdateGroupFormModal()
-                  }}
-                >
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </SimpleTooltip>
-            }
-          >
-            <SortableGroupContent
-              groupId={groupId}
-              nodes={groupNodes}
-              subscriptions={groupSubscriptions}
-              allSubscriptions={subscriptionsQuery?.subscriptions}
-              autoExpandValue={autoExpandValue}
-              collapsed={!expandedGroupIds.has(groupId)}
-              onExpand={() => setGroupExpanded(groupId, true)}
-              onDelNode={(nodeId) =>
-                groupDelNodesMutation.mutate({
-                  id: groupId,
-                  nodeIDs: [nodeId],
-                })
-              }
-              onDelSubscription={(subscriptionId) =>
-                groupDelSubscriptionsMutation.mutate({
-                  id: groupId,
-                  subscriptionIDs: [subscriptionId],
-                })
-              }
-              onOpenAddNodes={() => {
-                setGroupExpanded(groupId, true)
-                setAddingNodesGroupId(groupId)
-              }}
-              onOpenAddSubscriptions={() => {
-                setGroupExpanded(groupId, true)
-                setAddingSubscriptionsGroupId(groupId)
-              }}
-            />
-          </DroppableGroupCard>
-        ),
-      )}
+                      groupNodes,
+                      groupSubscriptions,
+                      dragHandleProps: draggableProvided.dragHandleProps,
+                      snapshot,
+                    })}
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
 
       <GroupFormModal opened={openedCreateGroupFormModal} onClose={closeCreateGroupFormModal} />
       <GroupFormModal

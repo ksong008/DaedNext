@@ -1,4 +1,5 @@
-import { Check, ChevronDown, Trash2, Type, X } from 'lucide-react'
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
+import { Check, ChevronDown, GripVertical, Trash2, Type, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -13,6 +14,7 @@ export function DroppableGroupCard({
   name,
   summary,
   collapsed,
+  dragHandleProps,
   onToggleCollapsed,
   onRemove,
   onRename,
@@ -23,6 +25,7 @@ export function DroppableGroupCard({
   name: string
   summary?: React.ReactNode
   collapsed?: boolean
+  dragHandleProps?: DraggableProvidedDragHandleProps | null
   onToggleCollapsed?: () => void
   onRemove?: () => void
   onRename?: (newName: string) => void
@@ -114,6 +117,13 @@ export function DroppableGroupCard({
             )}
 
             <div className="flex items-center gap-1">
+              {!isEditing && dragHandleProps && (
+                <SimpleTooltip label={t('a11y.dragToReorder')}>
+                  <Button variant="ghost" size="xs" className="cursor-grab active:cursor-grabbing" {...dragHandleProps}>
+                    <GripVertical className="h-4 w-4" />
+                  </Button>
+                </SimpleTooltip>
+              )}
               {!isEditing && onRename && (
                 <SimpleTooltip label={t('actions.rename')}>
                   <Button variant="ghost" size="xs" onClick={handleStartEdit}>

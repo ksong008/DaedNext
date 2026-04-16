@@ -40,10 +40,12 @@ export function OrchestratePage() {
 
   const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
   const [dragDestinationDroppableId, setDragDestinationDroppableId] = useState<string | null>(null)
+  const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
   const autoScrollFrameRef = useRef<number | null>(null)
   const draggingActiveRef = useRef(false)
   const groupAutoScrollRef = useRef(false)
   const dragPointerRef = useRef<{ y: number } | null>(null)
+  const hoveredGroupIdRef = useRef<string | null>(null)
 
   // Use persistent store for sort order
   const appState = useStore(appStateAtom)
@@ -58,8 +60,13 @@ export function OrchestratePage() {
     appStateAtom.setKey('subscriptionSortableKeys', order)
   }, [])
 
+  const setGroupSortOrder = useCallback((order: string[]) => {
+    appStateAtom.setKey('groupSortableKeys', order)
+  }, [])
+
   // Get nodes from query (memoized to avoid dependency issues)
   const nodes = useMemo(() => nodesQuery?.nodes.edges ?? [], [nodesQuery?.nodes.edges])
+  const groups = useMemo(() => groupsQuery?.groups ?? [], [groupsQuery?.groups])
   const subscriptions = useMemo(() => subscriptionsQuery?.subscriptions ?? [], [subscriptionsQuery?.subscriptions])
 
   // Get sorted node IDs
@@ -111,6 +118,24 @@ export function OrchestratePage() {
     const subMap = new Map(subscriptions.map((s: SubscriptionsQuery['subscriptions'][number]) => [s.id, s]))
     return sortedSubscriptionIds.map((id) => subMap.get(id)).filter(Boolean) as typeof subscriptions
   }, [subscriptions, sortedSubscriptionIds])
+
+  const groupSortOrder = appState.groupSortableKeys as string[]
+
+  const sortedGroupIds = useMemo(() => {
+    if (groups.length === 0) return []
+    const currentIds = groups.map((group: GroupsQuery['groups'][number]) => group.id)
+    const currentIdSet = new Set(currentIds)
+    const result = groupSortOrder.filter((id) => currentIdSet.has(id))
+    const resultSet = new Set(result)
+
+    for (const id of currentIds) {
+      if (!resultSet.has(id)) {
+        result.push(id)
+      }
+    }
+
+    return result
+  }, [groupSortOrder, groups])
 
   // Helper to parse group item IDs (format: groupId-node-nodeId or groupId-sub-subId)
   const parseGroupItemId = useCallback(
@@ -198,6 +223,8 @@ export function OrchestratePage() {
 
     if (!draggingResource) {
       groupAutoScrollRef.current = false
+      hoveredGroupIdRef.current = null
+      setHoveredGroupId(null)
       stopGroupAutoScroll()
       return
     }
@@ -205,6 +232,14 @@ export function OrchestratePage() {
     const handlePointerMove = (event: MouseEvent | PointerEvent) => {
       dragPointerRef.current = {
         y: event.clientY,
+      }
+
+      const hoveredCard = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-group-card-id]')
+      const nextHoveredGroupId = hoveredCard?.getAttribute('data-group-card-id') ?? null
+
+      if (hoveredGroupIdRef.current !== nextHoveredGroupId) {
+        hoveredGroupIdRef.current = nextHoveredGroupId
+        setHoveredGroupId(nextHoveredGroupId)
       }
 
       if (groupAutoScrollRef.current) {
@@ -228,11 +263,15 @@ export function OrchestratePage() {
     const droppableId = start.source.droppableId
 
     setDragDestinationDroppableId(null)
+    hoveredGroupIdRef.current = null
+    setHoveredGroupId(null)
     groupAutoScrollRef.current = false
     stopGroupAutoScroll()
 
     // Determine the type based on droppableId
-    if (droppableId === 'node-list') {
+    if (droppableId === 'group-list') {
+      return
+    } else if (droppableId === 'node-list') {
       const nodeId = draggableId.replace('node-', '')
       setDraggingResource({ type: DraggableResourceType.node, nodeID: nodeId })
     } else if (droppableId === 'subscription-list') {
@@ -283,19 +322,103 @@ export function OrchestratePage() {
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
+    const fallbackGroupId = hoveredGroupIdRef.current
 
     setDraggingResource(null)
     setDragDestinationDroppableId(null)
+    setHoveredGroupId(null)
+    hoveredGroupIdRef.current = null
     groupAutoScrollRef.current = false
     stopGroupAutoScroll()
 
-    if (!destination) return
-
     const sourceDroppableId = source.droppableId
-    const destDroppableId = destination.droppableId
+    const destDroppableId = destination?.droppableId
+
+    if (sourceDroppableId === 'group-list' && destDroppableId === 'group-list' && destination) {
+      if (source.index !== destination.index) {
+        setGroupSortOrder(arrayMove(sortedGroupIds, source.index, destination.index))
+      }
+      return
+    }
+
+    if (!destination) {
+      if (fallbackGroupId) {
+        if (sourceDroppableId === 'subscription-list') {
+          const subId = draggableId.replace('subscription-', '')
+          const targetGroup = groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === fallbackGroupId)
+          if (
+            targetGroup &&
+            !targetGroup.subscriptions.find((subscription: GroupsQuery['groups'][number]['subscriptions'][number]) => subscription.id === subId)
+          ) {
+            groupAddSubscriptionsMutation.mutate({ id: fallbackGroupId, subscriptionIDs: [subId] })
+            return
+          }
+        }
+
+        if (sourceDroppableId === 'node-list') {
+          const nodeId = draggableId.replace('node-', '')
+          const targetGroup = groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === fallbackGroupId)
+          if (
+            targetGroup &&
+            !targetGroup.nodes.find((node: GroupsQuery['groups'][number]['nodes'][number]) => node.id === nodeId)
+          ) {
+            groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [nodeId] })
+            return
+          }
+        }
+
+        if (sourceDroppableId.startsWith('subscription-') && sourceDroppableId.endsWith('-nodes') && sourceDroppableId !== 'subscription-list') {
+          const nodeId = draggableId.replace('subscription-node-', '')
+          const targetGroup = groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === fallbackGroupId)
+          if (
+            targetGroup &&
+            !targetGroup.nodes.find((node: GroupsQuery['groups'][number]['nodes'][number]) => node.id === nodeId)
+          ) {
+            groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [nodeId] })
+            return
+          }
+        }
+
+        if (sourceDroppableId.endsWith('-nodes')) {
+          const sourceGroupId = sourceDroppableId.replace('-nodes', '')
+          const parsed = parseGroupItemId(draggableId)
+          if (parsed && sourceGroupId !== fallbackGroupId) {
+            const targetGroup = groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === fallbackGroupId)
+            if (
+              targetGroup &&
+              !targetGroup.nodes.find((node: GroupsQuery['groups'][number]['nodes'][number]) => node.id === parsed.itemId)
+            ) {
+              groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [parsed.itemId] })
+              return
+            }
+          }
+        }
+
+        if (sourceDroppableId.endsWith('-subscriptions')) {
+          const sourceGroupId = sourceDroppableId.replace('-subscriptions', '')
+          const parsed = parseGroupItemId(draggableId)
+          if (parsed && sourceGroupId !== fallbackGroupId) {
+            const targetGroup = groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === fallbackGroupId)
+            if (
+              targetGroup &&
+              !targetGroup.subscriptions.find(
+                (subscription: GroupsQuery['groups'][number]['subscriptions'][number]) => subscription.id === parsed.itemId,
+              )
+            ) {
+              groupAddSubscriptionsMutation.mutate({ id: fallbackGroupId, subscriptionIDs: [parsed.itemId] })
+              return
+            }
+          }
+        }
+      }
+
+      return
+    }
+
+    const confirmedDestDroppableId = destination.droppableId
 
     // Handle node list sorting
-    if (sourceDroppableId === 'node-list' && destDroppableId === 'node-list') {
+    if (sourceDroppableId === 'node-list' && confirmedDestDroppableId === 'node-list') {
       if (source.index !== destination.index) {
         setNodeSortOrder(arrayMove(sortedNodeIds, source.index, destination.index))
       }
@@ -303,7 +426,7 @@ export function OrchestratePage() {
     }
 
     // Handle subscription list sorting
-    if (sourceDroppableId === 'subscription-list' && destDroppableId === 'subscription-list') {
+    if (sourceDroppableId === 'subscription-list' && confirmedDestDroppableId === 'subscription-list') {
       if (source.index !== destination.index) {
         setSubscriptionSortOrder(arrayMove(sortedSubscriptionIds, source.index, destination.index))
       }
@@ -317,9 +440,9 @@ export function OrchestratePage() {
       sourceDroppableId !== 'subscription-list'
 
     // Handle dropping subscription node to group
-    if (isFromSubscriptionNodes && destDroppableId.endsWith('-nodes')) {
+    if (isFromSubscriptionNodes && confirmedDestDroppableId.endsWith('-nodes')) {
       const nodeId = draggableId.replace('subscription-node-', '')
-      const targetGroupId = destDroppableId.replace('-nodes', '')
+      const targetGroupId = confirmedDestDroppableId.replace('-nodes', '')
       const targetGroup = groupsQuery?.groups.find((g: GroupsQuery['groups'][number]) => g.id === targetGroupId)
 
       if (
@@ -332,9 +455,9 @@ export function OrchestratePage() {
     }
 
     // Handle group node sorting within same group OR cross-group drag
-    if (sourceDroppableId.endsWith('-nodes') && destDroppableId.endsWith('-nodes')) {
+    if (sourceDroppableId.endsWith('-nodes') && confirmedDestDroppableId.endsWith('-nodes')) {
       const sourceGroupId = sourceDroppableId.replace('-nodes', '')
-      const destGroupId = destDroppableId.replace('-nodes', '')
+      const destGroupId = confirmedDestDroppableId.replace('-nodes', '')
 
       if (sourceGroupId === destGroupId) {
         // Same group sorting
@@ -363,9 +486,9 @@ export function OrchestratePage() {
     }
 
     // Handle group subscription sorting within same group OR cross-group drag
-    if (sourceDroppableId.endsWith('-subscriptions') && destDroppableId.endsWith('-subscriptions')) {
+    if (sourceDroppableId.endsWith('-subscriptions') && confirmedDestDroppableId.endsWith('-subscriptions')) {
       const sourceGroupId = sourceDroppableId.replace('-subscriptions', '')
-      const destGroupId = destDroppableId.replace('-subscriptions', '')
+      const destGroupId = confirmedDestDroppableId.replace('-subscriptions', '')
 
       if (sourceGroupId === destGroupId) {
         // Same group sorting
@@ -398,9 +521,9 @@ export function OrchestratePage() {
     }
 
     // Handle dropping node from node-list to group
-    if (sourceDroppableId === 'node-list' && destDroppableId.endsWith('-nodes')) {
+    if (sourceDroppableId === 'node-list' && confirmedDestDroppableId.endsWith('-nodes')) {
       const nodeId = draggableId.replace('node-', '')
-      const targetGroupId = destDroppableId.replace('-nodes', '')
+      const targetGroupId = confirmedDestDroppableId.replace('-nodes', '')
       const targetGroup = groupsQuery?.groups.find((g: GroupsQuery['groups'][number]) => g.id === targetGroupId)
 
       if (
@@ -413,9 +536,9 @@ export function OrchestratePage() {
     }
 
     // Handle dropping subscription from subscription-list to group
-    if (sourceDroppableId === 'subscription-list' && destDroppableId.endsWith('-subscriptions')) {
+    if (sourceDroppableId === 'subscription-list' && confirmedDestDroppableId.endsWith('-subscriptions')) {
       const subId = draggableId.replace('subscription-', '')
-      const targetGroupId = destDroppableId.replace('-subscriptions', '')
+      const targetGroupId = confirmedDestDroppableId.replace('-subscriptions', '')
       const targetGroup = groupsQuery?.groups.find((g: GroupsQuery['groups'][number]) => g.id === targetGroupId)
 
       if (
@@ -428,7 +551,7 @@ export function OrchestratePage() {
     }
 
     // Handle dropping group node back to node list (remove from group)
-    if (sourceDroppableId.endsWith('-nodes') && destDroppableId === NODE_DROPPABLE_ID) {
+    if (sourceDroppableId.endsWith('-nodes') && confirmedDestDroppableId === NODE_DROPPABLE_ID) {
       const sourceGroupId = sourceDroppableId.replace('-nodes', '')
       const parsed = parseGroupItemId(draggableId)
       if (parsed) {
@@ -453,6 +576,7 @@ export function OrchestratePage() {
             highlight={!!draggingResource}
             draggingResource={draggingResource}
             dragDestinationDroppableId={dragDestinationDroppableId}
+            hoveredGroupId={hoveredGroupId}
           />
           <NodeResource
             sortedNodes={sortedNodes}
