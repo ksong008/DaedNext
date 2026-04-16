@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { SortableResourceBadge } from '~/components/SortableResourceBadge'
 import { Button } from '~/components/ui/button'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion'
+import { cn } from '~/lib/utils'
 import { groupSortOrdersAtom } from '~/store'
 
 interface GroupNode {
@@ -28,12 +29,59 @@ interface Subscription {
   tag?: string | null
 }
 
+function CompactGroupDropZone({
+  droppableId,
+  type,
+  label,
+  count,
+  onExpand,
+}: {
+  droppableId: string
+  type: 'NODE' | 'SUBSCRIPTION'
+  label: string
+  count: number
+  onExpand: () => void
+}) {
+  return (
+    <Droppable droppableId={droppableId} type={type}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.droppableProps}
+          role="button"
+          tabIndex={0}
+          className={cn(
+            'flex min-h-11 cursor-pointer items-center justify-between rounded-lg border border-dashed px-3 py-2 transition-colors outline-none',
+            'hover:border-primary/30 hover:bg-accent/40 focus-visible:border-primary/40',
+            snapshot.isDraggingOver && 'border-primary bg-primary/5',
+          )}
+          onClick={onExpand}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              onExpand()
+            }
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold">{label}</span>
+            <span className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{count}</span>
+          </div>
+          {provided.placeholder}
+        </div>
+      )}
+    </Droppable>
+  )
+}
+
 export function SortableGroupContent({
   groupId,
   nodes,
   subscriptions,
   allSubscriptions,
   autoExpandValue,
+  collapsed,
+  onExpand,
   onDelNode,
   onDelSubscription,
   onOpenAddNodes,
@@ -44,6 +92,8 @@ export function SortableGroupContent({
   subscriptions: GroupSubscription[]
   allSubscriptions?: Subscription[]
   autoExpandValue?: string
+  collapsed?: boolean
+  onExpand: () => void
   onDelNode: (nodeId: string) => void
   onDelSubscription: (subscriptionId: string) => void
   onOpenAddNodes: () => void
@@ -115,6 +165,27 @@ export function SortableGroupContent({
     return sortedSubscriptionIds.map((id) => subMap.get(id)).filter(Boolean) as GroupSubscription[]
   }, [subscriptions, sortedSubscriptionIds])
 
+  if (collapsed) {
+    return (
+      <div className="flex flex-col gap-2">
+        <CompactGroupDropZone
+          droppableId={`${groupId}-nodes`}
+          type="NODE"
+          label={t('node')}
+          count={nodes.length}
+          onExpand={onExpand}
+        />
+        <CompactGroupDropZone
+          droppableId={`${groupId}-subscriptions`}
+          type="SUBSCRIPTION"
+          label={t('groupPicker.subscriptionGroupLabel')}
+          count={subscriptions.length}
+          onExpand={onExpand}
+        />
+      </div>
+    )
+  }
+
   return (
     <Accordion type="multiple" className="w-full" value={effectiveExpandedSections} onValueChange={setExpandedSections}>
       <AccordionItem value="node" className="border-none">
@@ -156,7 +227,7 @@ export function SortableGroupContent({
 
       <AccordionItem value="subscription" className="border-none">
         <AccordionTrigger className="text-xs py-2 hover:no-underline">
-          {t('subscription')} ({subscriptions.length})
+          {t('groupPicker.subscriptionGroupLabel')} ({subscriptions.length})
         </AccordionTrigger>
 
         <AccordionContent>

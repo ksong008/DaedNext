@@ -4,7 +4,7 @@ import type { GroupsQuery, NodesQuery, SubscriptionsQuery } from '~/schemas/gql/
 import { useStore } from '@nanostores/react'
 import { Settings2, Table2 } from 'lucide-react'
 
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useGroupAddNodesMutation,
@@ -35,9 +35,11 @@ import { defaultResourcesAtom } from '~/store'
 export function GroupResource({
   highlight,
   draggingResource,
+  dragDestinationDroppableId,
 }: {
   highlight?: boolean
   draggingResource?: DraggingResource | null
+  dragDestinationDroppableId?: string | null
 }) {
   const { t } = useTranslation()
   const { data: groupsQuery } = useGroupsQuery()
@@ -57,6 +59,7 @@ export function GroupResource({
   const { data: subscriptionsQuery } = useSubscriptionsQuery()
   const [addingNodesGroupId, setAddingNodesGroupId] = useState<string | null>(null)
   const [addingSubscriptionsGroupId, setAddingSubscriptionsGroupId] = useState<string | null>(null)
+  const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(() => new Set())
 
   // Determine which accordion sections should be auto-expanded based on drag type
   const autoExpandValue = useMemo(() => {
@@ -79,6 +82,31 @@ export function GroupResource({
   const groups: GroupsQuery['groups'] = groupsQuery?.groups || []
   const nodes: NodesQuery['nodes']['edges'] = nodesQuery?.nodes.edges || []
   const subscriptions: SubscriptionsQuery['subscriptions'] = subscriptionsQuery?.subscriptions || []
+
+  const setGroupExpanded = useCallback((groupId: string, expanded: boolean) => {
+    setExpandedGroupIds((current) => {
+      const isExpanded = current.has(groupId)
+      if (isExpanded === expanded) return current
+
+      const next = new Set(current)
+      if (expanded) {
+        next.add(groupId)
+      } else {
+        next.delete(groupId)
+      }
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!dragDestinationDroppableId) return
+
+    if (dragDestinationDroppableId.endsWith('-nodes')) {
+      setGroupExpanded(dragDestinationDroppableId.replace('-nodes', ''), true)
+    } else if (dragDestinationDroppableId.endsWith('-subscriptions')) {
+      setGroupExpanded(dragDestinationDroppableId.replace('-subscriptions', ''), true)
+    }
+  }, [dragDestinationDroppableId, setGroupExpanded])
 
   const addingNodesGroup = useMemo(
     () => groups.find((group) => group.id === addingNodesGroupId) || null,
@@ -165,7 +193,7 @@ export function GroupResource({
       highlight={highlight}
       bordered
     >
-      {groupsQuery?.groups.map(
+      {groups.map(
         ({
           id: groupId,
           name,
@@ -177,6 +205,15 @@ export function GroupResource({
             key={groupId}
             id={groupId}
             name={name}
+            summary={
+              <>
+                <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground/80">{policy}</span>
+                <span>{t('groupPicker.nodesCount', { count: groupNodes.length })}</span>
+                <span>{t('groupPicker.subscriptionGroupsCount', { count: groupSubscriptions.length })}</span>
+              </>
+            }
+            collapsed={!expandedGroupIds.has(groupId)}
+            onToggleCollapsed={() => setGroupExpanded(groupId, !expandedGroupIds.has(groupId))}
             onRemove={defaultGroupID !== groupId ? () => removeGroupMutation.mutate(groupId) : undefined}
             onRename={(newName) => renameGroupMutation.mutate({ id: groupId, name: newName })}
             actions={
@@ -200,16 +237,14 @@ export function GroupResource({
               </SimpleTooltip>
             }
           >
-            <p className="text-sm font-semibold">{policy}</p>
-
-            <div className="h-2.5" />
-
             <SortableGroupContent
               groupId={groupId}
               nodes={groupNodes}
               subscriptions={groupSubscriptions}
               allSubscriptions={subscriptionsQuery?.subscriptions}
               autoExpandValue={autoExpandValue}
+              collapsed={!expandedGroupIds.has(groupId)}
+              onExpand={() => setGroupExpanded(groupId, true)}
               onDelNode={(nodeId) =>
                 groupDelNodesMutation.mutate({
                   id: groupId,
@@ -222,8 +257,14 @@ export function GroupResource({
                   subscriptionIDs: [subscriptionId],
                 })
               }
-              onOpenAddNodes={() => setAddingNodesGroupId(groupId)}
-              onOpenAddSubscriptions={() => setAddingSubscriptionsGroupId(groupId)}
+              onOpenAddNodes={() => {
+                setGroupExpanded(groupId, true)
+                setAddingNodesGroupId(groupId)
+              }}
+              onOpenAddSubscriptions={() => {
+                setGroupExpanded(groupId, true)
+                setAddingSubscriptionsGroupId(groupId)
+              }}
             />
           </DroppableGroupCard>
         ),

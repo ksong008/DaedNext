@@ -1,9 +1,9 @@
-import type { DropResult } from '@hello-pangea/dnd'
+import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
 import type { DraggingResource } from '~/constants'
 import type { GroupsQuery, NodesQuery, SubscriptionsQuery } from '~/schemas/gql/graphql'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   useGroupAddNodesMutation,
   useGroupAddSubscriptionsMutation,
@@ -39,6 +39,11 @@ export function OrchestratePage() {
   const groupDelNodesMutation = useGroupDelNodesMutation()
 
   const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
+  const [dragDestinationDroppableId, setDragDestinationDroppableId] = useState<string | null>(null)
+  const autoScrollFrameRef = useRef<number | null>(null)
+  const draggingActiveRef = useRef(false)
+  const groupAutoScrollRef = useRef(false)
+  const dragPointerRef = useRef<{ y: number } | null>(null)
 
   // Use persistent store for sort order
   const appState = useStore(appStateAtom)
@@ -153,9 +158,78 @@ export function OrchestratePage() {
     return result
   }, [])
 
+  const stopGroupAutoScroll = useCallback(() => {
+    if (autoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(autoScrollFrameRef.current)
+      autoScrollFrameRef.current = null
+    }
+  }, [])
+
+  const tickGroupAutoScroll = useCallback(() => {
+    autoScrollFrameRef.current = null
+
+    if (!draggingActiveRef.current || !groupAutoScrollRef.current || !dragPointerRef.current) return
+
+    const viewportHeight = window.innerHeight
+    const threshold = Math.min(160, Math.max(96, Math.round(viewportHeight * 0.18)))
+    const pointerY = dragPointerRef.current.y
+    let delta = 0
+
+    if (pointerY < threshold) {
+      delta = -Math.max(12, Math.round(((threshold - pointerY) / threshold) * 40))
+    } else if (pointerY > viewportHeight - threshold) {
+      delta = Math.max(12, Math.round(((pointerY - (viewportHeight - threshold)) / threshold) * 40))
+    }
+
+    if (delta === 0) return
+
+    window.scrollBy(0, delta)
+    autoScrollFrameRef.current = window.requestAnimationFrame(tickGroupAutoScroll)
+  }, [])
+
+  const ensureGroupAutoScroll = useCallback(() => {
+    if (autoScrollFrameRef.current === null) {
+      autoScrollFrameRef.current = window.requestAnimationFrame(tickGroupAutoScroll)
+    }
+  }, [tickGroupAutoScroll])
+
+  useEffect(() => {
+    draggingActiveRef.current = !!draggingResource
+
+    if (!draggingResource) {
+      groupAutoScrollRef.current = false
+      stopGroupAutoScroll()
+      return
+    }
+
+    const handlePointerMove = (event: MouseEvent | PointerEvent) => {
+      dragPointerRef.current = {
+        y: event.clientY,
+      }
+
+      if (groupAutoScrollRef.current) {
+        ensureGroupAutoScroll()
+      }
+    }
+
+    window.addEventListener('mousemove', handlePointerMove, { passive: true })
+    window.addEventListener('pointermove', handlePointerMove, { passive: true })
+
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove)
+      window.removeEventListener('pointermove', handlePointerMove)
+    }
+  }, [draggingResource, ensureGroupAutoScroll, stopGroupAutoScroll])
+
+  useEffect(() => () => stopGroupAutoScroll(), [stopGroupAutoScroll])
+
   const onDragStart = (start: { draggableId: string; source: { droppableId: string } }) => {
     const draggableId = start.draggableId
     const droppableId = start.source.droppableId
+
+    setDragDestinationDroppableId(null)
+    groupAutoScrollRef.current = false
+    stopGroupAutoScroll()
 
     // Determine the type based on droppableId
     if (droppableId === 'node-list') {
@@ -187,10 +261,33 @@ export function OrchestratePage() {
     }
   }
 
+  const onDragUpdate = useCallback(
+    (update: DragUpdate) => {
+      const nextDroppableId = update.destination?.droppableId ?? null
+      setDragDestinationDroppableId((current) => (current === nextDroppableId ? current : nextDroppableId))
+
+      const isOverGroup =
+        nextDroppableId !== null &&
+        (nextDroppableId.endsWith('-nodes') || nextDroppableId.endsWith('-subscriptions'))
+
+      groupAutoScrollRef.current = isOverGroup
+
+      if (isOverGroup) {
+        ensureGroupAutoScroll()
+      } else {
+        stopGroupAutoScroll()
+      }
+    },
+    [ensureGroupAutoScroll, stopGroupAutoScroll],
+  )
+
   const onDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
 
     setDraggingResource(null)
+    setDragDestinationDroppableId(null)
+    groupAutoScrollRef.current = false
+    stopGroupAutoScroll()
 
     if (!destination) return
 
@@ -350,9 +447,13 @@ export function OrchestratePage() {
         <Routing />
       </div>
 
-      <DragDropContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
+      <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
         <div className={`grid gap-5 ${matchSmallScreen ? 'grid-cols-1' : 'grid-cols-3'}`}>
-          <GroupResource highlight={!!draggingResource} draggingResource={draggingResource} />
+          <GroupResource
+            highlight={!!draggingResource}
+            draggingResource={draggingResource}
+            dragDestinationDroppableId={dragDestinationDroppableId}
+          />
           <NodeResource
             sortedNodes={sortedNodes}
             highlight={draggingResource?.type === DraggableResourceType.groupNode}

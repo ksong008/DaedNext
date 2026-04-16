@@ -23,6 +23,8 @@ export interface GroupPickerItem {
   keywords?: string[]
 }
 
+type SelectionDialogLayout = 'node-card' | 'subscription-chip'
+
 interface SelectionDialogProps {
   opened: boolean
   onClose: () => void
@@ -34,6 +36,7 @@ interface SelectionDialogProps {
   loading?: boolean
   items: GroupPickerItem[]
   resetKey: string
+  layout: SelectionDialogLayout
   onSubmit: (ids: string[]) => Promise<void>
 }
 
@@ -48,6 +51,7 @@ function SelectionDialog({
   loading,
   items,
   resetKey,
+  layout,
   onSubmit,
 }: SelectionDialogProps) {
   const { t } = useTranslation()
@@ -72,6 +76,7 @@ function SelectionDialog({
   }, [items, query])
 
   const selectedCount = selectedIds.length
+  const isSubscriptionChipLayout = layout === 'subscription-chip'
 
   const toggleItem = (id: string) => {
     setSelectedIds((current) => (current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]))
@@ -92,7 +97,7 @@ function SelectionDialog({
 
   return (
     <Dialog open={opened} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
-      <ScrollableDialogContent size="lg">
+      <ScrollableDialogContent size="xl">
         <ScrollableDialogHeader>
           <div className="pr-8">
             <DialogTitle>{title}</DialogTitle>
@@ -108,10 +113,11 @@ function SelectionDialog({
             icon={<Search className="h-4 w-4" />}
           />
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2.5">
             {filteredItems.length > 0 ? (
               filteredItems.map((item) => {
                 const checked = selectedIds.includes(item.id)
+                const tooltipLabel = [item.title, item.description, item.meta].filter(Boolean).join('\n')
 
                 return (
                   <div
@@ -119,10 +125,14 @@ function SelectionDialog({
                     role="button"
                     tabIndex={0}
                     aria-pressed={checked}
+                    title={tooltipLabel || undefined}
                     className={cn(
-                      'cursor-pointer rounded-lg border p-3 transition-colors outline-none',
-                      'hover:border-primary/30 hover:bg-accent/40',
+                      'cursor-pointer rounded-lg border transition-colors outline-none',
+                      'hover:border-primary/30 hover:bg-accent/40 focus-visible:border-primary/40',
                       checked && 'border-primary bg-primary/5',
+                      isSubscriptionChipLayout
+                        ? 'inline-flex max-w-full items-center gap-2 px-3 py-2'
+                        : 'min-w-[240px] max-w-full flex-1 basis-[260px] p-3',
                     )}
                     onClick={() => toggleItem(item.id)}
                     onKeyDown={(e) => {
@@ -132,28 +142,39 @@ function SelectionDialog({
                       }
                     }}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className={cn('flex min-w-0 gap-3', isSubscriptionChipLayout ? 'items-center' : 'items-start')}>
                       <Checkbox
                         checked={checked}
-                        className="mt-1"
+                        className={cn('shrink-0', !isSubscriptionChipLayout && 'mt-0.5')}
                         onCheckedChange={() => toggleItem(item.id)}
                         onClick={(e) => e.stopPropagation()}
                         onPointerDown={(e) => e.stopPropagation()}
                       />
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium break-words">{item.title}</p>
-                          {item.badge && (
-                            <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                              {item.badge}
+                      {isSubscriptionChipLayout ? (
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="max-w-[20rem] truncate text-sm font-medium">{item.title}</p>
+                          {item.meta && (
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              {item.meta}
                             </span>
                           )}
                         </div>
+                      ) : (
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-sm font-medium">{item.title}</p>
+                            {item.badge && (
+                              <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                {item.badge}
+                              </span>
+                            )}
+                          </div>
 
-                        {item.description && <p className="mt-1 break-all text-xs text-muted-foreground">{item.description}</p>}
-                        {item.meta && <p className="mt-1 text-[11px] text-muted-foreground">{item.meta}</p>}
-                      </div>
+                          {item.description && <p className="mt-1 truncate text-xs text-muted-foreground">{item.description}</p>}
+                          {item.meta && <p className="mt-1 text-[11px] text-muted-foreground">{item.meta}</p>}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
@@ -210,6 +231,7 @@ export function GroupAddNodesModal({
       items={items}
       loading={loading}
       resetKey={resetKey}
+      layout="node-card"
       onSubmit={onSubmit}
     />
   )
@@ -246,6 +268,7 @@ export function GroupAddSubscriptionsModal({
       items={items}
       loading={loading}
       resetKey={resetKey}
+      layout="subscription-chip"
       onSubmit={onSubmit}
     />
   )
