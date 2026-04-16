@@ -39,11 +39,12 @@ export function OrchestratePage() {
   const groupDelNodesMutation = useGroupDelNodesMutation()
 
   const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const [dragDestinationDroppableId, setDragDestinationDroppableId] = useState<string | null>(null)
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
   const autoScrollFrameRef = useRef<number | null>(null)
   const draggingActiveRef = useRef(false)
-  const groupAutoScrollRef = useRef(false)
+  const edgeAutoScrollEnabledRef = useRef(false)
   const dragPointerRef = useRef<{ y: number } | null>(null)
   const hoveredGroupIdRef = useRef<string | null>(null)
 
@@ -183,51 +184,55 @@ export function OrchestratePage() {
     return result
   }, [])
 
-  const stopGroupAutoScroll = useCallback(() => {
+  const stopEdgeAutoScroll = useCallback(() => {
     if (autoScrollFrameRef.current !== null) {
       window.cancelAnimationFrame(autoScrollFrameRef.current)
       autoScrollFrameRef.current = null
     }
   }, [])
 
-  const tickGroupAutoScroll = useCallback(() => {
+  const tickEdgeAutoScroll = useCallback(() => {
     autoScrollFrameRef.current = null
 
-    if (!draggingActiveRef.current || !groupAutoScrollRef.current || !dragPointerRef.current) return
+    if (!draggingActiveRef.current || !edgeAutoScrollEnabledRef.current || !dragPointerRef.current) return
 
     const viewportHeight = window.innerHeight
-    const threshold = Math.min(160, Math.max(96, Math.round(viewportHeight * 0.18)))
+    const threshold = Math.min(240, Math.max(120, Math.round(viewportHeight * 0.24)))
     const pointerY = dragPointerRef.current.y
     let delta = 0
 
     if (pointerY < threshold) {
-      delta = -Math.max(12, Math.round(((threshold - pointerY) / threshold) * 40))
+      const intensity = Math.min(1, (threshold - pointerY) / threshold)
+      delta = -Math.round(16 + intensity * intensity * 104)
     } else if (pointerY > viewportHeight - threshold) {
-      delta = Math.max(12, Math.round(((pointerY - (viewportHeight - threshold)) / threshold) * 40))
+      const intensity = Math.min(1, (pointerY - (viewportHeight - threshold)) / threshold)
+      delta = Math.round(16 + intensity * intensity * 104)
     }
 
     if (delta === 0) return
 
     window.scrollBy(0, delta)
-    autoScrollFrameRef.current = window.requestAnimationFrame(tickGroupAutoScroll)
+    autoScrollFrameRef.current = window.requestAnimationFrame(tickEdgeAutoScroll)
   }, [])
 
-  const ensureGroupAutoScroll = useCallback(() => {
+  const ensureEdgeAutoScroll = useCallback(() => {
     if (autoScrollFrameRef.current === null) {
-      autoScrollFrameRef.current = window.requestAnimationFrame(tickGroupAutoScroll)
+      autoScrollFrameRef.current = window.requestAnimationFrame(tickEdgeAutoScroll)
     }
-  }, [tickGroupAutoScroll])
+  }, [tickEdgeAutoScroll])
 
   useEffect(() => {
-    draggingActiveRef.current = !!draggingResource
+    draggingActiveRef.current = isDragging
 
-    if (!draggingResource) {
-      groupAutoScrollRef.current = false
+    if (!isDragging) {
+      edgeAutoScrollEnabledRef.current = false
       hoveredGroupIdRef.current = null
       setHoveredGroupId(null)
-      stopGroupAutoScroll()
+      stopEdgeAutoScroll()
       return
     }
+
+    edgeAutoScrollEnabledRef.current = true
 
     const handlePointerMove = (event: MouseEvent | PointerEvent) => {
       dragPointerRef.current = {
@@ -242,8 +247,8 @@ export function OrchestratePage() {
         setHoveredGroupId(nextHoveredGroupId)
       }
 
-      if (groupAutoScrollRef.current) {
-        ensureGroupAutoScroll()
+      if (edgeAutoScrollEnabledRef.current) {
+        ensureEdgeAutoScroll()
       }
     }
 
@@ -254,19 +259,20 @@ export function OrchestratePage() {
       window.removeEventListener('mousemove', handlePointerMove)
       window.removeEventListener('pointermove', handlePointerMove)
     }
-  }, [draggingResource, ensureGroupAutoScroll, stopGroupAutoScroll])
+  }, [ensureEdgeAutoScroll, isDragging, stopEdgeAutoScroll])
 
-  useEffect(() => () => stopGroupAutoScroll(), [stopGroupAutoScroll])
+  useEffect(() => () => stopEdgeAutoScroll(), [stopEdgeAutoScroll])
 
   const onDragStart = (start: { draggableId: string; source: { droppableId: string } }) => {
     const draggableId = start.draggableId
     const droppableId = start.source.droppableId
 
+    setIsDragging(true)
     setDragDestinationDroppableId(null)
     hoveredGroupIdRef.current = null
     setHoveredGroupId(null)
-    groupAutoScrollRef.current = false
-    stopGroupAutoScroll()
+    edgeAutoScrollEnabledRef.current = true
+    ensureEdgeAutoScroll()
 
     // Determine the type based on droppableId
     if (droppableId === 'group-list') {
@@ -304,32 +310,22 @@ export function OrchestratePage() {
     (update: DragUpdate) => {
       const nextDroppableId = update.destination?.droppableId ?? null
       setDragDestinationDroppableId((current) => (current === nextDroppableId ? current : nextDroppableId))
-
-      const isOverGroup =
-        nextDroppableId !== null &&
-        (nextDroppableId.endsWith('-nodes') || nextDroppableId.endsWith('-subscriptions'))
-
-      groupAutoScrollRef.current = isOverGroup
-
-      if (isOverGroup) {
-        ensureGroupAutoScroll()
-      } else {
-        stopGroupAutoScroll()
-      }
+      ensureEdgeAutoScroll()
     },
-    [ensureGroupAutoScroll, stopGroupAutoScroll],
+    [ensureEdgeAutoScroll],
   )
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
     const fallbackGroupId = hoveredGroupIdRef.current
 
+    setIsDragging(false)
     setDraggingResource(null)
     setDragDestinationDroppableId(null)
     setHoveredGroupId(null)
     hoveredGroupIdRef.current = null
-    groupAutoScrollRef.current = false
-    stopGroupAutoScroll()
+    edgeAutoScrollEnabledRef.current = false
+    stopEdgeAutoScroll()
 
     const sourceDroppableId = source.droppableId
     const destDroppableId = destination?.droppableId
