@@ -1,0 +1,76 @@
+name: Test Linux AMD64 v3
+
+on:
+  push:
+    branches:
+      - ci/linux-amd64v3-test
+  workflow_dispatch:
+
+concurrency:
+  group: test-linux-amd64v3-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux-amd64v3:
+    runs-on: ubuntu-latest
+    env:
+      GOOS: linux
+      GOARCH: amd64
+      GOAMD64: v3
+      CGO_ENABLED: 0
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - uses: pnpm/action-setup@v5.0.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: latest
+          cache: pnpm
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.24'
+          cache: false
+
+      - name: Build web
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          pnpm install
+          pnpm build --filter daed
+
+      - name: Build bundle
+        env:
+          VERSION: test-${{ github.sha }}
+          GOFLAGS: -trimpath -modcacherw
+          OUTPUT: ../bundled/daed-linux-x86_64_v3_avx2
+          APPNAME: daed
+          WEB_DIST: ../apps/web/dist
+        working-directory: wing
+        run: make bundle
+
+      - name: Smoke test
+        run: ./bundled/daed-linux-x86_64_v3_avx2 --version
+
+      - name: Collect runtime files
+        run: |
+          mkdir -p artifact
+          cp bundled/daed-linux-x86_64_v3_avx2 artifact/daed
+          cp install/daed.service artifact/
+          cp install/daed.desktop artifact/
+          cp -r install/icons artifact/icons
+          curl -L -o artifact/geoip.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geoip.dat
+          curl -L -o artifact/geosite.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geosite.dat
+          tar -C artifact -czf daed-linux-x86_64_v3_avx2-test.tar.gz .
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: daed-linux-x86_64_v3_avx2-test
+          path: |
+            artifact/**
+            daed-linux-x86_64_v3_avx2-test.tar.gz

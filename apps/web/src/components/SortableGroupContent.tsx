@@ -1,8 +1,10 @@
 import { Droppable } from '@hello-pangea/dnd'
+import { Plus } from 'lucide-react'
 import { useStore } from '@nanostores/react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SortableResourceBadge } from '~/components/SortableResourceBadge'
+import { Button } from '~/components/ui/button'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion'
 import { groupSortOrdersAtom } from '~/store'
 
@@ -34,6 +36,8 @@ export function SortableGroupContent({
   autoExpandValue,
   onDelNode,
   onDelSubscription,
+  onOpenAddNodes,
+  onOpenAddSubscriptions,
 }: {
   groupId: string
   nodes: GroupNode[]
@@ -42,6 +46,8 @@ export function SortableGroupContent({
   autoExpandValue?: string
   onDelNode: (nodeId: string) => void
   onDelSubscription: (subscriptionId: string) => void
+  onOpenAddNodes: () => void
+  onOpenAddSubscriptions: () => void
 }) {
   const { t } = useTranslation()
 
@@ -117,6 +123,13 @@ export function SortableGroupContent({
         </AccordionTrigger>
 
         <AccordionContent>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="xs" onClick={onOpenAddNodes}>
+              <Plus className="h-3.5 w-3.5" />
+              {t('groupPicker.openNodePicker')}
+            </Button>
+          </div>
+
           <Droppable droppableId={`${groupId}-nodes`} type="NODE">
             {(provided) => (
               <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-2 min-h-[40px]">
@@ -147,6 +160,13 @@ export function SortableGroupContent({
         </AccordionTrigger>
 
         <AccordionContent>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="xs" onClick={onOpenAddSubscriptions}>
+              <Plus className="h-3.5 w-3.5" />
+              {t('groupPicker.openSubscriptionPicker')}
+            </Button>
+          </div>
+
           <Droppable droppableId={`${groupId}-subscriptions`} type="SUBSCRIPTION">
             {(provided) => (
               <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-1.5 min-h-[40px]">

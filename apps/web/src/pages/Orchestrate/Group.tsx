@@ -1,21 +1,29 @@
 import type { GroupFormModalRef } from '~/components/GroupFormModal'
 import type { DraggingResource } from '~/constants'
-import type { GroupsQuery } from '~/schemas/gql/graphql'
+import type { GroupsQuery, NodesQuery, SubscriptionsQuery } from '~/schemas/gql/graphql'
 import { useStore } from '@nanostores/react'
 import { Settings2, Table2 } from 'lucide-react'
 
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  useGroupAddNodesMutation,
+  useGroupAddSubscriptionsMutation,
   useGroupDelNodesMutation,
   useGroupDelSubscriptionsMutation,
   useGroupsQuery,
+  useNodesQuery,
   useRemoveGroupMutation,
   useRenameGroupMutation,
   useSubscriptionsQuery,
 } from '~/apis'
 import { DroppableGroupCard } from '~/components/DroppableGroupCard'
 import { GroupFormModal } from '~/components/GroupFormModal'
+import {
+  GroupAddNodesModal,
+  GroupAddSubscriptionsModal,
+  type GroupPickerItem,
+} from '~/components/GroupResourcePickerModal'
 import { Section } from '~/components/Section'
 import { SortableGroupContent } from '~/components/SortableGroupContent'
 import { Button } from '~/components/ui/button'
@@ -33,6 +41,7 @@ export function GroupResource({
 }) {
   const { t } = useTranslation()
   const { data: groupsQuery } = useGroupsQuery()
+  const { data: nodesQuery } = useNodesQuery()
   const { defaultGroupID } = useStore(defaultResourcesAtom)
   const [openedCreateGroupFormModal, { open: openCreateGroupFormModal, close: closeCreateGroupFormModal }] =
     useDisclosure(false)
@@ -40,10 +49,14 @@ export function GroupResource({
     useDisclosure(false)
   const removeGroupMutation = useRemoveGroupMutation()
   const renameGroupMutation = useRenameGroupMutation()
+  const groupAddNodesMutation = useGroupAddNodesMutation()
+  const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
   const groupDelNodesMutation = useGroupDelNodesMutation()
   const groupDelSubscriptionsMutation = useGroupDelSubscriptionsMutation()
   const updateGroupFormModalRef = useRef<GroupFormModalRef>(null)
   const { data: subscriptionsQuery } = useSubscriptionsQuery()
+  const [addingNodesGroupId, setAddingNodesGroupId] = useState<string | null>(null)
+  const [addingSubscriptionsGroupId, setAddingSubscriptionsGroupId] = useState<string | null>(null)
 
   // Determine which accordion sections should be auto-expanded based on drag type
   const autoExpandValue = useMemo(() => {
@@ -62,6 +75,87 @@ export function GroupResource({
     }
     return undefined
   }, [draggingResource])
+
+  const groups: GroupsQuery['groups'] = groupsQuery?.groups || []
+  const nodes: NodesQuery['nodes']['edges'] = nodesQuery?.nodes.edges || []
+  const subscriptions: SubscriptionsQuery['subscriptions'] = subscriptionsQuery?.subscriptions || []
+
+  const addingNodesGroup = useMemo(
+    () => groups.find((group) => group.id === addingNodesGroupId) || null,
+    [groups, addingNodesGroupId],
+  )
+
+  const addingSubscriptionsGroup = useMemo(
+    () => groups.find((group) => group.id === addingSubscriptionsGroupId) || null,
+    [groups, addingSubscriptionsGroupId],
+  )
+
+  const addableNodeItems = useMemo<GroupPickerItem[]>(() => {
+    if (!addingNodesGroup) return []
+
+    const existingNodeIds = new Set(addingNodesGroup.nodes.map((node) => node.id))
+
+    const manualNodeItems = nodes
+      .filter((node) => !existingNodeIds.has(node.id))
+      .map((node) => {
+        const title = node.tag || node.name || node.address || node.id
+        const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
+
+        return {
+          id: node.id,
+          title,
+          description: description || undefined,
+          meta: t('groupPicker.manualNode'),
+          badge: node.protocol || undefined,
+          keywords: [node.name, node.tag, node.address, node.protocol].filter(Boolean) as string[],
+        }
+      })
+
+    const subscriptionNodeItems = subscriptions.flatMap((subscription) => {
+      const subscriptionName = subscription.tag || subscription.link
+
+      return subscription.nodes.edges
+        .filter((node) => !existingNodeIds.has(node.id))
+        .map((node) => {
+          const title = node.tag || node.name || node.address || node.id
+          const description = [node.name && node.name !== title ? node.name : '', node.address]
+            .filter(Boolean)
+            .join(' · ')
+
+          return {
+            id: node.id,
+            title,
+            description: description || undefined,
+            meta: t('groupPicker.fromSubscription', { name: subscriptionName }),
+            badge: node.protocol || undefined,
+            keywords: [node.name, node.tag, node.address, node.protocol, subscriptionName].filter(Boolean) as string[],
+          }
+        })
+    })
+
+    return [...manualNodeItems, ...subscriptionNodeItems]
+  }, [addingNodesGroup, nodes, subscriptions, t])
+
+  const addableSubscriptionItems = useMemo<GroupPickerItem[]>(() => {
+    if (!addingSubscriptionsGroup) return []
+
+    const existingSubscriptionIds = new Set(addingSubscriptionsGroup.subscriptions.map((subscription) => subscription.id))
+
+    return subscriptions
+      .filter((subscription) => !existingSubscriptionIds.has(subscription.id))
+      .map((subscription) => {
+        const title = subscription.tag || subscription.link
+        const description = subscription.tag && subscription.tag !== subscription.link ? subscription.link : undefined
+
+        return {
+          id: subscription.id,
+          title,
+          description,
+          meta: `${subscription.nodes.edges.length} ${t('node')}`,
+          keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(Boolean) as string[],
+        }
+      })
+  }, [addingSubscriptionsGroup, subscriptions, t])
 
   return (
     <Section
@@ -128,6 +222,8 @@ export function GroupResource({
                   subscriptionIDs: [subscriptionId],
                 })
               }
+              onOpenAddNodes={() => setAddingNodesGroupId(groupId)}
+              onOpenAddSubscriptions={() => setAddingSubscriptionsGroupId(groupId)}
             />
           </DroppableGroupCard>
         ),
@@ -138,6 +234,40 @@ export function GroupResource({
         ref={updateGroupFormModalRef}
         opened={openedUpdateGroupFormModal}
         onClose={closeUpdateGroupFormModal}
+      />
+
+      <GroupAddNodesModal
+        opened={!!addingNodesGroupId}
+        onClose={() => setAddingNodesGroupId(null)}
+        groupName={addingNodesGroup?.name || t('group')}
+        items={addableNodeItems}
+        loading={groupAddNodesMutation.isPending}
+        resetKey={addingNodesGroupId || ''}
+        onSubmit={async (nodeIDs) => {
+          if (!addingNodesGroupId) return
+
+          await groupAddNodesMutation.mutateAsync({
+            id: addingNodesGroupId,
+            nodeIDs,
+          })
+        }}
+      />
+
+      <GroupAddSubscriptionsModal
+        opened={!!addingSubscriptionsGroupId}
+        onClose={() => setAddingSubscriptionsGroupId(null)}
+        groupName={addingSubscriptionsGroup?.name || t('group')}
+        items={addableSubscriptionItems}
+        loading={groupAddSubscriptionsMutation.isPending}
+        resetKey={addingSubscriptionsGroupId || ''}
+        onSubmit={async (subscriptionIDs) => {
+          if (!addingSubscriptionsGroupId) return
+
+          await groupAddSubscriptionsMutation.mutateAsync({
+            id: addingSubscriptionsGroupId,
+            subscriptionIDs,
+          })
+        }}
       />
     </Section>
   )
