@@ -119,9 +119,15 @@ export function DroppableGroupCard({
             <div className="flex items-center gap-1">
               {!isEditing && dragHandleProps && (
                 <SimpleTooltip label={t('a11y.dragToReorder')}>
-                  <Button variant="ghost" size="xs" className="cursor-grab active:cursor-grabbing" {...dragHandleProps}>
+                  <div
+                    className={cn(
+                      'flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors',
+                      'hover:bg-accent hover:text-foreground active:cursor-grabbing',
+                    )}
+                    {...dragHandleProps}
+                  >
                     <GripVertical className="h-4 w-4" />
-                  </Button>
+                  </div>
                 </SimpleTooltip>
               )}
               {!isEditing && onRename && (
