@@ -197,16 +197,16 @@ export function OrchestratePage() {
     if (!draggingActiveRef.current || !edgeAutoScrollEnabledRef.current || !dragPointerRef.current) return
 
     const viewportHeight = window.innerHeight
-    const threshold = Math.min(240, Math.max(120, Math.round(viewportHeight * 0.24)))
+    const threshold = Math.min(320, Math.max(180, Math.round(viewportHeight * 0.3)))
     const pointerY = dragPointerRef.current.y
     let delta = 0
 
     if (pointerY < threshold) {
       const intensity = Math.min(1, (threshold - pointerY) / threshold)
-      delta = -Math.round(16 + intensity * intensity * 104)
+      delta = -Math.round(24 + intensity * intensity * 176)
     } else if (pointerY > viewportHeight - threshold) {
       const intensity = Math.min(1, (pointerY - (viewportHeight - threshold)) / threshold)
-      delta = Math.round(16 + intensity * intensity * 104)
+      delta = Math.round(24 + intensity * intensity * 176)
     }
 
     if (delta === 0) return
