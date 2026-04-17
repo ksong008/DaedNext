@@ -19,6 +19,7 @@ export interface GroupPickerItem {
   title: string
   description?: string
   meta?: string
+  metaTone?: 'default' | 'primary'
   badge?: string
   keywords?: string[]
 }
@@ -155,7 +156,14 @@ function SelectionDialog({
                         <div className="flex min-w-0 items-center gap-2">
                           <p className="max-w-[20rem] truncate text-sm font-medium">{item.title}</p>
                           {item.meta && (
-                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                            <span
+                              className={cn(
+                                'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+                                item.metaTone === 'primary'
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'bg-muted text-muted-foreground',
+                              )}
+                            >
                               {item.meta}
                             </span>
                           )}
@@ -172,7 +180,16 @@ function SelectionDialog({
                           </div>
 
                           {item.description && <p className="mt-1 truncate text-xs text-muted-foreground">{item.description}</p>}
-                          {item.meta && <p className="mt-1 text-[11px] text-muted-foreground">{item.meta}</p>}
+                          {item.meta && (
+                            <p
+                              className={cn(
+                                'mt-1 text-[11px]',
+                                item.metaTone === 'primary' ? 'text-primary' : 'text-muted-foreground',
+                              )}
+                            >
+                              {item.meta}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
