@@ -11,7 +11,9 @@ import {
   useGroupsQuery,
   useNodesQuery,
   useSubscriptionsQuery,
+  useTestNodeLatenciesMutation,
 } from '~/apis'
+import type { NodeLatencyProbeResult } from '~/apis'
 import { DraggableResourceType } from '~/constants'
 import { useMediaQuery } from '~/hooks'
 import { appStateAtom, groupSortOrdersAtom } from '~/store'
@@ -38,11 +40,13 @@ export function OrchestratePage() {
   const groupAddNodesMutation = useGroupAddNodesMutation()
   const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
   const groupDelNodesMutation = useGroupDelNodesMutation()
+  const testNodeLatenciesMutation = useTestNodeLatenciesMutation()
 
   const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragDestinationDroppableId, setDragDestinationDroppableId] = useState<string | null>(null)
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
+  const [nodeLatencies, setNodeLatencies] = useState<Record<string, NodeLatencyProbeResult>>({})
   const autoScrollFrameRef = useRef<number | null>(null)
   const draggingActiveRef = useRef(false)
   const edgeAutoScrollEnabledRef = useRef(false)
@@ -70,6 +74,13 @@ export function OrchestratePage() {
   const nodes = useMemo(() => nodesQuery?.nodes.edges ?? [], [nodesQuery?.nodes.edges])
   const groups = useMemo(() => groupsQuery?.groups ?? [], [groupsQuery?.groups])
   const subscriptions = useMemo(() => subscriptionsQuery?.subscriptions ?? [], [subscriptionsQuery?.subscriptions])
+  const lastLatencyProbeAt = useMemo(() => {
+    const testedAtList = Object.values(nodeLatencies)
+      .map((item) => item.testedAt)
+      .filter(Boolean)
+      .sort()
+    return testedAtList[testedAtList.length - 1] ?? null
+  }, [nodeLatencies])
 
   // Get sorted node IDs
   const sortedNodeIds = useMemo(() => {
@@ -580,8 +591,20 @@ export function OrchestratePage() {
           <NodeResource
             sortedNodes={sortedNodes}
             highlight={draggingResource?.type === DraggableResourceType.groupNode}
+            nodeLatencies={nodeLatencies}
           />
-          <SubscriptionResource sortedSubscriptions={sortedSubscriptions} />
+          <SubscriptionResource
+            sortedSubscriptions={sortedSubscriptions}
+            nodeLatencies={nodeLatencies}
+            testingLatencies={testNodeLatenciesMutation.isPending}
+            lastLatencyProbeAt={lastLatencyProbeAt}
+            onTestAllNodeLatencies={async () => {
+              const results = await testNodeLatenciesMutation.mutateAsync()
+              setNodeLatencies(
+                Object.fromEntries(results.map((result) => [result.id, result])),
+              )
+            }}
+          />
         </div>
       </DragDropContext>
     </div>
