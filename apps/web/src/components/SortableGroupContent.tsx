@@ -18,14 +18,18 @@ interface GroupNode {
 }
 
 interface GroupSubscription {
-  id: string
-  tag?: string | null
-  link: string
-}
-
-interface Subscription {
-  id: string
-  tag?: string | null
+  subscription: {
+    id: string
+    tag?: string | null
+    link: string
+  }
+  nameFilterRegex?: string | null
+  matchedCount: number
+  matchedNodes: Array<{
+    id: string
+    name: string
+    protocol?: string | null
+  }>
 }
 
 interface NodeLatencyProbeResult {
@@ -138,7 +142,6 @@ export function SortableGroupContent({
   nodes,
   subscriptions,
   nodeLatencies,
-  allSubscriptions,
   autoExpandValue,
   collapsed,
   onExpand,
@@ -151,7 +154,6 @@ export function SortableGroupContent({
   nodes: GroupNode[]
   subscriptions: GroupSubscription[]
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
-  allSubscriptions?: Subscription[]
   autoExpandValue?: string
   collapsed?: boolean
   onExpand: () => void
@@ -182,7 +184,7 @@ export function SortableGroupContent({
   }, [nodes, nodeSortOrder])
 
   const sortedSubscriptionIds = useMemo(() => {
-    const currentIds = subscriptions.map((subscription) => subscription.id)
+    const currentIds = subscriptions.map((subscription) => subscription.subscription.id)
     const currentIdSet = new Set(currentIds)
     const result = subSortOrder.filter((id) => currentIdSet.has(id))
     const resultSet = new Set(result)
@@ -207,7 +209,7 @@ export function SortableGroupContent({
   }, [nodes, sortedNodeIds])
 
   const sortedSubscriptions = useMemo(() => {
-    const subscriptionMap = new Map(subscriptions.map((subscription) => [subscription.id, subscription]))
+    const subscriptionMap = new Map(subscriptions.map((subscription) => [subscription.subscription.id, subscription]))
     return sortedSubscriptionIds.map((id) => subscriptionMap.get(id)).filter(Boolean) as GroupSubscription[]
   }, [subscriptions, sortedSubscriptionIds])
 
@@ -232,7 +234,7 @@ export function SortableGroupContent({
         onAdd={onOpenAddNodes}
         emptyLabel={t('empty')}
       >
-        {sortedNodes.map(({ id: nodeId, tag, name, protocol, address, subscriptionID }, index) => (
+        {sortedNodes.map(({ id: nodeId, tag, name, protocol, address }, index) => (
           <SortableResourceBadge
             key={nodeId}
             id={`${groupId}-node-${nodeId}`}
@@ -242,9 +244,7 @@ export function SortableGroupContent({
             address={address}
             meta={formatLatencyMeta(nodeLatencies?.[nodeId])}
             onRemove={() => onDelNode(nodeId)}
-          >
-            {subscriptionID && allSubscriptions?.find((subscription) => subscription.id === subscriptionID)?.tag}
-          </SortableResourceBadge>
+          />
         ))}
       </GroupDropZone>
 
@@ -261,14 +261,23 @@ export function SortableGroupContent({
         onAdd={onOpenAddSubscriptions}
         emptyLabel={t('empty')}
       >
-        {sortedSubscriptions.map(({ id: subscriptionId, tag, link }, index) => (
+        {sortedSubscriptions.map(({ subscription, nameFilterRegex, matchedCount, matchedNodes }, index) => (
           <SortableResourceBadge
-            key={subscriptionId}
-            id={`${groupId}-sub-${subscriptionId}`}
+            key={subscription.id}
+            id={`${groupId}-sub-${subscription.id}`}
             index={index}
-            name={tag || link}
-            onRemove={() => onDelSubscription(subscriptionId)}
-          />
+            name={subscription.tag || subscription.link}
+            meta={nameFilterRegex ? `${matchedCount} ${t('node')} · /${nameFilterRegex}/` : `${matchedCount} ${t('node')}`}
+            onRemove={() => onDelSubscription(subscription.id)}
+          >
+            <div className="flex flex-col gap-1 text-xs">
+              {nameFilterRegex && <span>{t('groupPicker.subscriptionRegexTooltip', { regex: nameFilterRegex })}</span>}
+              <span>{t('groupPicker.subscriptionPreviewMatchedCount', { count: matchedCount })}</span>
+              {matchedNodes.length > 0 && (
+                <span className="opacity-80">{matchedNodes.map((node) => node.name).join(', ')}</span>
+              )}
+            </div>
+          </SortableResourceBadge>
         ))}
       </GroupDropZone>
     </div>
