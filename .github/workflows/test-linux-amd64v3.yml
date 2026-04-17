@@ -1,4 +1,4 @@
-name: Test Linux AMD64 v3
+name: Test Linux x86_64 v2-v3
 
 on:
   push:
@@ -7,16 +7,24 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: test-linux-amd64v3-${{ github.ref }}
+  group: test-linux-x86_64-v2-v3-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-linux-amd64v3:
+  build-linux-amd64:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goamd64: v2
+            output_name: daed-linux-x86_64_v2_sse
+          - goamd64: v3
+            output_name: daed-linux-x86_64_v3_avx2
     env:
       GOOS: linux
       GOARCH: amd64
-      GOAMD64: v3
+      GOAMD64: ${{ matrix.goamd64 }}
       CGO_ENABLED: 0
 
     steps:
@@ -48,29 +56,29 @@ jobs:
         env:
           VERSION: test-${{ github.sha }}
           GOFLAGS: -trimpath -modcacherw
-          OUTPUT: ../bundled/daed-linux-x86_64_v3_avx2
+          OUTPUT: ../bundled/${{ matrix.output_name }}
           APPNAME: daed
           WEB_DIST: ../apps/web/dist
         working-directory: wing
         run: make bundle
 
       - name: Smoke test
-        run: ./bundled/daed-linux-x86_64_v3_avx2 --version
+        run: ./bundled/${{ matrix.output_name }} --version
 
       - name: Collect runtime files
         run: |
           mkdir -p artifact
-          cp bundled/daed-linux-x86_64_v3_avx2 artifact/daed
+          cp bundled/${{ matrix.output_name }} artifact/daed
           cp install/daed.service artifact/
           cp install/daed.desktop artifact/
           cp -r install/icons artifact/icons
           curl -L -o artifact/geoip.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geoip.dat
           curl -L -o artifact/geosite.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geosite.dat
-          tar -C artifact -czf daed-linux-x86_64_v3_avx2-test.tar.gz .
+          tar -C artifact -czf ${{ matrix.output_name }}-test.tar.gz .
 
       - uses: actions/upload-artifact@v7
         with:
-          name: daed-linux-x86_64_v3_avx2-test
+          name: ${{ matrix.output_name }}-test
           path: |
             artifact/**
-            daed-linux-x86_64_v3_avx2-test.tar.gz
+            ${{ matrix.output_name }}-test.tar.gz
