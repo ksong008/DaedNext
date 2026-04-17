@@ -28,6 +28,13 @@ interface Subscription {
   tag?: string | null
 }
 
+interface NodeLatencyProbeResult {
+  latencyMs?: number | null
+  alive: boolean
+  testedAt: string
+  message?: string | null
+}
+
 function GroupDropZone({
   droppableId,
   type,
@@ -130,6 +137,7 @@ export function SortableGroupContent({
   groupId,
   nodes,
   subscriptions,
+  nodeLatencies,
   allSubscriptions,
   autoExpandValue,
   collapsed,
@@ -142,6 +150,7 @@ export function SortableGroupContent({
   groupId: string
   nodes: GroupNode[]
   subscriptions: GroupSubscription[]
+  nodeLatencies?: Record<string, NodeLatencyProbeResult>
   allSubscriptions?: Subscription[]
   autoExpandValue?: string
   collapsed?: boolean
@@ -231,6 +240,7 @@ export function SortableGroupContent({
             name={tag || name}
             protocol={protocol}
             address={address}
+            meta={formatLatencyMeta(nodeLatencies?.[nodeId])}
             onRemove={() => onDelNode(nodeId)}
           >
             {subscriptionID && allSubscriptions?.find((subscription) => subscription.id === subscriptionID)?.tag}
@@ -263,4 +273,17 @@ export function SortableGroupContent({
       </GroupDropZone>
     </div>
   )
+}
+
+function formatLatencyMeta(result?: NodeLatencyProbeResult) {
+  if (!result) {
+    return undefined
+  }
+  if (typeof result.latencyMs === 'number') {
+    return `${result.latencyMs}ms`
+  }
+  if (result.message) {
+    return result.message === 'no latency result' ? 'N/A' : 'Fail'
+  }
+  return 'N/A'
 }
