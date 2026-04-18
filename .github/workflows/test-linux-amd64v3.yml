@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - ci/linux-amd64v3-test
+      - personal/stable
   workflow_dispatch:
 
 concurrency:
