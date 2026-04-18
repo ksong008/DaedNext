@@ -32,12 +32,14 @@ export function SubscriptionResource({
   sortedSubscriptions,
   nodeLatencies,
   testingLatencies,
+  testingLatencyProgress,
   lastLatencyProbeAt,
   onTestAllNodeLatencies,
 }: {
   sortedSubscriptions: SubscriptionsQuery['subscriptions']
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
   testingLatencies?: boolean
+  testingLatencyProgress?: { completed: number; total: number } | null
   lastLatencyProbeAt?: string | null
   onTestAllNodeLatencies: () => Promise<void>
 }) {
@@ -79,24 +81,33 @@ export function SubscriptionResource({
       actions={
         <Fragment>
           {sortedSubscriptions.length > 0 && (
-            <SimpleTooltip
-              label={
-                lastLatencyProbeAt
-                  ? `${t('latency.testAllNodes')} · ${t('latency.lastTested', { time: dayjs(lastLatencyProbeAt).format('HH:mm:ss') })} · ${t('latency.nodesMeasured', { count: Object.keys(nodeLatencies || {}).length })}`
-                  : t('latency.testAllNodes')
-              }
-            >
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  void onTestAllNodeLatencies()
-                }}
-                loading={testingLatencies}
+            <div className="flex items-center gap-2">
+              {testingLatencyProgress && (
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {testingLatencyProgress.completed}/{testingLatencyProgress.total}
+                </span>
+              )}
+              <SimpleTooltip
+                label={
+                  testingLatencyProgress
+                    ? `${t('latency.testAllNodes')} · ${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
+                    : lastLatencyProbeAt
+                      ? `${t('latency.testAllNodes')} · ${t('latency.lastTested', { time: dayjs(lastLatencyProbeAt).format('HH:mm:ss') })} · ${t('latency.nodesMeasured', { count: Object.keys(nodeLatencies || {}).length })}`
+                      : t('latency.testAllNodes')
+                }
               >
-                <Gauge className="h-4 w-4" />
-              </Button>
-            </SimpleTooltip>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    void onTestAllNodeLatencies()
+                  }}
+                  loading={testingLatencies}
+                >
+                  <Gauge className="h-4 w-4" />
+                </Button>
+              </SimpleTooltip>
+            </div>
           )}
           {sortedSubscriptions.length > 2 && (
             <SimpleTooltip label={t('actions.updateAll')}>

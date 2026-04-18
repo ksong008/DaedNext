@@ -36,6 +36,18 @@ function arrayMove<T>(array: T[], from: number, to: number): T[] {
   return newArray
 }
 
+function chunkArray<T>(array: T[], size: number): T[][] {
+  if (size <= 0) return [array]
+
+  const chunks: T[][] = []
+  for (let index = 0; index < array.length; index += size) {
+    chunks.push(array.slice(index, index + size))
+  }
+  return chunks
+}
+
+const MANUAL_LATENCY_PROBE_BATCH_SIZE = 12
+
 export function OrchestratePage() {
   const queryClient = useQueryClient()
   const { data: configsQuery } = useConfigsQuery()
@@ -47,6 +59,10 @@ export function OrchestratePage() {
   const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
   const groupDelNodesMutation = useGroupDelNodesMutation()
   const testNodeLatenciesMutation = useTestNodeLatenciesMutation()
+  const [manualLatencyProbeProgress, setManualLatencyProbeProgress] = useState<{
+    completed: number
+    total: number
+  } | null>(null)
 
   const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -117,6 +133,16 @@ export function OrchestratePage() {
       .sort()
     return testedAtList[testedAtList.length - 1] ?? null
   }, [nodeLatencies])
+
+  const mergeNodeLatencyResults = useCallback((results: NodeLatencyProbeResult[]) => {
+    queryClient.setQueryData<NodeLatencyProbeResult[]>(QUERY_KEY_NODE_LATENCY, (previousResults = []) => {
+      const resultMap = new Map(previousResults.map((result) => [result.id, result]))
+      for (const result of results) {
+        resultMap.set(result.id, result)
+      }
+      return Array.from(resultMap.values())
+    })
+  }, [queryClient])
 
   // Get sorted node IDs
   const sortedNodeIds = useMemo(() => {
@@ -627,12 +653,40 @@ export function OrchestratePage() {
           <SubscriptionResource
             sortedSubscriptions={sortedSubscriptions}
             nodeLatencies={nodeLatencies}
-            testingLatencies={testNodeLatenciesMutation.isPending}
+            testingLatencies={manualLatencyProbeProgress !== null}
+            testingLatencyProgress={manualLatencyProbeProgress}
             lastLatencyProbeAt={lastLatencyProbeAt}
             onTestAllNodeLatencies={async () => {
-              await testNodeLatenciesMutation.mutateAsync()
-              await queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
-              await nodeLatenciesQuery.refetch()
+              if (manualLatencyProbeProgress) return
+
+              const nodeIDs = sortedNodes.map(({ id }) => id)
+              if (nodeIDs.length === 0) return
+
+              setManualLatencyProbeProgress({
+                completed: 0,
+                total: nodeIDs.length,
+              })
+
+              try {
+                let completed = 0
+                for (const nodeIDChunk of chunkArray(nodeIDs, MANUAL_LATENCY_PROBE_BATCH_SIZE)) {
+                  const results = await testNodeLatenciesMutation.mutateAsync(nodeIDChunk)
+                  mergeNodeLatencyResults(results)
+
+                  completed += nodeIDChunk.length
+                  setManualLatencyProbeProgress({
+                    completed,
+                    total: nodeIDs.length,
+                  })
+                }
+
+                void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+                void nodeLatenciesQuery.refetch()
+              } catch (error) {
+                console.error('Failed to test node latencies', error)
+              } finally {
+                setManualLatencyProbeProgress(null)
+              }
             }}
           />
         </div>
