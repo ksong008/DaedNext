@@ -47,6 +47,25 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 }
 
 const MANUAL_LATENCY_PROBE_BATCH_SIZE = 12
+const MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS = 8_000
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error('manual latency probe batch timed out'))
+    }, timeoutMs)
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timeoutId)
+        resolve(value)
+      })
+      .catch((error) => {
+        window.clearTimeout(timeoutId)
+        reject(error)
+      })
+  })
+}
 
 export function OrchestratePage() {
   const queryClient = useQueryClient()
@@ -63,6 +82,7 @@ export function OrchestratePage() {
     completed: number
     total: number
   } | null>(null)
+  const [manualLatencyProbeOverrides, setManualLatencyProbeOverrides] = useState<Record<string, NodeLatencyProbeResult>>({})
 
   const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -122,10 +142,13 @@ export function OrchestratePage() {
     return Math.max(1_000, Number.isFinite(ms) ? ms : 30_000)
   }, [selectedConfig?.global.checkInterval])
   const nodeLatenciesQuery = useNodeLatenciesQuery(nodeLatencyRefetchIntervalMs)
-  const nodeLatencies = useMemo<Record<string, NodeLatencyProbeResult>>(
-    () => Object.fromEntries((nodeLatenciesQuery.data ?? []).map((result) => [result.id, result])),
-    [nodeLatenciesQuery.data],
-  )
+  const nodeLatencies = useMemo<Record<string, NodeLatencyProbeResult>>(() => {
+    const baseResults = Object.fromEntries((nodeLatenciesQuery.data ?? []).map((result) => [result.id, result]))
+    return {
+      ...baseResults,
+      ...manualLatencyProbeOverrides,
+    }
+  }, [manualLatencyProbeOverrides, nodeLatenciesQuery.data])
   const lastLatencyProbeAt = useMemo(() => {
     const testedAtList = Object.values(nodeLatencies)
       .map((item) => item.testedAt)
@@ -135,6 +158,14 @@ export function OrchestratePage() {
   }, [nodeLatencies])
 
   const mergeNodeLatencyResults = useCallback((results: NodeLatencyProbeResult[]) => {
+    setManualLatencyProbeOverrides((previousResults) => {
+      const nextResults = { ...previousResults }
+      for (const result of results) {
+        nextResults[result.id] = result
+      }
+      return nextResults
+    })
+
     queryClient.setQueryData<NodeLatencyProbeResult[]>(QUERY_KEY_NODE_LATENCY, (previousResults = []) => {
       const resultMap = new Map(previousResults.map((result) => [result.id, result]))
       for (const result of results) {
@@ -686,7 +717,23 @@ export function OrchestratePage() {
               try {
                 let completed = 0
                 for (const nodeIDChunk of chunkArray(nodeIDs, MANUAL_LATENCY_PROBE_BATCH_SIZE)) {
-                  const results = await testNodeLatenciesMutation.mutateAsync(nodeIDChunk)
+                  let results: NodeLatencyProbeResult[]
+                  try {
+                    results = await withTimeout(
+                      testNodeLatenciesMutation.mutateAsync(nodeIDChunk),
+                      MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS,
+                    )
+                  } catch (error) {
+                    console.error('Failed to test node latency batch', error)
+                    const testedAt = new Date().toISOString()
+                    results = nodeIDChunk.map((id) => ({
+                      id,
+                      alive: false,
+                      testedAt,
+                      message: 'timeout',
+                    }))
+                  }
+
                   mergeNodeLatencyResults(results)
 
                   completed += nodeIDChunk.length
@@ -698,8 +745,6 @@ export function OrchestratePage() {
 
                 void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
                 void nodeLatenciesQuery.refetch()
-              } catch (error) {
-                console.error('Failed to test node latencies', error)
               } finally {
                 setManualLatencyProbeProgress(null)
               }
