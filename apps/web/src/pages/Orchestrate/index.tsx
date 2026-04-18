@@ -194,6 +194,22 @@ export function OrchestratePage() {
     return sortedSubscriptionIds.map((id) => subMap.get(id)).filter(Boolean) as typeof subscriptions
   }, [subscriptions, sortedSubscriptionIds])
 
+  const allLatencyProbeNodeIds = useMemo(() => {
+    const nodeIDs = new Set<string>()
+
+    for (const node of sortedNodes) {
+      nodeIDs.add(node.id)
+    }
+
+    for (const subscription of sortedSubscriptions) {
+      for (const node of subscription.nodes.edges) {
+        nodeIDs.add(node.id)
+      }
+    }
+
+    return Array.from(nodeIDs)
+  }, [sortedNodes, sortedSubscriptions])
+
   const groupSortOrder = appState.groupSortableKeys as string[]
 
   const sortedGroupIds = useMemo(() => {
@@ -659,7 +675,7 @@ export function OrchestratePage() {
             onTestAllNodeLatencies={async () => {
               if (manualLatencyProbeProgress) return
 
-              const nodeIDs = sortedNodes.map(({ id }) => id)
+              const nodeIDs = allLatencyProbeNodeIds
               if (nodeIDs.length === 0) return
 
               setManualLatencyProbeProgress({
