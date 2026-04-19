@@ -56,7 +56,7 @@ jobs:
       - name: Build bundle
         env:
           VERSION: test-${{ github.sha }}
-          GOFLAGS: -trimpath -mod=mod -modcacherw
+          GOFLAGS: -trimpath -modcacherw
           OUTPUT: ../bundled/${{ matrix.output_name }}
           APPNAME: daed
           WEB_DIST: ../apps/web/dist
