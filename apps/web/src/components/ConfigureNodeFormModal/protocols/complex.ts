@@ -109,11 +109,11 @@ function generateV2rayLink(data: V2rayFormValues): string {
 
     if (alpn !== '') params.alpn = alpn
     if (ech !== '') params.ech = ech
+    if ((tls === 'tls' || tls === 'reality') && fp !== '') params.fp = fp
 
     // Reality-specific parameters
     if (tls === 'reality') {
       params.pbk = pbk
-      params.fp = fp
       if (sid) params.sid = sid
       if (spx) params.spx = spx
       if (pqv) params.pqv = pqv

@@ -23,6 +23,14 @@ const defaultValues: V2rayFormValues = {
   ...DEFAULT_V2RAY_FORM_VALUES,
 }
 
+const COMMON_ALPN_OPTIONS = [
+  { label: 'h2,http/1.1', value: 'h2,http/1.1' },
+  { label: 'http/1.1', value: 'http/1.1' },
+  { label: 'h2', value: 'h2' },
+  { label: 'h3', value: 'h3' },
+  { label: 'Custom', value: '__custom__' },
+]
+
 function generateV2rayLink(data: V2rayFormValues): string {
   const {
     protocol,
@@ -79,11 +87,11 @@ function generateV2rayLink(data: V2rayFormValues): string {
 
     if (alpn !== '') params.alpn = alpn
     if (ech !== '') params.ech = ech
+    if ((tls === 'tls' || tls === 'reality') && fp !== '') params.fp = fp
 
     // Reality-specific parameters
     if (tls === 'reality') {
       params.pbk = pbk
-      params.fp = fp
       if (sid) params.sid = sid
       if (spx) params.spx = spx
       if (pqv) params.pqv = pqv
@@ -143,6 +151,9 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
     generateLink: generateV2rayLink,
     parseLink: parseV2rayUrl,
   })
+  const isCustomAlpn =
+    formValues.alpn !== '' && !COMMON_ALPN_OPTIONS.some((option) => option.value === formValues.alpn)
+  const alpnSelectValue = isCustomAlpn ? '__custom__' : formValues.alpn || undefined
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
@@ -218,6 +229,24 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
         <Input label="SNI" value={formValues.sni} onChange={(e) => setValue('sni', e.target.value)} />
       )}
 
+      {(formValues.tls === 'reality' || (formValues.protocol === 'vless' && formValues.tls === 'tls')) && (
+        <Select
+          label={t('configureNode.fingerprint')}
+          data={[
+            { label: 'chrome', value: 'chrome' },
+            { label: 'firefox', value: 'firefox' },
+            { label: 'safari', value: 'safari' },
+            { label: 'edge', value: 'edge' },
+            { label: 'ios', value: 'ios' },
+            { label: 'android', value: 'android' },
+            { label: 'random', value: 'random' },
+            { label: 'randomized', value: 'randomized' },
+          ]}
+          value={formValues.fp || 'chrome'}
+          onChange={(val) => setValue('fp', val || 'chrome')}
+        />
+      )}
+
       {formValues.tls === 'reality' && (
         <>
           <Input
@@ -225,21 +254,6 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
             withAsterisk
             value={formValues.pbk}
             onChange={(e) => setValue('pbk', e.target.value)}
-          />
-          <Select
-            label={t('configureNode.fingerprint')}
-            data={[
-              { label: 'chrome', value: 'chrome' },
-              { label: 'firefox', value: 'firefox' },
-              { label: 'safari', value: 'safari' },
-              { label: 'edge', value: 'edge' },
-              { label: 'ios', value: 'ios' },
-              { label: 'android', value: 'android' },
-              { label: 'random', value: 'random' },
-              { label: 'randomized', value: 'randomized' },
-            ]}
-            value={formValues.fp || 'chrome'}
-            onChange={(val) => setValue('fp', val || 'chrome')}
           />
           <Input
             label={t('configureNode.shortId')}
@@ -332,7 +346,33 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
 
       {formValues.tls === 'tls' && (
         <>
-          <Input label="ALPN" value={formValues.alpn} onChange={(e) => setValue('alpn', e.target.value)} />
+          <Select
+            label="ALPN"
+            data={COMMON_ALPN_OPTIONS}
+            value={alpnSelectValue}
+            onChange={(val) => {
+              if (!val) {
+                setValue('alpn', '')
+                return
+              }
+              if (val === '__custom__') {
+                if (!isCustomAlpn) {
+                  setValue('alpn', '')
+                }
+                return
+              }
+              setValue('alpn', val)
+            }}
+            placeholder="Select ALPN"
+          />
+          {(isCustomAlpn || formValues.alpn === '') && (
+            <Input
+              label="Custom ALPN"
+              placeholder="e.g. h2,http/1.1"
+              value={formValues.alpn}
+              onChange={(e) => setValue('alpn', e.target.value)}
+            />
+          )}
           <Input
             label="ECH"
             placeholder="Encrypted Client Hello"
