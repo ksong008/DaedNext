@@ -42,6 +42,26 @@ export interface V2rayConfig {
   // XHTTP specific
   xhttpMode: string // mode
   xhttpExtra: string // extra
+  xPaddingBytes: string
+  xPaddingObfsMode: boolean
+  xPaddingKey: string
+  xPaddingHeader: string
+  xPaddingPlacement: string
+  xPaddingMethod: string
+  noSSEHeader: boolean
+  scMaxEachPostBytes: string
+  scMinPostsIntervalMs: string
+  scMaxBufferedPosts: number
+  uplinkHTTPMethod: string
+  sessionPlacement: string
+  sessionKey: string
+  seqPlacement: string
+  seqKey: string
+  uplinkDataPlacement: string
+  uplinkDataKey: string
+  uplinkChunkSize: string
+  downloadSettingsRaw: string
+  xmuxRaw: string
   // TLS fields (4.4)
   tls: 'none' | 'tls' | 'reality' // security (removed 'xtls' as deprecated)
   fp: string // fingerprint

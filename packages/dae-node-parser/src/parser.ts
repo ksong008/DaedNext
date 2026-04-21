@@ -475,8 +475,8 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         sni: config.sni || '',
         alpn: config.alpn || '',
         fp: config.fp || '',
-        scy: config.scy || 'auto',
-        allowInsecure: config.allowInsecure === true || config.allowInsecure === 1,
+      scy: config.scy || 'auto',
+      allowInsecure: config.allowInsecure === true || config.allowInsecure === 1 || config.allowInsecure === '1',
         flow: config.flow || 'none',
         v: config.v || '',
         // Reality fields (usually not in legacy format but support anyway)
@@ -489,6 +489,26 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         grpcAuthority: '',
         xhttpMode: '',
         xhttpExtra: '',
+        xPaddingBytes: '',
+        xPaddingObfsMode: false,
+        xPaddingKey: '',
+        xPaddingHeader: '',
+        xPaddingPlacement: '',
+        xPaddingMethod: '',
+        noSSEHeader: false,
+        scMaxEachPostBytes: '',
+        scMinPostsIntervalMs: '',
+        scMaxBufferedPosts: 0,
+        uplinkHTTPMethod: '',
+        sessionPlacement: '',
+        sessionKey: '',
+        seqPlacement: '',
+        seqKey: '',
+        uplinkDataPlacement: '',
+        uplinkDataKey: '',
+        uplinkChunkSize: '',
+        downloadSettingsRaw: '',
+        xmuxRaw: '',
       }
     } catch {
       // If JSON parse fails, try standard URL format
@@ -531,6 +551,7 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
       // XHTTP specific
       xhttpMode: netType === 'xhttp' ? params.get('mode') || '' : '',
       xhttpExtra: params.get('extra') || '',
+      ...parseXhttpExtra(params.get('extra') || ''),
       // TLS fields
       tls: (params.get('security') || 'none') as V2rayConfig['tls'],
       fp: params.get('fp') || '',
@@ -545,7 +566,11 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
       spx: params.get('spx') || '',
       pqv: params.get('pqv') || '',
       // Other
-      allowInsecure: false, // Not allowed in standard proposal
+      allowInsecure:
+        params.get('allowInsecure') === '1' ||
+        params.get('allowInsecure') === 'true' ||
+        params.get('allow_insecure') === '1' ||
+        params.get('allow_insecure') === 'true',
       v: '',
     }
   } catch {
@@ -586,6 +611,73 @@ function getPathValue(params: URLSearchParams, netType: string): string {
   }
 }
 
+function parseXhttpExtra(extraRaw: string): Partial<V2rayConfig> {
+  const defaults: Partial<V2rayConfig> = {
+    xPaddingBytes: '',
+    xPaddingObfsMode: false,
+    xPaddingKey: '',
+    xPaddingHeader: '',
+    xPaddingPlacement: '',
+    xPaddingMethod: '',
+    noSSEHeader: false,
+    scMaxEachPostBytes: '',
+    scMinPostsIntervalMs: '',
+    scMaxBufferedPosts: 0,
+    uplinkHTTPMethod: '',
+    sessionPlacement: '',
+    sessionKey: '',
+    seqPlacement: '',
+    seqKey: '',
+    uplinkDataPlacement: '',
+    uplinkDataKey: '',
+    uplinkChunkSize: '',
+    downloadSettingsRaw: '',
+    xmuxRaw: '',
+  }
+
+  if (!extraRaw) {
+    return defaults
+  }
+
+  try {
+    const extra = JSON.parse(extraRaw) as Record<string, unknown>
+    return {
+      ...defaults,
+      xPaddingBytes: typeof extra.xPaddingBytes === 'string' ? extra.xPaddingBytes : '',
+      xPaddingObfsMode: extra.xPaddingObfsMode === true,
+      xPaddingKey: typeof extra.xPaddingKey === 'string' ? extra.xPaddingKey : '',
+      xPaddingHeader: typeof extra.xPaddingHeader === 'string' ? extra.xPaddingHeader : '',
+      xPaddingPlacement: typeof extra.xPaddingPlacement === 'string' ? extra.xPaddingPlacement : '',
+      xPaddingMethod: typeof extra.xPaddingMethod === 'string' ? extra.xPaddingMethod : '',
+      noSSEHeader: extra.noSSEHeader === true,
+      scMaxEachPostBytes:
+        typeof extra.scMaxEachPostBytes === 'string' || typeof extra.scMaxEachPostBytes === 'number'
+          ? String(extra.scMaxEachPostBytes)
+          : '',
+      scMinPostsIntervalMs:
+        typeof extra.scMinPostsIntervalMs === 'string' || typeof extra.scMinPostsIntervalMs === 'number'
+          ? String(extra.scMinPostsIntervalMs)
+          : '',
+      scMaxBufferedPosts: typeof extra.scMaxBufferedPosts === 'number' ? extra.scMaxBufferedPosts : 0,
+      uplinkHTTPMethod: typeof extra.uplinkHTTPMethod === 'string' ? extra.uplinkHTTPMethod : '',
+      sessionPlacement: typeof extra.sessionPlacement === 'string' ? extra.sessionPlacement : '',
+      sessionKey: typeof extra.sessionKey === 'string' ? extra.sessionKey : '',
+      seqPlacement: typeof extra.seqPlacement === 'string' ? extra.seqPlacement : '',
+      seqKey: typeof extra.seqKey === 'string' ? extra.seqKey : '',
+      uplinkDataPlacement: typeof extra.uplinkDataPlacement === 'string' ? extra.uplinkDataPlacement : '',
+      uplinkDataKey: typeof extra.uplinkDataKey === 'string' ? extra.uplinkDataKey : '',
+      uplinkChunkSize:
+        typeof extra.uplinkChunkSize === 'string' || typeof extra.uplinkChunkSize === 'number'
+          ? String(extra.uplinkChunkSize)
+          : '',
+      downloadSettingsRaw: extra.downloadSettings ? JSON.stringify(extra.downloadSettings, null, 2) : '',
+      xmuxRaw: extra.xmux ? JSON.stringify(extra.xmux, null, 2) : '',
+    }
+  } catch {
+    return defaults
+  }
+}
+
 /**
  * Parse VLESS protocol URL
  * Format: vless://uuid@server:port?params#name
@@ -623,6 +715,7 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       // XHTTP specific
       xhttpMode: netType === 'xhttp' ? params.get('mode') || '' : '',
       xhttpExtra: params.get('extra') || '',
+      ...parseXhttpExtra(params.get('extra') || ''),
       // TLS fields (4.4)
       tls: (params.get('security') || 'none') as V2rayConfig['tls'],
       fp: params.get('fp') || '',
@@ -637,7 +730,11 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       spx: params.get('spx') || '',
       pqv: params.get('pqv') || '',
       // Other
-      allowInsecure: false, // Not allowed in standard proposal for security
+      allowInsecure:
+        params.get('allowInsecure') === '1' ||
+        params.get('allowInsecure') === 'true' ||
+        params.get('allow_insecure') === '1' ||
+        params.get('allow_insecure') === 'true',
       v: '',
     }
   } catch {

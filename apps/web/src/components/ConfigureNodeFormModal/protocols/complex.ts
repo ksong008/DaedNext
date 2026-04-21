@@ -53,6 +53,78 @@ const v2rayFormSchema = v2raySchema.extend({
 
 type V2rayFormValues = z.infer<typeof v2rayFormSchema>
 
+function parseJsonObject(raw: string): Record<string, unknown> {
+  if (!raw.trim()) return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function parseJsonValue(raw: string): unknown | undefined {
+  if (!raw.trim()) return undefined
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return undefined
+  }
+}
+
+function setOrDelete(target: Record<string, unknown>, key: string, value: unknown) {
+  const shouldDelete =
+    value === undefined ||
+    value === null ||
+    value === '' ||
+    (typeof value === 'number' && value === 0) ||
+    (typeof value === 'boolean' && value === false)
+  if (shouldDelete) {
+    delete target[key]
+    return
+  }
+  target[key] = value
+}
+
+function buildXhttpExtra(data: V2rayFormValues): string {
+  const extra = parseJsonObject(data.xhttpExtra)
+
+  setOrDelete(extra, 'xPaddingBytes', data.xPaddingBytes)
+  setOrDelete(extra, 'xPaddingObfsMode', data.xPaddingObfsMode)
+  setOrDelete(extra, 'xPaddingKey', data.xPaddingKey)
+  setOrDelete(extra, 'xPaddingHeader', data.xPaddingHeader)
+  setOrDelete(extra, 'xPaddingPlacement', data.xPaddingPlacement)
+  setOrDelete(extra, 'xPaddingMethod', data.xPaddingMethod)
+  setOrDelete(extra, 'noSSEHeader', data.noSSEHeader)
+  setOrDelete(extra, 'scMaxEachPostBytes', data.scMaxEachPostBytes)
+  setOrDelete(extra, 'scMinPostsIntervalMs', data.scMinPostsIntervalMs)
+  setOrDelete(extra, 'scMaxBufferedPosts', data.scMaxBufferedPosts)
+  setOrDelete(extra, 'uplinkHTTPMethod', data.uplinkHTTPMethod)
+  setOrDelete(extra, 'sessionPlacement', data.sessionPlacement)
+  setOrDelete(extra, 'sessionKey', data.sessionKey)
+  setOrDelete(extra, 'seqPlacement', data.seqPlacement)
+  setOrDelete(extra, 'seqKey', data.seqKey)
+  setOrDelete(extra, 'uplinkDataPlacement', data.uplinkDataPlacement)
+  setOrDelete(extra, 'uplinkDataKey', data.uplinkDataKey)
+  setOrDelete(extra, 'uplinkChunkSize', data.uplinkChunkSize)
+
+  const downloadSettings = parseJsonValue(data.downloadSettingsRaw)
+  if (downloadSettings !== undefined) {
+    extra.downloadSettings = downloadSettings
+  } else if (!data.downloadSettingsRaw.trim()) {
+    delete extra.downloadSettings
+  }
+
+  const xmux = parseJsonValue(data.xmuxRaw)
+  if (xmux !== undefined) {
+    extra.xmux = xmux
+  } else if (!data.xmuxRaw.trim()) {
+    delete extra.xmux
+  }
+
+  return Object.keys(extra).length > 0 ? JSON.stringify(extra) : data.xhttpExtra
+}
+
 function generateV2rayLink(data: V2rayFormValues): string {
   const {
     protocol,
@@ -78,7 +150,6 @@ function generateV2rayLink(data: V2rayFormValues): string {
     grpcMode,
     grpcAuthority,
     xhttpMode,
-    xhttpExtra,
   } = data
 
   if (protocol === 'vless') {
@@ -102,7 +173,8 @@ function generateV2rayLink(data: V2rayFormValues): string {
     } else if (net === 'xhttp') {
       params.path = path
       if (xhttpMode) params.mode = xhttpMode
-      if (xhttpExtra) params.extra = xhttpExtra
+      const extra = buildXhttpExtra(data)
+      if (extra) params.extra = extra
     } else {
       params.path = path
     }

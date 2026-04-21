@@ -9,6 +9,7 @@ import { Checkbox } from '~/components/ui/checkbox'
 import { Input } from '~/components/ui/input'
 import { NumberInput } from '~/components/ui/number-input'
 import { Select } from '~/components/ui/select'
+import { Textarea } from '~/components/ui/textarea'
 import { DEFAULT_V2RAY_FORM_VALUES, v2raySchema } from '~/constants'
 import { useNodeForm } from '~/hooks'
 
@@ -30,6 +31,78 @@ const COMMON_ALPN_OPTIONS = [
   { label: 'h3', value: 'h3' },
   { label: 'Custom', value: '__custom__' },
 ]
+
+function parseJsonObject(raw: string): Record<string, unknown> {
+  if (!raw.trim()) return {}
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function parseJsonValue(raw: string): unknown | undefined {
+  if (!raw.trim()) return undefined
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return undefined
+  }
+}
+
+function setOrDelete(target: Record<string, unknown>, key: string, value: unknown) {
+  const shouldDelete =
+    value === undefined ||
+    value === null ||
+    value === '' ||
+    (typeof value === 'number' && value === 0) ||
+    (typeof value === 'boolean' && value === false)
+  if (shouldDelete) {
+    delete target[key]
+    return
+  }
+  target[key] = value
+}
+
+function buildXhttpExtra(data: V2rayFormValues): string {
+  const extra = parseJsonObject(data.xhttpExtra)
+
+  setOrDelete(extra, 'xPaddingBytes', data.xPaddingBytes)
+  setOrDelete(extra, 'xPaddingObfsMode', data.xPaddingObfsMode)
+  setOrDelete(extra, 'xPaddingKey', data.xPaddingKey)
+  setOrDelete(extra, 'xPaddingHeader', data.xPaddingHeader)
+  setOrDelete(extra, 'xPaddingPlacement', data.xPaddingPlacement)
+  setOrDelete(extra, 'xPaddingMethod', data.xPaddingMethod)
+  setOrDelete(extra, 'noSSEHeader', data.noSSEHeader)
+  setOrDelete(extra, 'scMaxEachPostBytes', data.scMaxEachPostBytes)
+  setOrDelete(extra, 'scMinPostsIntervalMs', data.scMinPostsIntervalMs)
+  setOrDelete(extra, 'scMaxBufferedPosts', data.scMaxBufferedPosts)
+  setOrDelete(extra, 'uplinkHTTPMethod', data.uplinkHTTPMethod)
+  setOrDelete(extra, 'sessionPlacement', data.sessionPlacement)
+  setOrDelete(extra, 'sessionKey', data.sessionKey)
+  setOrDelete(extra, 'seqPlacement', data.seqPlacement)
+  setOrDelete(extra, 'seqKey', data.seqKey)
+  setOrDelete(extra, 'uplinkDataPlacement', data.uplinkDataPlacement)
+  setOrDelete(extra, 'uplinkDataKey', data.uplinkDataKey)
+  setOrDelete(extra, 'uplinkChunkSize', data.uplinkChunkSize)
+
+  const downloadSettings = parseJsonValue(data.downloadSettingsRaw)
+  if (downloadSettings !== undefined) {
+    extra.downloadSettings = downloadSettings
+  } else if (!data.downloadSettingsRaw.trim()) {
+    delete extra.downloadSettings
+  }
+
+  const xmux = parseJsonValue(data.xmuxRaw)
+  if (xmux !== undefined) {
+    extra.xmux = xmux
+  } else if (!data.xmuxRaw.trim()) {
+    delete extra.xmux
+  }
+
+  return Object.keys(extra).length > 0 ? JSON.stringify(extra) : data.xhttpExtra
+}
 
 function generateV2rayLink(data: V2rayFormValues): string {
   const {
@@ -56,7 +129,6 @@ function generateV2rayLink(data: V2rayFormValues): string {
     grpcMode,
     grpcAuthority,
     xhttpMode,
-    xhttpExtra,
   } = data
 
   if (protocol === 'vless') {
@@ -80,7 +152,8 @@ function generateV2rayLink(data: V2rayFormValues): string {
     } else if (net === 'xhttp') {
       params.path = path
       if (xhttpMode) params.mode = xhttpMode
-      if (xhttpExtra) params.extra = xhttpExtra
+      const extra = buildXhttpExtra(data)
+      if (extra) params.extra = extra
     } else {
       params.path = path
     }
@@ -426,11 +499,107 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
             value={formValues.xhttpMode}
             onChange={(e) => setValue('xhttpMode', e.target.value)}
           />
-          <Input
-            label="XHTTP Extra"
-            value={formValues.xhttpExtra}
-            onChange={(e) => setValue('xhttpExtra', e.target.value)}
-          />
+          <details className="rounded-md border px-3 py-2">
+            <summary className="cursor-pointer text-sm font-medium">Advanced XHTTP</summary>
+            <div className="mt-3 space-y-2">
+              <Input label="XPadding Bytes" value={formValues.xPaddingBytes} onChange={(e) => setValue('xPaddingBytes', e.target.value)} />
+              <Checkbox
+                label="XPadding Obfs Mode"
+                checked={formValues.xPaddingObfsMode}
+                onCheckedChange={(checked) => setValue('xPaddingObfsMode', !!checked)}
+              />
+              <Input label="XPadding Key" value={formValues.xPaddingKey} onChange={(e) => setValue('xPaddingKey', e.target.value)} />
+              <Input label="XPadding Header" value={formValues.xPaddingHeader} onChange={(e) => setValue('xPaddingHeader', e.target.value)} />
+              <Select
+                label="XPadding Placement"
+                data={[
+                  { label: 'Default', value: '' },
+                  { label: 'Header', value: 'header' },
+                  { label: 'Cookie', value: 'cookie' },
+                  { label: 'Query', value: 'query' },
+                  { label: 'QueryInHeader', value: 'queryInHeader' },
+                ]}
+                value={formValues.xPaddingPlacement || undefined}
+                onChange={(val) => setValue('xPaddingPlacement', val || '')}
+              />
+              <Select
+                label="XPadding Method"
+                data={[
+                  { label: 'Default', value: '' },
+                  { label: 'repeat-x', value: 'repeat-x' },
+                  { label: 'tokenish', value: 'tokenish' },
+                ]}
+                value={formValues.xPaddingMethod || undefined}
+                onChange={(val) => setValue('xPaddingMethod', val || '')}
+              />
+              <Checkbox
+                label="No SSE Header"
+                checked={formValues.noSSEHeader}
+                onCheckedChange={(checked) => setValue('noSSEHeader', !!checked)}
+              />
+              <Input label="ScMaxEachPostBytes" value={formValues.scMaxEachPostBytes} onChange={(e) => setValue('scMaxEachPostBytes', e.target.value)} />
+              <Input label="ScMinPostsIntervalMs" value={formValues.scMinPostsIntervalMs} onChange={(e) => setValue('scMinPostsIntervalMs', e.target.value)} />
+              <NumberInput
+                label="ScMaxBufferedPosts"
+                min={0}
+                value={formValues.scMaxBufferedPosts}
+                onChange={(val) => setValue('scMaxBufferedPosts', Number(val) || 0)}
+              />
+              <Input label="Uplink HTTP Method" value={formValues.uplinkHTTPMethod} onChange={(e) => setValue('uplinkHTTPMethod', e.target.value)} />
+              <Select
+                label="Session Placement"
+                data={[
+                  { label: 'Default', value: '' },
+                  { label: 'Path', value: 'path' },
+                  { label: 'Query', value: 'query' },
+                  { label: 'Header', value: 'header' },
+                  { label: 'Cookie', value: 'cookie' },
+                ]}
+                value={formValues.sessionPlacement || undefined}
+                onChange={(val) => setValue('sessionPlacement', val || '')}
+              />
+              <Input label="Session Key" value={formValues.sessionKey} onChange={(e) => setValue('sessionKey', e.target.value)} />
+              <Select
+                label="Seq Placement"
+                data={[
+                  { label: 'Default', value: '' },
+                  { label: 'Path', value: 'path' },
+                  { label: 'Query', value: 'query' },
+                  { label: 'Header', value: 'header' },
+                  { label: 'Cookie', value: 'cookie' },
+                ]}
+                value={formValues.seqPlacement || undefined}
+                onChange={(val) => setValue('seqPlacement', val || '')}
+              />
+              <Input label="Seq Key" value={formValues.seqKey} onChange={(e) => setValue('seqKey', e.target.value)} />
+              <Select
+                label="Uplink Data Placement"
+                data={[
+                  { label: 'Default', value: '' },
+                  { label: 'Body', value: 'body' },
+                  { label: 'Header', value: 'header' },
+                  { label: 'Cookie', value: 'cookie' },
+                  { label: 'Auto', value: 'auto' },
+                ]}
+                value={formValues.uplinkDataPlacement || undefined}
+                onChange={(val) => setValue('uplinkDataPlacement', val || '')}
+              />
+              <Input label="Uplink Data Key" value={formValues.uplinkDataKey} onChange={(e) => setValue('uplinkDataKey', e.target.value)} />
+              <Input label="Uplink Chunk Size" value={formValues.uplinkChunkSize} onChange={(e) => setValue('uplinkChunkSize', e.target.value)} />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">DownloadSettings JSON</label>
+                <Textarea value={formValues.downloadSettingsRaw} onChange={(e) => setValue('downloadSettingsRaw', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">XMUX JSON</label>
+                <Textarea value={formValues.xmuxRaw} onChange={(e) => setValue('xmuxRaw', e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Raw Extra JSON</label>
+                <Textarea value={formValues.xhttpExtra} onChange={(e) => setValue('xhttpExtra', e.target.value)} />
+              </div>
+            </div>
+          </details>
         </>
       )}
 

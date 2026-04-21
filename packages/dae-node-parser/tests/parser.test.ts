@@ -266,6 +266,58 @@ describe('parseV2rayUrl', () => {
       alpn: 'h2,http/1.1',
     })
   })
+
+  it('should parse XHTTP extra JSON into advanced fields', () => {
+    const extra = encodeURIComponent(
+      JSON.stringify({
+        xPaddingBytes: '100-200',
+        xPaddingObfsMode: true,
+        xPaddingHeader: 'X-Pad',
+        xPaddingPlacement: 'header',
+        xPaddingMethod: 'tokenish',
+        uplinkHTTPMethod: 'PUT',
+        sessionPlacement: 'header',
+        seqPlacement: 'query',
+        uplinkDataPlacement: 'cookie',
+        uplinkDataKey: 'x_data',
+        uplinkChunkSize: '256-512',
+        noSSEHeader: true,
+        scMaxBufferedPosts: 12,
+        downloadSettings: {
+          address: 'example.net',
+          port: 443,
+        },
+        xmux: {
+          maxConcurrency: '8-16',
+        },
+      }),
+    )
+
+    const result = parseV2rayUrl(
+      `vless://uuid@example.com:443?type=xhttp&security=tls&mode=auto&extra=${extra}#xhttp-advanced`,
+    )
+
+    expect(result).toMatchObject({
+      net: 'xhttp',
+      xhttpMode: 'auto',
+      xPaddingBytes: '100-200',
+      xPaddingObfsMode: true,
+      xPaddingHeader: 'X-Pad',
+      xPaddingPlacement: 'header',
+      xPaddingMethod: 'tokenish',
+      uplinkHTTPMethod: 'PUT',
+      sessionPlacement: 'header',
+      seqPlacement: 'query',
+      uplinkDataPlacement: 'cookie',
+      uplinkDataKey: 'x_data',
+      uplinkChunkSize: '256-512',
+      noSSEHeader: true,
+      scMaxBufferedPosts: 12,
+    })
+
+    expect(result?.downloadSettingsRaw).toContain('"address": "example.net"')
+    expect(result?.xmuxRaw).toContain('"maxConcurrency": "8-16"')
+  })
 })
 
 describe('parseNodeUrl', () => {
