@@ -3,6 +3,7 @@ import { Minus, Plus } from 'lucide-react'
 import { useCallback } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { FormActions } from '~/components/FormActions'
@@ -29,6 +30,12 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+type ImportResourceResult = {
+  importNodes?: Array<{
+    error?: string | null
+  }>
+}
+
 const defaultValues: FormValues = {
   resources: [{ link: '', tag: '' }],
 }
@@ -42,7 +49,7 @@ export function ImportResourceFormModal({
   title: string
   opened: boolean
   onClose: () => void
-  handleSubmit: (values: FormValues) => Promise<void>
+  handleSubmit: (values: FormValues) => Promise<ImportResourceResult | void>
 }) {
   const { t } = useTranslation()
 
@@ -78,7 +85,17 @@ export function ImportResourceFormModal({
   }, [onClose, reset])
 
   const onSubmit = async (data: FormValues) => {
-    await onSubmitProp(data)
+    const result = await onSubmitProp(data)
+
+    const importErrors = Array.isArray(result?.importNodes)
+      ? result.importNodes.map((item) => item.error?.trim() || '').filter(Boolean)
+      : []
+
+    if (importErrors.length > 0) {
+      toast.error(importErrors.join('\n'))
+      return
+    }
+
     handleClose()
   }
 

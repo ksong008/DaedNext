@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { useImportNodesMutation } from '~/apis'
@@ -82,12 +83,21 @@ export function ConfigureNodeFormModal({ opened, onClose }: { opened: boolean; o
 
     const { tag } = getValues()
 
-    await importNodesMutation.mutateAsync([
+    const result = await importNodesMutation.mutateAsync([
       {
         link,
         tag,
       },
     ])
+
+    const importErrors = result.importNodes
+      .map((item) => item.error?.trim())
+      .filter((item): item is string => Boolean(item))
+
+    if (importErrors.length > 0) {
+      toast.error(importErrors.join('\n'))
+      return
+    }
 
     handleOpenChange(false)
   }
