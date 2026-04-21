@@ -133,7 +133,7 @@ export function NodeResource({
         opened={openedImportNodeFormModal}
         onClose={() => setOpenedImportNodeFormModal(false)}
         handleSubmit={async (values) => {
-          await importNodesMutation.mutateAsync(values.resources.map(({ link, tag }) => ({ link, tag })))
+          return importNodesMutation.mutateAsync(values.resources.map(({ link, tag }) => ({ link, tag })))
         }}
       />
 
