@@ -167,6 +167,13 @@ export interface TrafficOverviewQueryData {
   }>
 }
 
+function trafficOverviewRefetchInterval(windowSec: number) {
+  if (windowSec <= 60) return 1_000
+  if (windowSec <= 10 * 60) return 2_000
+  if (windowSec <= 30 * 60) return 5_000
+  return 10_000
+}
+
 export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   const gqlClient = useGQLQueryClient()
 
@@ -206,8 +213,8 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
       return data.general.runtimeOverview
     },
     placeholderData: (previousData) => previousData,
-    refetchInterval: 500,
-    refetchIntervalInBackground: true,
+    refetchInterval: () => trafficOverviewRefetchInterval(windowSec),
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -234,8 +241,8 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number) {
       return data.nodeLatencies
     },
     placeholderData: (previousData) => previousData,
-    refetchInterval: refetchIntervalMs,
-    refetchIntervalInBackground: true,
+    refetchInterval: () => refetchIntervalMs,
+    refetchIntervalInBackground: false,
   })
 }
 
