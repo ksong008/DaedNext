@@ -120,12 +120,17 @@ function TrafficMetricCard({
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
           <div className="mt-0.5 flex items-baseline gap-1.5">
             <span className="text-[1.55rem] font-extrabold leading-none tracking-tight text-foreground">{amount}</span>
-            <span className="text-sm text-muted-foreground">{unit}</span>
+            {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+function toNumber(value: string | number | undefined | null) {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
 function TrafficRangeButton({
@@ -185,10 +190,13 @@ export function TrafficOverview() {
     () => ({
       uploadRate: runtimeOverview?.uploadRate ?? 0,
       downloadRate: runtimeOverview?.downloadRate ?? 0,
-      uploadTotal: Number(runtimeOverview?.uploadTotal ?? 0),
-      downloadTotal: Number(runtimeOverview?.downloadTotal ?? 0),
+      uploadTotal: toNumber(runtimeOverview?.uploadTotal),
+      downloadTotal: toNumber(runtimeOverview?.downloadTotal),
       activeConnections: runtimeOverview?.activeConnections ?? 0,
       udpSessions: runtimeOverview?.udpSessions ?? 0,
+      rssBytes: toNumber(runtimeOverview?.rssBytes),
+      heapAllocBytes: toNumber(runtimeOverview?.heapAllocBytes),
+      goroutines: runtimeOverview?.goroutines ?? 0,
     }),
     [runtimeOverview],
   )
@@ -407,6 +415,35 @@ export function TrafficOverview() {
               amount={latestSample.udpSessions.toString()}
               unit={t('trafficOverview.sessionsUnit')}
               icon={<Radio className="h-5 w-5" />}
+              colorVar="var(--chart-3)"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-border/60 pt-4">
+          <div className="mb-3">
+            <p className="text-sm font-semibold text-foreground">{t('trafficOverview.memoryTitle')}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <TrafficMetricCard
+              title={t('trafficOverview.rss')}
+              amount={formatBytes(latestSample.rssBytes).split(' ')[0]}
+              unit={formatBytes(latestSample.rssBytes).split(' ')[1] ?? ''}
+              icon={<span className="text-[11px] font-bold">RSS</span>}
+              colorVar="var(--chart-4)"
+            />
+            <TrafficMetricCard
+              title={t('trafficOverview.heapAlloc')}
+              amount={formatBytes(latestSample.heapAllocBytes).split(' ')[0]}
+              unit={formatBytes(latestSample.heapAllocBytes).split(' ')[1] ?? ''}
+              icon={<span className="text-[11px] font-bold">HEAP</span>}
+              colorVar="var(--chart-5)"
+            />
+            <TrafficMetricCard
+              title={t('trafficOverview.goroutines')}
+              amount={latestSample.goroutines.toString()}
+              unit=""
+              icon={<span className="text-[11px] font-bold">GO</span>}
               colorVar="var(--chart-3)"
             />
           </div>

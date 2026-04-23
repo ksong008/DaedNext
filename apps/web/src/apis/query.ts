@@ -160,6 +160,9 @@ export interface TrafficOverviewQueryData {
   downloadTotal: string
   activeConnections: number
   udpSessions: number
+  rssBytes: string
+  heapAllocBytes: string
+  goroutines: number
   samples: Array<{
     timestamp: string
     uploadRate: number
@@ -195,6 +198,9 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
                 downloadTotal
                 activeConnections
                 udpSessions
+                rssBytes
+                heapAllocBytes
+                goroutines
                 samples {
                   timestamp
                   uploadRate

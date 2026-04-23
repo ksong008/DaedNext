@@ -268,6 +268,10 @@
     "totalUpload": "Total Upload",
     "totalDownload": "Total Download",
     "udpSessions": "UDP Sessions",
+    "memoryTitle": "Memory",
+    "rss": "RSS",
+    "heapAlloc": "Heap Alloc",
+    "goroutines": "Goroutines",
     "connectionsUnit": "conn",
     "sessionsUnit": "sessions",
     "ranges": {
