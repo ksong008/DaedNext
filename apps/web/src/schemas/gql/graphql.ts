@@ -1042,6 +1042,7 @@ export type NodesQuery = {
       link: string
       address: string
       protocol: string
+      transport?: string | null
       tag?: string | null
     }>
   }

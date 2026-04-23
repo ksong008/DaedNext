@@ -16,7 +16,7 @@ import {
 } from '~/constants'
 import { useGQLQueryClient } from '~/contexts'
 import { graphql } from '~/schemas/gql'
-import type { GroupsQuery } from '~/schemas/gql/graphql'
+import type { GroupsQuery, NodesQuery } from '~/schemas/gql/graphql'
 import type { NodeLatencyProbeResult } from './mutation'
 
 export function getModeRequest(gqlClient: GQLClientInterface) {
@@ -252,8 +252,8 @@ export function useNodesQuery() {
   return useQuery({
     queryKey: QUERY_KEY_NODE,
     queryFn: async () =>
-      gqlClient.request(
-        graphql(`
+      gqlClient.request<NodesQuery>(
+        `
           query Nodes {
             nodes {
               edges {
@@ -262,11 +262,12 @@ export function useNodesQuery() {
                 link
                 address
                 protocol
+                transport
                 tag
               }
             }
           }
-        `),
+        `,
       ),
   })
 }

@@ -65,13 +65,14 @@ export function NodeResource({
             {...provided.droppableProps}
             className={cn('flex flex-col gap-3 min-h-[100px]', snapshot.isDraggingOver && 'bg-primary/5 rounded-lg')}
           >
-            {sortedNodes.map(({ id, name, tag, protocol, link }, index) => (
+            {sortedNodes.map(({ id, name, tag, protocol, transport, link }, index) => (
               <SortableNodeCard
                 key={id}
                 id={`node-${id}`}
                 index={index}
                 name={tag || name}
                 leftSection={protocol}
+                subtitle={transport || undefined}
                 actions={
                   <Fragment>
                     <SimpleTooltip label={t('actions.edit')}>

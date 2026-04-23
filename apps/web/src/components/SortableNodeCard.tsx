@@ -16,6 +16,7 @@ export function SortableNodeCard({
   index,
   name,
   leftSection,
+  subtitle,
   onRemove,
   actions,
   children,
@@ -24,6 +25,7 @@ export function SortableNodeCard({
   index: number
   name: React.ReactNode
   leftSection?: React.ReactNode
+  subtitle?: React.ReactNode
   onRemove: () => void
   actions?: React.ReactNode
   children: React.ReactNode
@@ -57,13 +59,20 @@ export function SortableNodeCard({
             <div className="p-3 pl-8">
               {/* Header with protocol badge and name */}
               <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="flex items-start gap-2 min-w-0 flex-1">
                   {leftSection && (
-                    <Badge variant="secondary" className="shrink-0 text-xs font-medium px-2 py-0.5">
+                    <Badge variant="secondary" className="shrink-0 text-xs font-medium px-2 py-0.5 mt-0.5">
                       {leftSection}
                     </Badge>
                   )}
-                  <h4 className="font-semibold text-sm truncate">{name}</h4>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-semibold text-sm truncate">{name}</h4>
+                    {subtitle && (
+                      <p className="mt-0.5 text-[11px] font-medium text-muted-foreground truncate">
+                        {subtitle}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Actions - always visible on mobile, hover on desktop */}
