@@ -29,6 +29,7 @@ export interface GroupPickerPreviewNode {
   id: string
   title: string
   protocol?: string
+  transport?: string
 }
 
 type SelectionDialogLayout = 'node-card' | 'subscription-chip'
@@ -498,7 +499,7 @@ export function GroupAddSubscriptionsModal({
                         {matchedNodes.map((node) => (
                           <span
                             key={node.id}
-                            className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
+                            className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
                           >
                             {node.protocol && (
                               <span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
@@ -506,6 +507,7 @@ export function GroupAddSubscriptionsModal({
                               </span>
                             )}
                             <span className="max-w-[16rem] truncate">{node.title}</span>
+                            {node.transport && <span className="text-[10px] font-medium text-muted-foreground">{node.transport}</span>}
                           </span>
                         ))}
                       </div>

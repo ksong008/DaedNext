@@ -1064,7 +1064,7 @@ export type SubscriptionsQuery = {
     cronEnable: boolean
     nodes: {
       __typename?: 'NodesConnection'
-      edges: Array<{ __typename?: 'Node'; id: string; name: string; protocol: string; link: string }>
+      edges: Array<{ __typename?: 'Node'; id: string; name: string; protocol: string; transport?: string | null; link: string }>
     }
   }>
 }
@@ -1124,6 +1124,7 @@ export type GroupsQuery = {
       name: string
       address: string
       protocol: string
+      transport?: string | null
       tag?: string | null
       subscriptionID?: string | null
     }>
@@ -1147,6 +1148,7 @@ export type GroupsQuery = {
         name: string
         address: string
         protocol: string
+        transport?: string | null
         tag?: string | null
         subscriptionID?: string | null
       }>
@@ -3250,6 +3252,7 @@ export const NodesDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'link' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'address' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'protocol' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'transport' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'tag' } },
                     ],
                   },
@@ -3301,6 +3304,7 @@ export const SubscriptionsDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'id' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'protocol' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'transport' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'link' } },
                           ],
                         },
@@ -3405,6 +3409,7 @@ export const GroupsDocument = {
                       { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'address' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'protocol' } },
+                      { kind: 'Field', name: { kind: 'Name', value: 'transport' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'tag' } },
                       { kind: 'Field', name: { kind: 'Name', value: 'subscriptionID' } },
                     ],
@@ -3444,6 +3449,7 @@ export const GroupsDocument = {
                             { kind: 'Field', name: { kind: 'Name', value: 'name' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'address' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'protocol' } },
+                            { kind: 'Field', name: { kind: 'Name', value: 'transport' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'tag' } },
                             { kind: 'Field', name: { kind: 'Name', value: 'subscriptionID' } },
                           ],

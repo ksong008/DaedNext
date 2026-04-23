@@ -11,6 +11,7 @@ export function SortableResourceBadge({
   index,
   name,
   protocol,
+  subtitle,
   address,
   meta,
   onRemove,
@@ -20,6 +21,7 @@ export function SortableResourceBadge({
   index: number
   name: string
   protocol?: string | null
+  subtitle?: string | null
   address?: string | null
   meta?: React.ReactNode
   onRemove?: () => void
@@ -55,6 +57,7 @@ export function SortableResourceBadge({
       {/* Main content */}
       <div className="flex-1 min-w-0">
         <span className="text-xs font-medium truncate block">{name}</span>
+        {subtitle && <span className="text-[10px] text-muted-foreground truncate block mt-0.5">{subtitle}</span>}
         {address && <span className="text-[10px] text-muted-foreground truncate block mt-0.5">{address}</span>}
       </div>
 

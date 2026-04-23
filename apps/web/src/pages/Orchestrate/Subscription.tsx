@@ -208,12 +208,13 @@ export function SubscriptionResource({
                               {...droppableProvided.droppableProps}
                               className="flex flex-wrap gap-2 pt-2"
                             >
-                              {nodes.edges.map(({ id, name }, nodeIndex) => (
+                              {nodes.edges.map(({ id, name, transport }, nodeIndex) => (
                                 <DraggableResourceBadge
                                   key={id}
                                   id={`subscription-node-${id}`}
                                   index={nodeIndex}
                                   name={name}
+                                  subtitle={transport || undefined}
                                   meta={formatLatencyMeta(nodeLatencies?.[id])}
                                 >
                                   {name}

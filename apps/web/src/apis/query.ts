@@ -295,6 +295,7 @@ export function useSubscriptionsQuery() {
                   id
                   name
                   protocol
+                  transport
                   link
                 }
               }
@@ -369,6 +370,7 @@ export function useGroupsQuery() {
                 name
                 address
                 protocol
+                transport
                 tag
                 subscriptionID
               }
@@ -389,6 +391,7 @@ export function useGroupsQuery() {
                   name
                   address
                   protocol
+                  transport
                   tag
                   subscriptionID
                 }

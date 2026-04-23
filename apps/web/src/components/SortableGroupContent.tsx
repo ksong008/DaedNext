@@ -13,6 +13,7 @@ interface GroupNode {
   tag?: string | null
   name: string
   protocol?: string | null
+  transport?: string | null
   address?: string | null
   subscriptionID?: string | null
 }
@@ -29,6 +30,7 @@ interface GroupSubscription {
     id: string
     name: string
     protocol?: string | null
+    transport?: string | null
   }>
 }
 
@@ -234,13 +236,14 @@ export function SortableGroupContent({
         onAdd={onOpenAddNodes}
         emptyLabel={t('empty')}
       >
-        {sortedNodes.map(({ id: nodeId, tag, name, protocol, address }, index) => (
+        {sortedNodes.map(({ id: nodeId, tag, name, protocol, transport, address }, index) => (
           <SortableResourceBadge
             key={nodeId}
             id={`${groupId}-node-${nodeId}`}
             index={index}
             name={tag || name}
             protocol={protocol}
+            subtitle={transport || undefined}
             address={address}
             meta={formatLatencyMeta(nodeLatencies?.[nodeId])}
             onRemove={() => onDelNode(nodeId)}

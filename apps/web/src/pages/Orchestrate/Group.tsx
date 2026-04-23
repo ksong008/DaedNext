@@ -153,7 +153,7 @@ export function GroupResource({
           id: node.id,
           title,
           description: description || undefined,
-          meta: [t('groupPicker.manualNode'), formatLatencyMeta(nodeLatencies?.[node.id])]
+          meta: [node.transport, t('groupPicker.manualNode'), formatLatencyMeta(nodeLatencies?.[node.id])]
             .filter(Boolean)
             .join(' · '),
           metaTone: nodeLatencies?.[node.id] ? 'primary' : 'default',
@@ -177,7 +177,7 @@ export function GroupResource({
             id: node.id,
             title,
             description: description || undefined,
-            meta: [t('groupPicker.fromSubscription', { name: subscriptionName }), formatLatencyMeta(nodeLatencies?.[node.id])]
+            meta: [node.transport, t('groupPicker.fromSubscription', { name: subscriptionName }), formatLatencyMeta(nodeLatencies?.[node.id])]
               .filter(Boolean)
               .join(' · '),
             metaTone: nodeLatencies?.[node.id] ? 'primary' : 'default',
@@ -212,6 +212,7 @@ export function GroupResource({
             id: node.id,
             title: node.name,
             protocol: node.protocol || undefined,
+            transport: node.transport || undefined,
           })),
           keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(Boolean) as string[],
         }
