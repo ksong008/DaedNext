@@ -81,6 +81,7 @@ export function parseSSUrl(url: string): Partial<SSConfig> | null {
     // Try to find @ in the URL to determine format
     const atIndex = mainPart.lastIndexOf('@')
 
+    let type: SSConfig['type'] = 'ss'
     let method: string
     let password: string
     let server: string
@@ -89,8 +90,10 @@ export function parseSSUrl(url: string): Partial<SSConfig> | null {
     let pluginOpts: Record<string, string> = {}
 
     if (atIndex !== -1) {
-      // Format: BASE64(method:password)@server:port/?plugin=...
-      const userInfoBase64 = mainPart.slice(0, atIndex)
+      // Format:
+      // 1. Legacy: BASE64(method:password)@server:port/?plugin=...
+      // 2. SS2022: method:password@server:port/?plugin=...
+      const userInfoRaw = mainPart.slice(0, atIndex)
       const hostPart = mainPart.slice(atIndex + 1)
 
       // Parse host:port/?plugin=...
@@ -131,16 +134,24 @@ export function parseSSUrl(url: string): Partial<SSConfig> | null {
       server = cleanHostPort.slice(0, colonIndex)
       port = Number.parseInt(cleanHostPort.slice(colonIndex + 1), 10)
 
-      // Decode userinfo
-      const userInfo = Base64.decode(userInfoBase64)
-      const colonUserIndex = userInfo.indexOf(':')
+      const decodedRawUserInfo = decodeURIComponent(userInfoRaw)
+      const rawColonIndex = decodedRawUserInfo.indexOf(':')
 
-      if (colonUserIndex === -1) {
-        return null
+      if (decodedRawUserInfo.startsWith('2022-blake3-') && rawColonIndex !== -1) {
+        type = 'ss2022'
+        method = decodedRawUserInfo.slice(0, rawColonIndex)
+        password = decodedRawUserInfo.slice(rawColonIndex + 1)
+      } else {
+        const userInfo = Base64.decode(userInfoRaw)
+        const colonUserIndex = userInfo.indexOf(':')
+
+        if (colonUserIndex === -1) {
+          return null
+        }
+
+        method = userInfo.slice(0, colonUserIndex)
+        password = userInfo.slice(colonUserIndex + 1)
       }
-
-      method = userInfo.slice(0, colonUserIndex)
-      password = userInfo.slice(colonUserIndex + 1)
     } else {
       // Format: BASE64(method:password@server:port)
       const decoded = Base64.decode(mainPart)
@@ -172,7 +183,12 @@ export function parseSSUrl(url: string): Partial<SSConfig> | null {
       port = Number.parseInt(hostPort.slice(colonIndex + 1), 10)
     }
 
+    if (method.startsWith('2022-blake3-')) {
+      type = 'ss2022'
+    }
+
     const result: Partial<SSConfig> = {
+      type,
       method: method as SSConfig['method'],
       password,
       server,

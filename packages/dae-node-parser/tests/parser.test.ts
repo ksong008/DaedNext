@@ -65,6 +65,18 @@ describe('parseSSUrl', () => {
       name: 'my-ss',
     })
   })
+
+  it('should parse SS2022 URL with plain userinfo', () => {
+    const result = parseSSUrl('ss://2022-blake3-aes-128-gcm:%2BmPWWGB%2F%2FPLkjgiXVeWszg%3D%3D@example.com:8388#my-ss2022')
+    expect(result).toMatchObject({
+      type: 'ss2022',
+      method: '2022-blake3-aes-128-gcm',
+      password: '+mPWWGB//PLkjgiXVeWszg==',
+      server: 'example.com',
+      port: 8388,
+      name: 'my-ss2022',
+    })
+  })
 })
 
 describe('parseTrojanUrl', () => {

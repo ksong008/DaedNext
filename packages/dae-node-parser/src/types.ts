@@ -84,7 +84,16 @@ export interface V2rayConfig {
  * Shadowsocks (SS) schema
  */
 export interface SSConfig {
-  method: 'aes-128-gcm' | 'aes-256-gcm' | 'chacha20-poly1305' | 'chacha20-ietf-poly1305' | 'plain' | 'none'
+  type: 'ss' | 'ss2022'
+  method:
+    | 'aes-128-gcm'
+    | 'aes-256-gcm'
+    | 'chacha20-poly1305'
+    | 'chacha20-ietf-poly1305'
+    | 'plain'
+    | 'none'
+    | '2022-blake3-aes-128-gcm'
+    | '2022-blake3-aes-256-gcm'
   plugin: '' | 'simple-obfs' | 'v2ray-plugin'
   obfs: 'http' | 'tls'
   tls: '' | 'tls'

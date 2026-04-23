@@ -152,6 +152,7 @@ export const DEFAULT_V2RAY_FORM_VALUES: z.infer<typeof v2raySchema> = {
 }
 
 export const DEFAULT_SS_FORM_VALUES: z.infer<typeof ssSchema> = {
+  type: 'ss',
   plugin: '',
   method: 'aes-128-gcm',
   obfs: 'http',

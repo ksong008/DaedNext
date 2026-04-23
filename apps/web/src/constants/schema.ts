@@ -54,7 +54,17 @@ export const v2raySchema = z.object({
 })
 
 export const ssSchema = z.object({
-  method: z.enum(['aes-128-gcm', 'aes-256-gcm', 'chacha20-poly1305', 'chacha20-ietf-poly1305', 'plain', 'none']),
+  type: z.enum(['ss', 'ss2022']),
+  method: z.enum([
+    'aes-128-gcm',
+    'aes-256-gcm',
+    'chacha20-poly1305',
+    'chacha20-ietf-poly1305',
+    'plain',
+    'none',
+    '2022-blake3-aes-128-gcm',
+    '2022-blake3-aes-256-gcm',
+  ]),
   plugin: z.enum(['', 'simple-obfs', 'v2ray-plugin']),
   obfs: z.enum(['http', 'tls']),
   tls: z.enum(['', 'tls']),
@@ -66,6 +76,61 @@ export const ssSchema = z.object({
   port: z.number().min(0).max(65535),
   name: z.string(),
   impl: z.enum(['', 'chained', 'transport']),
+}).superRefine((data, ctx) => {
+  const isSS2022Method = data.method.startsWith('2022-blake3-')
+  if (data.type === 'ss' && isSS2022Method) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['method'],
+      message: 'SS methods cannot use SS2022 ciphers',
+    })
+  }
+  if (data.type === 'ss2022' && !isSS2022Method) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['method'],
+      message: 'SS2022 requires a 2022-blake3-* cipher',
+    })
+  }
+  if (data.type === 'ss2022' && data.plugin !== '') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['plugin'],
+      message: 'SS2022 does not support Shadowsocks plugins here',
+    })
+  }
+  if (data.type === 'ss2022') {
+    const expectedLen = data.method === '2022-blake3-aes-256-gcm' ? 32 : 16
+    const pskParts = data.password.split(':')
+    if (pskParts.some((part) => part.length === 0)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['password'],
+        message: 'PSK list must not contain empty segments',
+      })
+    } else {
+      for (const part of pskParts) {
+        try {
+          const decoded = atob(part)
+          if (decoded.length !== expectedLen) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['password'],
+              message: `Each PSK must decode to ${expectedLen} bytes`,
+            })
+            break
+          }
+        } catch {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['password'],
+            message: 'Each PSK must be valid base64',
+          })
+          break
+        }
+      }
+    }
+  }
 })
 
 export const ssrSchema = z.object({

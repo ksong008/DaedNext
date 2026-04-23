@@ -254,6 +254,17 @@ export const v2rayProtocol: ProtocolConfig<V2rayFormValues> = {
 type SSFormValues = z.infer<typeof ssSchema>
 
 function generateSSLink(data: SSFormValues): string {
+  if (data.type === 'ss2022') {
+    return generateURL({
+      protocol: 'ss',
+      username: data.method,
+      password: data.password,
+      host: data.server,
+      port: data.port,
+      hash: data.name,
+    })
+  }
+
   let link = `ss://${Base64.encode(`${data.method}:${data.password}`)}@${data.server}:${data.port}/`
 
   if (data.plugin) {
