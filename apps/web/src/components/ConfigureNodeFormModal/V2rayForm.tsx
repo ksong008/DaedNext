@@ -531,61 +531,28 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
 
       {formValues.net === 'xhttp' && (
         <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-3">
-          <div>
-            <p className="text-sm font-semibold">XHTTP</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Configure core path/mode first, then add download or reuse settings only when needed.
-            </p>
-          </div>
-
-          <div className="grid gap-2 rounded-lg border border-border/60 bg-background/60 p-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Basic</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Stable defaults live here. Most nodes only need mode, host, path and ALPN.
-              </p>
-            </div>
+          <div className="grid gap-3 rounded-lg border border-border/60 bg-background/60 p-3">
             <Select
               label="XHTTP Mode"
               data={XHTTP_MODE_OPTIONS}
               value={formValues.xhttpMode || 'auto'}
               onChange={(val) => setValue('xhttpMode', val || 'auto')}
             />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">DownloadSettings JSON</label>
+              <Textarea value={formValues.downloadSettingsRaw} onChange={(e) => setValue('downloadSettingsRaw', e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">XMUX JSON</label>
+              <Textarea value={formValues.xmuxRaw} onChange={(e) => setValue('xmuxRaw', e.target.value)} />
+            </div>
           </div>
 
           <details className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
             <summary className="cursor-pointer text-sm font-medium">Advanced XHTTP</summary>
             <div className="mt-3 space-y-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Download Path</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Structured download path is preferred over stuffing nested settings into raw extra JSON.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">DownloadSettings JSON</label>
-                <Textarea value={formValues.downloadSettingsRaw} onChange={(e) => setValue('downloadSettingsRaw', e.target.value)} />
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reuse / XMUX</p>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Use this only when you need explicit connection reuse behavior.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">XMUX JSON</label>
-                <Textarea value={formValues.xmuxRaw} onChange={(e) => setValue('xmuxRaw', e.target.value)} />
-              </div>
-            </div>
-          </details>
-
-          <details className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
-            <summary className="cursor-pointer text-sm font-medium">Expert XHTTP</summary>
-            <div className="mt-3 space-y-3">
-              <p className="text-[11px] text-muted-foreground">
-                Low-level padding and placement controls. Some fields below are still rejected by the current outbound implementation.
-              </p>
 
               <Input label="XPadding Bytes" value={formValues.xPaddingBytes} onChange={(e) => setValue('xPaddingBytes', e.target.value)} />
               <Checkbox
