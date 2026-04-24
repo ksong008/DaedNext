@@ -2,7 +2,7 @@
 
 ARG DAED_VERSION
 
-FROM golang:1.22-bookworm AS build
+FROM golang:1.24.3-bookworm AS build
 
 RUN \
     apt-get update && apt-get install -y git make llvm-15 clang-15 && \
