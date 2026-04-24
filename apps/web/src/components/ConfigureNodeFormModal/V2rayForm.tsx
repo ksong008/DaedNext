@@ -553,7 +553,6 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
           <details className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
             <summary className="cursor-pointer text-sm font-medium">Advanced XHTTP</summary>
             <div className="mt-3 space-y-3">
-
               <Input label="XPadding Bytes" value={formValues.xPaddingBytes} onChange={(e) => setValue('xPaddingBytes', e.target.value)} />
               <Checkbox
                 label="XPadding Obfs Mode"
@@ -575,9 +574,6 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
                 onChange={(val) => setValue('xPaddingMethod', val || '')}
               />
 
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-                No SSE Header and ScMaxBufferedPosts are currently rejected by outbound validation.
-              </div>
               <Checkbox
                 label="No SSE Header"
                 checked={formValues.noSSEHeader}
