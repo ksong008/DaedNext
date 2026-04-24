@@ -32,6 +32,43 @@ const COMMON_ALPN_OPTIONS = [
   { label: 'Custom', value: '__custom__' },
 ]
 
+const XHTTP_MODE_OPTIONS = [
+  { label: 'Auto (recommended)', value: 'auto' },
+  { label: 'stream-up', value: 'stream-up' },
+  { label: 'stream-one', value: 'stream-one' },
+  { label: 'packet-up', value: 'packet-up' },
+]
+
+const XHTTP_PLACEMENT_OPTIONS = [
+  { label: 'Default', value: '' },
+  { label: 'Path', value: 'path' },
+  { label: 'Query', value: 'query' },
+  { label: 'Header', value: 'header' },
+  { label: 'Cookie', value: 'cookie' },
+]
+
+const XHTTP_PADDING_PLACEMENT_OPTIONS = [
+  { label: 'Default', value: '' },
+  { label: 'Header', value: 'header' },
+  { label: 'Cookie', value: 'cookie' },
+  { label: 'Query', value: 'query' },
+  { label: 'QueryInHeader', value: 'queryInHeader' },
+]
+
+const XHTTP_PADDING_METHOD_OPTIONS = [
+  { label: 'Default', value: '' },
+  { label: 'repeat-x', value: 'repeat-x' },
+  { label: 'tokenish', value: 'tokenish' },
+]
+
+const XHTTP_UPLINK_DATA_PLACEMENT_OPTIONS = [
+  { label: 'Default', value: '' },
+  { label: 'Body', value: 'body' },
+  { label: 'Header', value: 'header' },
+  { label: 'Cookie', value: 'cookie' },
+  { label: 'Auto', value: 'auto' },
+]
+
 function parseJsonObject(raw: string): Record<string, unknown> {
   if (!raw.trim()) return {}
   try {
@@ -493,15 +530,63 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
       )}
 
       {formValues.net === 'xhttp' && (
-        <>
-          <Input
-            label="XHTTP Mode"
-            value={formValues.xhttpMode}
-            onChange={(e) => setValue('xhttpMode', e.target.value)}
-          />
-          <details className="rounded-md border px-3 py-2">
+        <div className="space-y-3 rounded-xl border border-border/70 bg-muted/20 p-3">
+          <div>
+            <p className="text-sm font-semibold">XHTTP</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Configure core path/mode first, then add download or reuse settings only when needed.
+            </p>
+          </div>
+
+          <div className="grid gap-2 rounded-lg border border-border/60 bg-background/60 p-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Basic</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Stable defaults live here. Most nodes only need mode, host, path and ALPN.
+              </p>
+            </div>
+            <Select
+              label="XHTTP Mode"
+              data={XHTTP_MODE_OPTIONS}
+              value={formValues.xhttpMode || 'auto'}
+              onChange={(val) => setValue('xhttpMode', val || 'auto')}
+            />
+          </div>
+
+          <details className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
             <summary className="cursor-pointer text-sm font-medium">Advanced XHTTP</summary>
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Download Path</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Structured download path is preferred over stuffing nested settings into raw extra JSON.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">DownloadSettings JSON</label>
+                <Textarea value={formValues.downloadSettingsRaw} onChange={(e) => setValue('downloadSettingsRaw', e.target.value)} />
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reuse / XMUX</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Use this only when you need explicit connection reuse behavior.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">XMUX JSON</label>
+                <Textarea value={formValues.xmuxRaw} onChange={(e) => setValue('xmuxRaw', e.target.value)} />
+              </div>
+            </div>
+          </details>
+
+          <details className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
+            <summary className="cursor-pointer text-sm font-medium">Expert XHTTP</summary>
+            <div className="mt-3 space-y-3">
+              <p className="text-[11px] text-muted-foreground">
+                Low-level padding and placement controls. Some fields below are still rejected by the current outbound implementation.
+              </p>
+
               <Input label="XPadding Bytes" value={formValues.xPaddingBytes} onChange={(e) => setValue('xPaddingBytes', e.target.value)} />
               <Checkbox
                 label="XPadding Obfs Mode"
@@ -512,26 +597,20 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
               <Input label="XPadding Header" value={formValues.xPaddingHeader} onChange={(e) => setValue('xPaddingHeader', e.target.value)} />
               <Select
                 label="XPadding Placement"
-                data={[
-                  { label: 'Default', value: '' },
-                  { label: 'Header', value: 'header' },
-                  { label: 'Cookie', value: 'cookie' },
-                  { label: 'Query', value: 'query' },
-                  { label: 'QueryInHeader', value: 'queryInHeader' },
-                ]}
+                data={XHTTP_PADDING_PLACEMENT_OPTIONS}
                 value={formValues.xPaddingPlacement || undefined}
                 onChange={(val) => setValue('xPaddingPlacement', val || '')}
               />
               <Select
                 label="XPadding Method"
-                data={[
-                  { label: 'Default', value: '' },
-                  { label: 'repeat-x', value: 'repeat-x' },
-                  { label: 'tokenish', value: 'tokenish' },
-                ]}
+                data={XHTTP_PADDING_METHOD_OPTIONS}
                 value={formValues.xPaddingMethod || undefined}
                 onChange={(val) => setValue('xPaddingMethod', val || '')}
               />
+
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                No SSE Header and ScMaxBufferedPosts are currently rejected by outbound validation.
+              </div>
               <Checkbox
                 label="No SSE Header"
                 checked={formValues.noSSEHeader}
@@ -548,59 +627,33 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
               <Input label="Uplink HTTP Method" value={formValues.uplinkHTTPMethod} onChange={(e) => setValue('uplinkHTTPMethod', e.target.value)} />
               <Select
                 label="Session Placement"
-                data={[
-                  { label: 'Default', value: '' },
-                  { label: 'Path', value: 'path' },
-                  { label: 'Query', value: 'query' },
-                  { label: 'Header', value: 'header' },
-                  { label: 'Cookie', value: 'cookie' },
-                ]}
+                data={XHTTP_PLACEMENT_OPTIONS}
                 value={formValues.sessionPlacement || undefined}
                 onChange={(val) => setValue('sessionPlacement', val || '')}
               />
               <Input label="Session Key" value={formValues.sessionKey} onChange={(e) => setValue('sessionKey', e.target.value)} />
               <Select
                 label="Seq Placement"
-                data={[
-                  { label: 'Default', value: '' },
-                  { label: 'Path', value: 'path' },
-                  { label: 'Query', value: 'query' },
-                  { label: 'Header', value: 'header' },
-                  { label: 'Cookie', value: 'cookie' },
-                ]}
+                data={XHTTP_PLACEMENT_OPTIONS}
                 value={formValues.seqPlacement || undefined}
                 onChange={(val) => setValue('seqPlacement', val || '')}
               />
               <Input label="Seq Key" value={formValues.seqKey} onChange={(e) => setValue('seqKey', e.target.value)} />
               <Select
                 label="Uplink Data Placement"
-                data={[
-                  { label: 'Default', value: '' },
-                  { label: 'Body', value: 'body' },
-                  { label: 'Header', value: 'header' },
-                  { label: 'Cookie', value: 'cookie' },
-                  { label: 'Auto', value: 'auto' },
-                ]}
+                data={XHTTP_UPLINK_DATA_PLACEMENT_OPTIONS}
                 value={formValues.uplinkDataPlacement || undefined}
                 onChange={(val) => setValue('uplinkDataPlacement', val || '')}
               />
               <Input label="Uplink Data Key" value={formValues.uplinkDataKey} onChange={(e) => setValue('uplinkDataKey', e.target.value)} />
               <Input label="Uplink Chunk Size" value={formValues.uplinkChunkSize} onChange={(e) => setValue('uplinkChunkSize', e.target.value)} />
               <div className="space-y-2">
-                <label className="text-sm font-medium">DownloadSettings JSON</label>
-                <Textarea value={formValues.downloadSettingsRaw} onChange={(e) => setValue('downloadSettingsRaw', e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">XMUX JSON</label>
-                <Textarea value={formValues.xmuxRaw} onChange={(e) => setValue('xmuxRaw', e.target.value)} />
-              </div>
-              <div className="space-y-2">
                 <label className="text-sm font-medium">Raw Extra JSON</label>
                 <Textarea value={formValues.xhttpExtra} onChange={(e) => setValue('xhttpExtra', e.target.value)} />
               </div>
             </div>
           </details>
-        </>
+        </div>
       )}
 
       {actionsPortal ? (
