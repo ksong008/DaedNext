@@ -723,6 +723,7 @@ export function useUpdateNodeMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
     },
   })
 }
