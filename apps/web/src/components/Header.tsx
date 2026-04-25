@@ -142,6 +142,10 @@ export function HeaderWithActions() {
   // Reload configuration function
   const reloadConfig = useCallback(() => {
     if (generalQuery?.general.dae.modified) {
+      console.info('[Reload] header reload clicked', {
+        modified: generalQuery.general.dae.modified,
+        pending: runMutation.isPending,
+      })
       runMutation.mutate(false)
     }
   }, [generalQuery, runMutation])
@@ -411,7 +415,7 @@ export function HeaderWithActions() {
                 size="icon"
                 className="rounded-full"
                 loading={runMutation.isPending}
-                onClick={() => runMutation.mutateAsync(false)}
+                onClick={reloadConfig}
               >
                 <RefreshCw className="h-5 w-5" />
               </Button>
