@@ -2,7 +2,6 @@ import type { MODE } from '~/constants'
 
 import type { GlobalInput, ImportArgument, Policy, PolicyParam } from '~/schemas/gql/graphql'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import {
   QUERY_KEY_CONFIG,
   QUERY_KEY_DNS,
@@ -873,12 +872,6 @@ export function useRunMutation() {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
-    },
-    onError: (err) => {
-      if ((err as { response?: { errors?: unknown[] } }).response?.errors?.length) {
-        return
-      }
-      toast.error(err instanceof Error ? err.message : 'Failed to reload configuration')
     },
   })
 }
