@@ -175,9 +175,10 @@ function generateV2rayLink(data: V2rayFormValues): string {
       host,
       headerType: type,
       sni,
-      flow,
       allowInsecure,
     }
+
+    if (flow !== 'none') params.flow = flow
 
     // Path handling based on network type
     if (net === 'grpc') {
