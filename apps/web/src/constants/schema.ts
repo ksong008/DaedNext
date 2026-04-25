@@ -64,6 +64,7 @@ export const ssSchema = z.object({
     'none',
     '2022-blake3-aes-128-gcm',
     '2022-blake3-aes-256-gcm',
+    '2022-blake3-chacha20-poly1305',
   ]),
   plugin: z.enum(['', 'simple-obfs', 'v2ray-plugin']),
   obfs: z.enum(['http', 'tls']),
@@ -100,7 +101,7 @@ export const ssSchema = z.object({
     })
   }
   if (data.type === 'ss2022') {
-    const expectedLen = data.method === '2022-blake3-aes-256-gcm' ? 32 : 16
+    const expectedLen = data.method === '2022-blake3-aes-128-gcm' ? 16 : 32
     const pskParts = data.password.split(':')
     if (pskParts.some((part) => part.length === 0)) {
       ctx.addIssue({

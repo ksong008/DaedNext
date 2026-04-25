@@ -77,6 +77,18 @@ describe('parseSSUrl', () => {
       name: 'my-ss2022',
     })
   })
+
+  it('should parse SS2022 chacha20 URL with plain userinfo', () => {
+    const result = parseSSUrl('ss://2022-blake3-chacha20-poly1305:MTIzNDU2Nzg5MDEyMzQ1NjEyMzQ1Njc4OTAxMjM0NTY%3D@example.com:8388#my-ss2022')
+    expect(result).toMatchObject({
+      type: 'ss2022',
+      method: '2022-blake3-chacha20-poly1305',
+      password: 'MTIzNDU2Nzg5MDEyMzQ1NjEyMzQ1Njc4OTAxMjM0NTY=',
+      server: 'example.com',
+      port: 8388,
+      name: 'my-ss2022',
+    })
+  })
 })
 
 describe('parseTrojanUrl', () => {
@@ -312,6 +324,7 @@ describe('parseV2rayUrl', () => {
     expect(result).toMatchObject({
       net: 'xhttp',
       xhttpMode: 'auto',
+      grpcMode: 'gun',
       xPaddingBytes: '100-200',
       xPaddingObfsMode: true,
       xPaddingHeader: 'X-Pad',
@@ -329,6 +342,21 @@ describe('parseV2rayUrl', () => {
 
     expect(result?.downloadSettingsRaw).toContain('"address": "example.net"')
     expect(result?.xmuxRaw).toContain('"maxConcurrency": "8-16"')
+  })
+
+  it('should keep xhttp mode out of grpc mode for form validation', () => {
+    const result = parseV2rayUrl(
+      'vless://uuid@example.com:443?type=xhttp&security=tls&path=%2Fxhttp&mode=packet-up&alpn=h3#xhttp',
+    )
+
+    expect(result).toMatchObject({
+      protocol: 'vless',
+      net: 'xhttp',
+      path: '/xhttp',
+      xhttpMode: 'packet-up',
+      grpcMode: 'gun',
+      alpn: 'h3',
+    })
   })
 })
 

@@ -562,7 +562,7 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
       host: params.get('host') || '',
       path: getPathValue(params, netType),
       // gRPC specific
-      grpcMode: (params.get('mode') || 'gun') as V2rayConfig['grpcMode'],
+      grpcMode: netType === 'grpc' ? ((params.get('mode') || 'gun') as V2rayConfig['grpcMode']) : 'gun',
       grpcAuthority: params.get('authority') || '',
       // XHTTP specific
       xhttpMode: netType === 'xhttp' ? params.get('mode') || '' : '',
@@ -726,7 +726,7 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       host: params.get('host') || '',
       path: getPathValue(params, netType),
       // gRPC specific
-      grpcMode: (params.get('mode') || 'gun') as V2rayConfig['grpcMode'],
+      grpcMode: netType === 'grpc' ? ((params.get('mode') || 'gun') as V2rayConfig['grpcMode']) : 'gun',
       grpcAuthority: params.get('authority') || '',
       // XHTTP specific
       xhttpMode: netType === 'xhttp' ? params.get('mode') || '' : '',
