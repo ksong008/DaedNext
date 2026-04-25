@@ -134,14 +134,14 @@ export function HeaderWithActions() {
 
   // Toggle running state function
   const toggleRunning = useCallback(() => {
-    if (generalQuery?.general.dae.running !== undefined) {
+    if (!runMutation.isPending && generalQuery?.general.dae.running !== undefined) {
       runMutation.mutate(!generalQuery.general.dae.running)
     }
   }, [generalQuery, runMutation])
 
   // Reload configuration function
   const reloadConfig = useCallback(() => {
-    if (generalQuery?.general.dae.modified) {
+    if (!runMutation.isPending && generalQuery?.general.dae.modified) {
       runMutation.mutate(false)
     }
   }, [generalQuery, runMutation])
@@ -410,6 +410,7 @@ export function HeaderWithActions() {
                 variant="ghost"
                 size="icon"
                 className="rounded-full"
+                disabled={runMutation.isPending}
                 loading={runMutation.isPending}
                 onClick={reloadConfig}
               >
@@ -423,10 +424,10 @@ export function HeaderWithActions() {
               size={matchSmallScreen ? 'xs' : 'md'}
               onLabel={<Wifi className="h-3 w-3" />}
               offLabel={<CloudOff className="h-3 w-3" />}
-              disabled={!generalQuery?.general.dae.running && runMutation.isPending}
+              disabled={runMutation.isPending}
               checked={generalQuery?.general.dae.running ?? false}
               onCheckedChange={(checked) => {
-                runMutation.mutateAsync(!checked)
+                if (!runMutation.isPending) runMutation.mutateAsync(!checked)
               }}
             />
           </SimpleTooltip>
