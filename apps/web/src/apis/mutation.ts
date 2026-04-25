@@ -2,7 +2,6 @@ import type { MODE } from '~/constants'
 
 import type { GlobalInput, ImportArgument, Policy, PolicyParam } from '~/schemas/gql/graphql'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import {
   QUERY_KEY_CONFIG,
   QUERY_KEY_DNS,
@@ -860,9 +859,8 @@ export function useRunMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (dry: boolean) => {
-      console.info('[Reload] run mutation request', { dry })
-      return gqlClient.request(
+    mutationFn: (dry: boolean) =>
+      gqlClient.request(
         graphql(`
           mutation Run($dry: Boolean!) {
             run(dry: $dry)
@@ -871,15 +869,9 @@ export function useRunMutation() {
         {
           dry,
         },
-      )
-    },
+      ),
     onSuccess: () => {
-      console.info('[Reload] run mutation succeeded')
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
-    },
-    onError: (error) => {
-      console.error('[Reload] run mutation failed', error)
-      toast.error((error as Error).message)
     },
   })
 }
