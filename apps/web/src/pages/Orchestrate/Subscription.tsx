@@ -292,7 +292,7 @@ function formatLatencyMeta(result?: NodeLatencyProbeResult) {
     return undefined
   }
   if (typeof result.latencyMs === 'number') {
-    return `${result.latencyMs}ms`
+    return result.message ? `${result.latencyMs}ms · ${result.message}` : `${result.latencyMs}ms`
   }
   if (result.message) {
     return result.message === 'no latency result' ? 'N/A' : 'Fail'

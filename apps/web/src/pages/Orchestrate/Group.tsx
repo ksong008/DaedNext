@@ -147,7 +147,9 @@ export function GroupResource({
       .filter((node) => !existingNodeIds.has(node.id))
       .map((node) => {
         const title = node.tag || node.name || node.address || node.id
-        const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
+        const description = [node.name && node.name !== title ? node.name : '', node.address]
+          .filter(Boolean)
+          .join(' · ')
 
         return {
           id: node.id,
@@ -177,7 +179,11 @@ export function GroupResource({
             id: node.id,
             title,
             description: description || undefined,
-            meta: [node.transport, t('groupPicker.fromSubscription', { name: subscriptionName }), formatLatencyMeta(nodeLatencies?.[node.id])]
+            meta: [
+              node.transport,
+              t('groupPicker.fromSubscription', { name: subscriptionName }),
+              formatLatencyMeta(nodeLatencies?.[node.id]),
+            ]
               .filter(Boolean)
               .join(' · '),
             metaTone: nodeLatencies?.[node.id] ? 'primary' : 'default',
@@ -214,7 +220,9 @@ export function GroupResource({
             protocol: node.protocol || undefined,
             transport: node.transport || undefined,
           })),
-          keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(Boolean) as string[],
+          keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(
+            Boolean,
+          ) as string[],
         }
       })
   }, [addingSubscriptionsGroup, subscriptions, t])
@@ -237,35 +245,32 @@ export function GroupResource({
     return sortedGroupIds.map((id) => groupMap.get(id)).filter(Boolean) as GroupsQuery['groups']
   }, [groups, sortedGroupIds])
 
-  const renderGroupCard = (
-    {
-      groupId,
-      name,
-      policy,
-      groupNodes,
-      groupSubscriptions,
-      dragHandleProps,
-      snapshot,
-    }: {
-      groupId: string
-      name: string
-      policy: string
-      groupNodes: GroupsQuery['groups'][number]['nodes']
-      groupSubscriptions: GroupsQuery['groups'][number]['subscriptions']
-      dragHandleProps?: DraggableProvidedDragHandleProps | null
-      snapshot?: DraggableStateSnapshot
-    },
-  ) => (
-    <div
-      data-group-card-id={groupId}
-      className={cn(snapshot?.isDragging && 'z-50 opacity-90')}
-    >
+  const renderGroupCard = ({
+    groupId,
+    name,
+    policy,
+    groupNodes,
+    groupSubscriptions,
+    dragHandleProps,
+    snapshot,
+  }: {
+    groupId: string
+    name: string
+    policy: string
+    groupNodes: GroupsQuery['groups'][number]['nodes']
+    groupSubscriptions: GroupsQuery['groups'][number]['subscriptions']
+    dragHandleProps?: DraggableProvidedDragHandleProps | null
+    snapshot?: DraggableStateSnapshot
+  }) => (
+    <div data-group-card-id={groupId} className={cn(snapshot?.isDragging && 'z-50 opacity-90')}>
       <DroppableGroupCard
         id={groupId}
         name={name}
         summary={
           <>
-            <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground/80">{policy}</span>
+            <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground/80">
+              {policy}
+            </span>
             <span>{t('groupPicker.nodesCount', { count: groupNodes.length })}</span>
             <span>{t('groupPicker.subscriptionGroupsCount', { count: groupSubscriptions.length })}</span>
           </>
@@ -340,27 +345,29 @@ export function GroupResource({
       <Droppable droppableId={GROUP_DROPPABLE_ID} type="GROUP">
         {(provided) => (
           <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-3">
-            {sortedGroups.map(({ id: groupId, name, policy, nodes: groupNodes, subscriptions: groupSubscriptions }, index) => (
-              <Draggable key={groupId} draggableId={`group-${groupId}`} index={index}>
-                {(draggableProvided, snapshot) => (
-                  <div
-                    ref={draggableProvided.innerRef}
-                    {...draggableProvided.draggableProps}
-                    style={getInstantDropStyle(draggableProvided, snapshot)}
-                  >
-                    {renderGroupCard({
-                      groupId,
-                      name,
-                      policy,
-                      groupNodes,
-                      groupSubscriptions,
-                      dragHandleProps: draggableProvided.dragHandleProps,
-                      snapshot,
-                    })}
-                  </div>
-                )}
-              </Draggable>
-            ))}
+            {sortedGroups.map(
+              ({ id: groupId, name, policy, nodes: groupNodes, subscriptions: groupSubscriptions }, index) => (
+                <Draggable key={groupId} draggableId={`group-${groupId}`} index={index}>
+                  {(draggableProvided, snapshot) => (
+                    <div
+                      ref={draggableProvided.innerRef}
+                      {...draggableProvided.draggableProps}
+                      style={getInstantDropStyle(draggableProvided, snapshot)}
+                    >
+                      {renderGroupCard({
+                        groupId,
+                        name,
+                        policy,
+                        groupNodes,
+                        groupSubscriptions,
+                        dragHandleProps: draggableProvided.dragHandleProps,
+                        snapshot,
+                      })}
+                    </div>
+                  )}
+                </Draggable>
+              ),
+            )}
             {provided.placeholder}
           </div>
         )}
@@ -416,7 +423,7 @@ function formatLatencyMeta(result?: NodeLatencyProbeResult) {
     return undefined
   }
   if (typeof result.latencyMs === 'number') {
-    return `${result.latencyMs}ms`
+    return result.message ? `${result.latencyMs}ms · ${result.message}` : `${result.latencyMs}ms`
   }
   if (result.message) {
     return result.message === 'no latency result' ? 'N/A' : 'Fail'

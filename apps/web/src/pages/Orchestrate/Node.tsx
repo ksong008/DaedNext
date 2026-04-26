@@ -154,7 +154,7 @@ export function NodeResource({
 
 function formatLatencyDisplay(result: NodeLatencyProbeResult, unavailableLabel: string) {
   if (typeof result.latencyMs === 'number') {
-    return `${result.latencyMs} ms`
+    return result.message ? `${result.latencyMs} ms · ${result.message}` : `${result.latencyMs} ms`
   }
   return result.message || unavailableLabel
 }

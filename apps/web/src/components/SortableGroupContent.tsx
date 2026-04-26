@@ -128,7 +128,11 @@ function GroupDropZone({
                   </Button>
                 </div>
 
-                {children.length > 0 ? children : <p className="py-3 text-center text-xs text-muted-foreground">{emptyLabel}</p>}
+                {children.length > 0 ? (
+                  children
+                ) : (
+                  <p className="py-3 text-center text-xs text-muted-foreground">{emptyLabel}</p>
+                )}
                 {provided.placeholder}
               </>
             )}
@@ -282,7 +286,10 @@ export function SortableGroupContent({
               <span>{t('groupPicker.subscriptionPreviewMatchedCount', { count: matchedCount })}</span>
               {matchedNodes.length > 0 && (
                 <span className="opacity-80">
-                  {matchedNodes.slice(0, 5).map((node) => node.name).join(', ')}
+                  {matchedNodes
+                    .slice(0, 5)
+                    .map((node) => node.name)
+                    .join(', ')}
                   {matchedNodes.length > 5 && ` +${matchedNodes.length - 5}`}
                 </span>
               )}
@@ -299,7 +306,7 @@ function formatLatencyMeta(result?: NodeLatencyProbeResult) {
     return undefined
   }
   if (typeof result.latencyMs === 'number') {
-    return `${result.latencyMs}ms`
+    return result.message ? `${result.latencyMs}ms · ${result.message}` : `${result.latencyMs}ms`
   }
   if (result.message) {
     return result.message === 'no latency result' ? 'N/A' : 'Fail'
