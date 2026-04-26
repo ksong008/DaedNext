@@ -9,7 +9,7 @@ import type { TrojanFormValues } from './ConfigureNodeFormModal/TrojanForm.tsx'
 import type { TuicFormValues } from './ConfigureNodeFormModal/TuicForm.tsx'
 import type { V2rayFormValues } from './ConfigureNodeFormModal/V2rayForm.tsx'
 import { parseNodeUrl } from '@daeuniverse/dae-node-parser'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTagNodeMutation, useUpdateNodeMutation } from '../apis/index.ts'
 import { AnyTLSForm } from './ConfigureNodeFormModal/AnyTLSForm.tsx'
@@ -97,12 +97,18 @@ export function EditNodeFormModal({ opened, onClose, node }: EditNodeFormModalPr
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setCurrentTag('')
+      setManualTab(null)
       onClose()
-    } else if (node) {
-      // Initialize tag when opening
-      setCurrentTag(node.tag || '')
     }
   }
+
+  useEffect(() => {
+    if (!opened || !node) return
+
+    // Reset modal-local editing state whenever a different node enters the dialog.
+    setCurrentTag(node.tag || '')
+    setManualTab(null)
+  }, [opened, node?.id, node?.tag])
 
   const onLinkGeneration = async (link: string) => {
     if (node) {
@@ -120,6 +126,7 @@ export function EditNodeFormModal({ opened, onClose, node }: EditNodeFormModalPr
       }
 
       setCurrentTag('')
+      setManualTab(null)
       onClose()
     }
   }
