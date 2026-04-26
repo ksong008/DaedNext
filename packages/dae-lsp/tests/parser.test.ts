@@ -319,6 +319,19 @@ describe('findAllReferences', () => {
     const refs = findAllReferences(references, 'mysub')
     expect(refs).toHaveLength(2)
   })
+
+  it('should filter references by kind when names overlap', () => {
+    const { references } = parseDocument(`routing {
+  subtag(shared) -> proxy
+  name(shared) -> direct
+}`)
+    const subscriptionRefs = findAllReferences(references, 'shared', 'subscription')
+    const nodeRefs = findAllReferences(references, 'shared', 'node')
+    expect(subscriptionRefs).toHaveLength(1)
+    expect(subscriptionRefs[0]?.kind).toBe('subscription')
+    expect(nodeRefs).toHaveLength(1)
+    expect(nodeRefs[0]?.kind).toBe('node')
+  })
 })
 
 // ---------------------------------------------------------------------------

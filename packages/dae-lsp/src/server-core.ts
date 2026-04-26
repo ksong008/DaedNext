@@ -101,6 +101,20 @@ function toLspRange(range: DaeRange): Range {
   )
 }
 
+function toReferenceKind(
+  kind: ParseResult['symbols'][number]['kind'] | undefined,
+): 'group' | 'subscription' | 'node' | 'upstream' | undefined {
+  switch (kind) {
+    case 'group':
+    case 'subscription':
+    case 'node':
+    case 'upstream':
+      return kind
+    default:
+      return undefined
+  }
+}
+
 /**
  * Convert completion item kind from string to LSP enum
  */
@@ -550,16 +564,34 @@ export function initializeServer(connection: Connection, documents: TextDocument
     const parseResult = getParsedDocument(document)
     const daePosition: DaePosition = { line: params.position.line, character: params.position.character }
 
-    const symbol = findSymbolAtPosition(parseResult.symbols, daePosition)
-    if (!symbol) return null
+    let symbol = findSymbolAtPosition(parseResult.symbols, daePosition)
+    let symbolName: string | undefined
+    let symbolKind: 'group' | 'subscription' | 'node' | 'upstream' | undefined
 
-    const references = findAllReferences(parseResult.references, symbol.name)
+    if (symbol) {
+      symbolName = symbol.name
+      symbolKind = toReferenceKind(symbol.kind)
+    } else {
+      const reference = findReferenceAtPosition(parseResult.references, daePosition)
+      if (reference) {
+        symbolName = reference.name
+        symbolKind = reference.kind
+        symbol = findSymbolByName(parseResult.symbols, reference.name, reference.kind)
+      }
+    }
+
+    if (!symbolName || !symbolKind) return null
+
+    const references = findAllReferences(parseResult.references, symbolName, symbolKind)
     const locations: Location[] = references.map((ref) =>
       Location.create(params.textDocument.uri, toLspRange(ref.range)),
     )
 
     if (params.context.includeDeclaration) {
-      locations.unshift(Location.create(params.textDocument.uri, toLspRange(symbol.nameRange)))
+      const definition = symbol ?? findSymbolByName(parseResult.symbols, symbolName, symbolKind)
+      if (definition) {
+        locations.unshift(Location.create(params.textDocument.uri, toLspRange(definition.nameRange)))
+      }
     }
 
     return locations.length > 0 ? locations : null
@@ -594,20 +626,23 @@ export function initializeServer(connection: Connection, documents: TextDocument
     // Try to find symbol at position first
     let symbol = findSymbolAtPosition(parseResult.symbols, daePosition)
     let symbolName: string | undefined
+    let symbolKind: 'group' | 'subscription' | 'node' | 'upstream' | undefined
 
     if (symbol) {
       symbolName = symbol.name
+      symbolKind = toReferenceKind(symbol.kind)
     } else {
       // If not on a symbol definition, check if on a reference
       const reference = findReferenceAtPosition(parseResult.references, daePosition)
       if (reference) {
         symbolName = reference.name
+        symbolKind = reference.kind
         // Find the original symbol definition
         symbol = findSymbolByName(parseResult.symbols, reference.name, reference.kind)
       }
     }
 
-    if (!symbolName) return null
+    if (!symbolName || !symbolKind) return null
 
     const edits: TextEdit[] = []
 
@@ -617,7 +652,7 @@ export function initializeServer(connection: Connection, documents: TextDocument
     }
 
     // Add edits for all references
-    const references = findAllReferences(parseResult.references, symbolName)
+    const references = findAllReferences(parseResult.references, symbolName, symbolKind)
     for (const ref of references) {
       edits.push(TextEdit.replace(toLspRange(ref.range), params.newName))
     }

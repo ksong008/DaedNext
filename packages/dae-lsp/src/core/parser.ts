@@ -232,6 +232,9 @@ export function parseDocument(text: string): ParseResult {
         const value = content.substring(colonIdx + 1).trim()
         const nameStart = line.indexOf(name)
         const parent = symbolStack.at(-1)
+        if (!parent) {
+          continue
+        }
 
         // Determine the kind based on parent section
         let kind: Symbol['kind'] = 'parameter'
@@ -501,6 +504,9 @@ function getSectionKind(name: string, stack: Symbol[]): Symbol['kind'] {
   }
   if (stack.length > 0) {
     const parent = stack.at(-1)
+    if (!parent) {
+      return 'group'
+    }
     if (parent.name === 'group') {
       return 'group'
     }
