@@ -58,6 +58,100 @@ export function useSetModeMutation() {
   })
 }
 
+export function useEnsureDefaultResourcesMutation() {
+  const gqlClient = useGQLQueryClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({
+      configName,
+      global,
+      dnsName,
+      dns,
+      routingName,
+      routing,
+      groupName,
+      policy,
+      policyParams,
+      mode,
+    }: {
+      configName: string
+      global: GlobalInput
+      dnsName: string
+      dns: string
+      routingName: string
+      routing: string
+      groupName: string
+      policy: Policy
+      policyParams: PolicyParam[]
+      mode: string
+    }) =>
+      gqlClient.request<{
+        ensureDefaultResources: {
+          defaultConfigID: string
+          defaultRoutingID: string
+          defaultDNSID: string
+          defaultGroupID: string
+          mode: string
+        }
+      }>(
+        `
+          mutation EnsureDefaultResources(
+            $configName: String!
+            $global: globalInput!
+            $dnsName: String!
+            $dns: String!
+            $routingName: String!
+            $routing: String!
+            $groupName: String!
+            $policy: Policy!
+            $policyParams: [PolicyParam!]
+            $mode: String!
+          ) {
+            ensureDefaultResources(
+              configName: $configName
+              global: $global
+              dnsName: $dnsName
+              dns: $dns
+              routingName: $routingName
+              routing: $routing
+              groupName: $groupName
+              policy: $policy
+              policyParams: $policyParams
+              mode: $mode
+            ) {
+              defaultConfigID
+              defaultRoutingID
+              defaultDNSID
+              defaultGroupID
+              mode
+            }
+          }
+        `,
+        {
+          configName,
+          global,
+          dnsName,
+          dns,
+          routingName,
+          routing,
+          groupName,
+          policy,
+          policyParams,
+          mode,
+        },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_STORAGE })
+    },
+  })
+}
+
 export function useCreateConfigMutation() {
   const gqlClient = useGQLQueryClient()
   const queryClient = useQueryClient()
@@ -808,10 +902,7 @@ export function useTestNodeLatenciesMutation() {
 
   return useMutation({
     mutationFn: async (ids?: string[]) => {
-      const data = await gqlClient.request<
-        { testNodeLatencies: NodeLatencyProbeResult[] },
-        { ids?: string[] }
-      >(
+      const data = await gqlClient.request<{ testNodeLatencies: NodeLatencyProbeResult[] }, { ids?: string[] }>(
         `
           mutation TestNodeLatencies($ids: [ID!]) {
             testNodeLatencies(ids: $ids) {

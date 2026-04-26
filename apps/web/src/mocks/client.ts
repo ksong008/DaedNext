@@ -104,6 +104,15 @@ const mockHandlers: Record<string, (variables?: Variables) => unknown> = {
   Run: () => ({ run: true }),
   SetJsonStorage: () => ({ setJsonStorage: true }),
   SetMode: () => ({ setJsonStorage: true }),
+  EnsureDefaultResources: () => ({
+    ensureDefaultResources: {
+      defaultConfigID: MOCK_DEFAULT_IDS.defaultConfigID,
+      defaultRoutingID: MOCK_DEFAULT_IDS.defaultRoutingID,
+      defaultDNSID: MOCK_DEFAULT_IDS.defaultDNSID,
+      defaultGroupID: MOCK_DEFAULT_IDS.defaultGroupID,
+      mode: 'rule',
+    },
+  }),
 
   UpdateAvatar: () => ({ updateAvatar: true }),
   UpdateName: () => ({ updateName: true }),
