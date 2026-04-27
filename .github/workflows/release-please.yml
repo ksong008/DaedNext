@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
@@ -24,19 +26,20 @@ jobs:
   release-please:
     runs-on: macos-latest
     outputs:
-      tag_name: ${{ steps.release.outputs['apps/web--tag_name'] || github.event.inputs.tag_name }}
-      release_created: ${{ steps.release.outputs['apps/web--release_created'] || (github.event_name == 'workflow_dispatch' && 'true') }}
+      tag_name: ${{ steps.release.outputs['apps/web--tag_name'] || (github.ref_type == 'tag' && github.ref_name) || inputs.tag_name }}
+      release_created: ${{ steps.release.outputs['apps/web--release_created'] || (github.ref_type == 'tag' && 'true') || (github.event_name == 'workflow_dispatch' && 'true') || 'false' }}
+      publish_extras: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.release.outputs['apps/web--release_created'] == 'true') && 'true' || 'false' }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   # Update screenshots when a new release is created
   update-screenshots:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.publish_extras == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -149,7 +152,7 @@ jobs:
   # Publish GitHub Pages when a new release is created
   publish-gh-pages:
     needs: [release-please, build-web]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.publish_extras == 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/download-artifact@v8
@@ -412,6 +415,21 @@ jobs:
           echo "Show files are going to upload..."
           ls -lh | grep -E ".deb|.pkg.tar.zst|.rpm|.zip"
 
+      - name: Ensure GitHub release exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists"
+            exit 0
+          fi
+
+          gh release create "$TAG_NAME" --verify-tag --generate-notes
+
       - name: Upload Release
         shell: bash
         env:
@@ -441,7 +459,7 @@ jobs:
   # Publish container image when release is created
   publish-container-image:
     needs: [release-please, build-web]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.publish_extras == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
