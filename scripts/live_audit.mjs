@@ -451,7 +451,7 @@ async function main() {
   await importDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
     const data = await apiJson('/nodes')
-    return data.totalCount === initialNodeCount + 1 && data.edges?.some((item) => item.tag === uiNodeTag) ? data : null
+    return data.totalCount === initialNodeCount + 1 && data.items?.some((item) => item.tag === uiNodeTag) ? data : null
   }, 'ui-imported node to appear')
   console.log('[audit] node import flow passed')
   const updatedNodeTag = `edited-${uiNodeTag}`
@@ -464,7 +464,7 @@ async function main() {
   await editNodeDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
     const data = await apiJson('/nodes')
-    return data.edges?.some((item) => item.tag === updatedNodeTag && item.address === '127.0.0.2:8081') ? data : null
+    return data.items?.some((item) => item.tag === updatedNodeTag && item.address === '127.0.0.2:8081') ? data : null
   }, 'edited node tag to appear')
   console.log('[audit] node edit flow passed')
   const updatedNodeCard = nodeSection.locator('div.group.relative.bg-card').filter({ hasText: updatedNodeTag }).first()
@@ -475,7 +475,7 @@ async function main() {
     .click()
   await waitFor(async () => {
     const data = await apiJson('/nodes')
-    return data.totalCount === initialNodeCount && data.edges?.every((item) => item.tag !== updatedNodeTag)
+    return data.totalCount === initialNodeCount && data.items?.every((item) => item.tag !== updatedNodeTag)
       ? data
       : null
   }, 'ui-imported node to be removed')
