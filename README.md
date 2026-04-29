@@ -135,7 +135,6 @@ pnpm dev
 | `pnpm dev`     | Start development server |
 | `pnpm build`   | Build for production     |
 | `pnpm lint`    | Lint and fix code        |
-| `pnpm codegen` | Generate GraphQL types   |
 
 ## 🤝 Contributing
 

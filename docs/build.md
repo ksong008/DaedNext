@@ -32,27 +32,6 @@ This will:
 3. Compile the Go backend with embedded frontend
 4. Output the `daed` binary
 
----
-
-## 🛠️ Advanced: Custom GraphQL Schema
-
-> ⚠️ **For Development Only** — Skip this if you're not modifying the GraphQL schema.
-
-By default, GraphQL type definitions and API bindings are generated automatically. To use a custom schema:
-
-```bash
-# From a GraphQL endpoint
-SCHEMA_PATH=https://example.com/graphql pnpm codegen
-
-# From a local schema file
-SCHEMA_PATH=/path/to/schema.graphql pnpm codegen
-
-# Watch mode for development
-SCHEMA_PATH=/path/to/schema.graphql pnpm codegen --watch
-```
-
----
-
 ## ▶️ Run the Binary
 
 ```bash

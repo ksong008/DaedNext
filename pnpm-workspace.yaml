@@ -10,11 +10,6 @@ catalog:
   '@eslint-react/eslint-plugin': ^4.2.3
   '@fontsource/fira-sans': ^5.2.7
   '@fontsource/source-code-pro': ^5.2.7
-  '@graphiql/toolkit': ^0.11.3
-  '@graphql-codegen/cli': 6.2.1
-  '@graphql-codegen/client-preset': 5.2.4
-  '@graphql-codegen/introspection': 5.0.1
-  '@graphql-typed-document-node/core': ^3.2.0
   '@hello-pangea/dnd': ^18.0.1
   '@hookform/resolvers': ^5.2.2
   '@monaco-editor/react': next
@@ -73,9 +68,6 @@ catalog:
   execa: ^9.6.1
   framer-motion: ^12.38.0
   globals: ^17.4.0
-  graphiql: ^5.2.2
-  graphql: ^16.13.2
-  graphql-request: ^7.4.0
   husky: ^9.1.7
   i18next: ^26.0.3
   i18next-browser-languagedetector: ^8.2.1

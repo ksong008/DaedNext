@@ -548,7 +548,6 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
     const netType = params.get('type') || 'tcp'
 
     return {
-      protocol: 'vmess',
       id: decodeURIComponent(parsed.username),
       add: parsed.hostname,
       port: parsed.port ? Number.parseInt(parsed.port, 10) : 443,
@@ -568,6 +567,7 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
       xhttpMode: netType === 'xhttp' ? params.get('mode') || '' : '',
       xhttpExtra: params.get('extra') || '',
       ...parseXhttpExtra(params.get('extra') || ''),
+      protocol: 'vmess',
       // TLS fields
       tls: (params.get('security') || 'none') as V2rayConfig['tls'],
       fp: params.get('fp') || '',
@@ -712,7 +712,6 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
     const netType = params.get('type') || 'tcp'
 
     return {
-      protocol: 'vless',
       id: decodeURIComponent(parsed.username),
       add: parsed.hostname,
       port: parsed.port ? Number.parseInt(parsed.port, 10) : 443,
@@ -732,6 +731,7 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       xhttpMode: netType === 'xhttp' ? params.get('mode') || '' : '',
       xhttpExtra: params.get('extra') || '',
       ...parseXhttpExtra(params.get('extra') || ''),
+      protocol: 'vless',
       // TLS fields (4.4)
       tls: (params.get('security') || 'none') as V2rayConfig['tls'],
       fp: params.get('fp') || '',

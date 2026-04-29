@@ -1,4 +1,4 @@
-import type { ConfigsQuery } from '~/schemas/gql/graphql'
+import type { ConfigsQuery } from '~/apis/types'
 import {
   ArrowDownToLine,
   ArrowUpFromLine,

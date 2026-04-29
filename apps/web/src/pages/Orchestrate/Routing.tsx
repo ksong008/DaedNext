@@ -1,5 +1,5 @@
 import type { RoutingFormModalRef } from '~/components/RoutingFormModal'
-import type { RoutingsQuery } from '~/schemas/gql/graphql'
+import type { RoutingsQuery } from '~/apis/types'
 import { useStore } from '@nanostores/react'
 import { Map, Settings2 } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'

@@ -1,9 +1,5 @@
-/**
- * Mock GraphQL Client
- * Intercepts GraphQL requests and returns mock data in mock mode
- */
+import type { APIClientInterface, APIQueryValue } from '~/apis/client'
 
-import type { RequestDocument, Variables } from 'graphql-request'
 import {
   isMockMode,
   MOCK_DEFAULT_IDS,
@@ -11,187 +7,293 @@ import {
   mockDNSs,
   mockGeneral,
   mockGroups,
-  mockJsonStorage,
   mockNodes,
   mockRoutings,
   mockSubscriptions,
   mockUser,
 } from './data'
 
-// Extract operation name from GraphQL query
-function getOperationName(document: RequestDocument): string {
-  if (typeof document === 'string') {
-    const match = document.match(/(?:query|mutation)\s+(\w+)/)
-    return match?.[1] ?? ''
+type QueryRecord = Record<string, APIQueryValue>
+
+const mockStorage = new Map<string, string>([
+  ['mode', 'rule'],
+  ['defaultConfigID', MOCK_DEFAULT_IDS.defaultConfigID],
+  ['defaultRoutingID', MOCK_DEFAULT_IDS.defaultRoutingID],
+  ['defaultDNSID', MOCK_DEFAULT_IDS.defaultDNSID],
+  ['defaultGroupID', MOCK_DEFAULT_IDS.defaultGroupID],
+])
+
+export class MockAPIClient implements APIClientInterface {
+  constructor(private readonly endpoint: string) {}
+
+  get<T>(path: string, query?: QueryRecord): Promise<T> {
+    return this.handle<T>('GET', path, undefined, query)
   }
 
-  // Handle TypedDocumentNode objects
-  if (typeof document === 'object' && document !== null) {
-    const doc = document as { definitions?: Array<{ name?: { value?: string } }> }
-    const operationDef = doc.definitions?.[0]
-    return operationDef?.name?.value ?? ''
+  post<T>(path: string, body?: unknown, query?: QueryRecord): Promise<T> {
+    return this.handle<T>('POST', path, body, query)
   }
 
-  return ''
-}
-
-// Mock response handlers mapped by operation name
-const mockHandlers: Record<string, (variables?: Variables) => unknown> = {
-  // Queries
-  General: () => mockGeneral,
-  Configs: () => mockConfigs,
-  Nodes: () => mockNodes,
-  Subscriptions: () => mockSubscriptions,
-  Groups: () => mockGroups,
-  Routings: () => mockRoutings,
-  DNSs: () => mockDNSs,
-  User: () => mockUser,
-  JsonStorage: () => mockJsonStorage,
-  Defaults: () => mockJsonStorage,
-  Mode: () => ({ jsonStorage: ['rule'] }),
-  Interfaces: () => ({
-    general: {
-      interfaces: mockGeneral.general.interfaces,
-    },
-  }),
-
-  // Mutations - return success responses
-  CreateConfig: () => ({ createConfig: { id: `config-${Date.now()}` } }),
-  UpdateConfig: () => ({ updateConfig: { id: 'config-1' } }),
-  RemoveConfig: () => ({ removeConfig: true }),
-  SelectConfig: () => ({ selectConfig: true }),
-  RenameConfig: () => ({ renameConfig: true }),
-
-  CreateRouting: () => ({ createRouting: { id: `routing-${Date.now()}` } }),
-  UpdateRouting: () => ({ updateRouting: { id: 'routing-1' } }),
-  RemoveRouting: () => ({ removeRouting: true }),
-  SelectRouting: () => ({ selectRouting: true }),
-  RenameRouting: () => ({ renameRouting: true }),
-
-  CreateDNS: () => ({ createDns: { id: `dns-${Date.now()}` } }),
-  UpdateDNS: () => ({ updateDns: { id: 'dns-1' } }),
-  RemoveDNS: () => ({ removeDns: true }),
-  SelectDNS: () => ({ selectDns: true }),
-  RenameDNS: () => ({ renameDns: true }),
-
-  CreateGroup: () => ({ createGroup: { id: `group-${Date.now()}` } }),
-  RemoveGroup: () => ({ removeGroup: true }),
-  RenameGroup: () => ({ renameGroup: true }),
-  GroupSetPolicy: () => ({ groupSetPolicy: true }),
-  GroupAddNodes: () => ({ groupAddNodes: true }),
-  GroupDelNodes: () => ({ groupDelNodes: true }),
-  GroupAddSubscriptions: () => ({ groupAddSubscriptions: true }),
-  GroupDelSubscriptions: () => ({ groupDelSubscriptions: true }),
-
-  ImportNodes: () => ({
-    importNodes: [{ link: 'vmess://xxx', error: null, node: { id: `node-${Date.now()}` } }],
-  }),
-  RemoveNodes: () => ({ removeNodes: true }),
-  UpdateNode: () => ({
-    updateNode: { id: 'node-1', name: 'Updated Node', tag: 'updated', link: 'vmess://xxx' },
-  }),
-
-  ImportSubscription: () => ({
-    importSubscription: {
-      link: 'https://example.com/sub',
-      sub: { id: `sub-${Date.now()}` },
-      nodeImportResult: [{ node: { id: `node-${Date.now()}` } }],
-    },
-  }),
-  UpdateSubscription: () => ({ updateSubscription: { id: 'sub-1' } }),
-  RemoveSubscriptions: () => ({ removeSubscriptions: true }),
-
-  Run: () => ({ run: true }),
-  SetJsonStorage: () => ({ setJsonStorage: true }),
-  SetMode: () => ({ setJsonStorage: true }),
-  EnsureDefaultResources: () => ({
-    ensureDefaultResources: {
-      defaultConfigID: MOCK_DEFAULT_IDS.defaultConfigID,
-      defaultRoutingID: MOCK_DEFAULT_IDS.defaultRoutingID,
-      defaultDNSID: MOCK_DEFAULT_IDS.defaultDNSID,
-      defaultGroupID: MOCK_DEFAULT_IDS.defaultGroupID,
-      mode: 'rule',
-    },
-  }),
-
-  UpdateAvatar: () => ({ updateAvatar: true }),
-  UpdateName: () => ({ updateName: true }),
-  UpdatePassword: () => ({ updatePassword: 'mock-token' }),
-}
-
-/**
- * Mock GraphQL Client class that mimics graphql-request's GraphQLClient
- */
-export class MockGraphQLClient {
-  url: string
-  requestConfig: Record<string, unknown> = {}
-
-  constructor(
-    endpoint: string,
-    _options?: { headers?: Record<string, string>; responseMiddleware?: (response: unknown) => void },
-  ) {
-    // Mock client stores endpoint for compatibility
-    this.url = endpoint
+  put<T>(path: string, body?: unknown, query?: QueryRecord): Promise<T> {
+    return this.handle<T>('PUT', path, body, query)
   }
 
-  // Mock rawRequest to match GraphQLClient interface
-  async rawRequest<T>(): Promise<{ data: T; extensions?: unknown; headers: Headers; status: number }> {
-    throw new Error('rawRequest not implemented in mock client')
+  patch<T>(path: string, body?: unknown, query?: QueryRecord): Promise<T> {
+    return this.handle<T>('PATCH', path, body, query)
   }
 
-  // Mock batchRequests to match GraphQLClient interface
-  async batchRequests(): Promise<unknown[]> {
-    throw new Error('batchRequests not implemented in mock client')
+  delete<T>(path: string, body?: unknown, query?: QueryRecord): Promise<T> {
+    return this.handle<T>('DELETE', path, body, query)
   }
 
-  // Mock setEndpoint to match GraphQLClient interface
-  setEndpoint(value: string): this {
-    this.url = value
-    return this
-  }
+  private async handle<T>(method: string, rawPath: string, body?: unknown, query?: QueryRecord): Promise<T> {
+    await new Promise((resolve) => setTimeout(resolve, 20))
 
-  // Mock setHeader to match GraphQLClient interface
-  setHeader(_key: string, _value: string): this {
-    return this
-  }
+    const path = rawPath.replace(this.endpoint, '').replace(/^https?:\/\/[^/]+/, '')
 
-  // Mock setHeaders to match GraphQLClient interface
-  setHeaders(_headers: Record<string, string>): this {
-    return this
-  }
-
-  async request<T>(document: RequestDocument, variables?: Variables): Promise<T> {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 100))
-
-    const operationName = getOperationName(document)
-    const handler = mockHandlers[operationName]
-
-    if (handler) {
-      return handler(variables) as T
+    switch (`${method} ${path}`) {
+      case 'GET /auth/status':
+        return { numberUsers: 1 } as T
+      case 'POST /auth/token':
+      case 'POST /auth/users':
+        return { token: 'mock-token' } as T
+      case 'GET /health':
+        return { healthCheck: 1 } as T
+      case 'GET /user/me':
+        return mockUser.user as T
+      case 'GET /general/state':
+        return mockGeneral.general.dae as T
+      case 'GET /general/schema':
+        return { openapi: '3.1.0', info: { title: 'mock' } } as T
+      case 'GET /general/interfaces':
+        return {
+          items: mockGeneral.general.interfaces.map((iface) => ({
+            name: iface.name,
+            ifindex: iface.ifindex,
+            ip: iface.ip,
+            flag: iface.flag,
+          })),
+        } as T
+      case 'GET /runtime/overview':
+        return {
+          updatedAt: new Date().toISOString(),
+          uploadRate: '0',
+          downloadRate: '0',
+          uploadTotal: '0',
+          downloadTotal: '0',
+          activeConnections: 0,
+          udpSessions: 0,
+          rssBytes: '0',
+          heapAllocBytes: '0',
+          goroutines: 0,
+          samples: [],
+        } as T
+      case 'GET /nodes/latencies':
+      case 'POST /nodes/latencies':
+        return { items: [] } as T
+      case 'GET /nodes':
+        return {
+          items: mockNodes.nodes.edges,
+          edges: mockNodes.nodes.edges,
+          totalCount: mockNodes.nodes.edges.length,
+          pageInfo: { startCursor: null, endCursor: null, hasNextPage: false },
+        } as T
+      case 'GET /subscriptions':
+        return {
+          items: mockSubscriptions.subscriptions.map((subscription) => ({
+            id: numericID(subscription.id),
+            tag: subscription.tag,
+            status: subscription.status,
+            link: subscription.link,
+            info: subscription.info,
+            updatedAt: subscription.updatedAt,
+            cronExp: subscription.cronExp,
+            cronEnable: subscription.cronEnable,
+            nodeCount: subscription.nodes.edges.length,
+          })),
+        } as T
+      case 'GET /groups':
+        return {
+          items: mockGroups.groups.map((group) => ({
+            id: numericID(group.id),
+            name: group.name,
+            policy: group.policy,
+            policyParams: group.policyParams,
+            nodes: group.nodes.map((node) => ({
+              id: numericID(node.id),
+              link: node.link,
+              name: node.name,
+              address: node.address,
+              protocol: node.protocol,
+              tag: node.tag,
+              subscriptionId: node.subscriptionID ? numericID(node.subscriptionID) : null,
+            })),
+            subscriptions: group.subscriptions.map((binding) => ({
+              subscriptionId: numericID(binding.subscription.id),
+              nameFilterRegex: binding.nameFilterRegex,
+              matchedCount: binding.matchedCount,
+              matchedNodes: binding.matchedNodes.map((node) => ({
+                id: numericID(node.id),
+                link: node.link,
+                name: node.name,
+                address: node.address,
+                protocol: node.protocol,
+                tag: node.tag,
+                subscriptionId: node.subscriptionID ? numericID(node.subscriptionID) : null,
+              })),
+              updatedAt: binding.subscription.updatedAt,
+              status: binding.subscription.status,
+              info: binding.subscription.info,
+              link: binding.subscription.link,
+              tag: binding.subscription.tag,
+            })),
+          })),
+        } as T
+      case 'GET /routings':
+        return {
+          items: mockRoutings.routings.map((routing) => ({
+            id: numericID(routing.id),
+            name: routing.name,
+            selected: routing.selected,
+            parsedRouting: routing.routing,
+          })),
+        } as T
+      case 'GET /dns':
+        return {
+          items: mockDNSs.dnss.map((dns) => ({
+            id: numericID(dns.id),
+            name: dns.name,
+            selected: dns.selected,
+            parsedDns: dns.dns,
+          })),
+        } as T
+      case 'GET /configs':
+        return {
+          items: mockConfigs.configs.map((config) => ({
+            id: numericID(config.id),
+            name: config.name,
+            selected: config.selected,
+            parsedGlobal: config.global,
+          })),
+        } as T
     }
 
-    // Default response for unknown operations
-    console.warn(`[Mock] Unknown operation: ${operationName}`)
-    return { message: 'OK' } as T
+    if (method === 'GET' && path.startsWith('/subscriptions/') && path.endsWith('/nodes')) {
+      const id = path.split('/')[2]
+      const subscription = mockSubscriptions.subscriptions.find((item) => item.id === id)
+      return {
+        items: subscription?.nodes.edges || [],
+        edges: subscription?.nodes.edges || [],
+        totalCount: subscription?.nodes.edges.length || 0,
+        pageInfo: { startCursor: null, endCursor: null, hasNextPage: false },
+      } as T
+    }
+
+    if (method === 'GET' && path.startsWith('/groups/by-name/')) {
+      const name = decodeURIComponent(path.split('/').slice(3).join('/'))
+      const group = mockGroups.groups.find((item) => item.name === name)
+      return {
+        id: numericID(group?.id || '0'),
+        name: group?.name || name,
+      } as T
+    }
+
+    if (method === 'GET' && path.startsWith('/user/me/storage')) {
+      const paths = toQueryArray(query?.path)
+      return { values: paths.map((pathKey) => mockStorage.get(pathKey) || '') } as T
+    }
+
+    if (method === 'POST' && path === '/user/me/default-resources') {
+      const payload = body as { mode?: string }
+      if (payload.mode) {
+        mockStorage.set('mode', payload.mode)
+      }
+      return {
+        defaultConfigID: mockStorage.get('defaultConfigID') || '',
+        defaultRoutingID: mockStorage.get('defaultRoutingID') || '',
+        defaultDNSID: mockStorage.get('defaultDNSID') || '',
+        defaultGroupID: mockStorage.get('defaultGroupID') || '',
+        mode: mockStorage.get('mode') || 'rule',
+      } as T
+    }
+
+    if (method === 'PUT' && path === '/user/me/storage') {
+      const payload = body as { paths?: string[]; values?: string[] }
+      for (let index = 0; index < (payload.paths?.length || 0); index++) {
+        const pathKey = payload.paths?.[index]
+        const value = payload.values?.[index]
+        if (pathKey && value != null) {
+          mockStorage.set(pathKey, value)
+        }
+      }
+      return { updated: payload.paths?.length || 0 } as T
+    }
+
+    if (method === 'PATCH' && path === '/user/me') {
+      return {
+        username: (body as { username?: string }).username || mockUser.user.username,
+        name: (body as { name?: string }).name || mockUser.user.name,
+        avatar: (body as { avatar?: string }).avatar || mockUser.user.avatar,
+      } as T
+    }
+
+    if (method === 'POST' && path === '/user/me/password') {
+      return { token: 'mock-token' } as T
+    }
+
+    if (method === 'POST' && path === '/runtime/reload') {
+      return { applied: 1, dry: (body as { dry?: boolean })?.dry || false } as T
+    }
+
+    if (method === 'POST' && (path.endsWith('/select') || path.endsWith('/refresh'))) {
+      return { applied: 1, selectedId: 1, id: 1 } as T
+    }
+
+    if (method === 'DELETE' && (path === '/nodes' || path === '/subscriptions')) {
+      return { removed: 1 } as T
+    }
+
+    if (method === 'DELETE') {
+      return undefined as T
+    }
+
+    if (method === 'POST' && path === '/nodes') {
+      return { items: [{ link: 'mock-link', node: { id: Date.now() } }] } as T
+    }
+
+    if (method === 'POST' && path === '/subscriptions') {
+      return {
+        link: 'https://example.com/sub',
+        subscription: { id: Date.now() },
+        nodeImportResult: [{ node: { id: Date.now() + 1 } }],
+      } as T
+    }
+
+    if (method === 'POST') {
+      return { id: Date.now() } as T
+    }
+
+    if (method === 'PUT') {
+      return { id: 1 } as T
+    }
+
+    throw new Error(`Mock API not implemented: ${method} ${path}`)
   }
 }
 
-/**
- * Create a GraphQL client - returns mock client in mock mode
- */
-export function createGraphQLClient(
-  endpoint: string,
-  options?: { headers?: Record<string, string>; responseMiddleware?: (response: unknown) => void },
-) {
-  if (isMockMode()) {
-    return new MockGraphQLClient(endpoint, options)
+function toQueryArray(value: APIQueryValue): string[] {
+  if (Array.isArray(value)) {
+    return value.map(String)
   }
-
-  // Import real GraphQLClient only when not in mock mode
-  // This is handled by the caller (contexts/index.tsx)
-  throw new Error('createGraphQLClient should only be called in mock mode')
+  if (value == null) {
+    return []
+  }
+  return [String(value)]
 }
 
-// Export for use in detecting mock mode
+function numericID(value: string | number): number {
+  const match = String(value).match(/(\d+)/)
+  return match ? Number.parseInt(match[1], 10) : 0
+}
+
 export { isMockMode, MOCK_DEFAULT_IDS }

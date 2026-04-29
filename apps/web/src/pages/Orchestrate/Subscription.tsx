@@ -1,5 +1,5 @@
 import type { QRCodeModalRef } from '~/components/QRCodeModal'
-import type { SubscriptionsQuery } from '~/schemas/gql/graphql'
+import type { SubscriptionsQuery } from '~/apis/types'
 import { Droppable } from '@hello-pangea/dnd'
 import dayjs from 'dayjs'
 import { CloudCog, CloudUpload, Download, Eye, Gauge, Pencil } from 'lucide-react'

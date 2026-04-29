@@ -1,4 +1,4 @@
-import type { GlobalInput } from '~/schemas/gql/graphql'
+import type { GlobalInput } from '~/apis/types'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useCallback, useImperativeHandle, useMemo, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
@@ -220,6 +220,14 @@ export function ConfigFormDrawer({
   const updateConfigMutation = useUpdateConfigMutation()
 
   const onSubmit = async (data: FormValues) => {
+    const {
+      name,
+      logLevelNumber,
+      checkIntervalSeconds,
+      checkToleranceMS,
+      sniffingTimeoutMS,
+      ...globalFields
+    } = data
     const logLevel = logLevelSteps[data.logLevelNumber][1]
 
     const global: GlobalInput = {
@@ -227,7 +235,7 @@ export function ConfigFormDrawer({
       checkInterval: `${data.checkIntervalSeconds}s`,
       checkTolerance: `${data.checkToleranceMS}ms`,
       sniffingTimeout: `${data.sniffingTimeoutMS}ms`,
-      ...data,
+      ...globalFields,
     }
 
     if (editingID) {
@@ -237,7 +245,7 @@ export function ConfigFormDrawer({
       })
     } else {
       await createConfigMutation.mutateAsync({
-        name: data.name,
+        name,
         global,
       })
     }

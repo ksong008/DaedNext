@@ -1,4 +1,4 @@
-import type { GQLClientInterface } from '~/contexts'
+import { parseNodeUrl } from '@daeuniverse/dae-node-parser'
 import { useQuery } from '@tanstack/react-query'
 
 import {
@@ -6,51 +6,174 @@ import {
   QUERY_KEY_DNS,
   QUERY_KEY_GENERAL,
   QUERY_KEY_GROUP,
-  QUERY_KEY_NODE_LATENCY,
   QUERY_KEY_NODE,
+  QUERY_KEY_NODE_LATENCY,
   QUERY_KEY_ROUTING,
   QUERY_KEY_STORAGE,
   QUERY_KEY_SUBSCRIPTION,
   QUERY_KEY_TRAFFIC,
   QUERY_KEY_USER,
 } from '~/constants'
-import { useGQLQueryClient } from '~/contexts'
-import { graphql } from '~/schemas/gql'
-import type { GroupsQuery, NodesQuery } from '~/schemas/gql/graphql'
-import type { NodeLatencyProbeResult } from './mutation'
+import { useAPIClient } from '~/contexts'
 
-export function getModeRequest(gqlClient: GQLClientInterface) {
-  return async () => {
-    const { jsonStorage } = await gqlClient.request(
-      graphql(`
-        query Mode($paths: [String!]) {
-          jsonStorage(paths: $paths)
-        }
-      `),
-      {
-        paths: ['mode'],
-      },
-    )
+import type { APIClientInterface } from './client'
+import type {
+  ConfigGlobal,
+  ConfigsQuery,
+  DNSsQuery,
+  DNSView,
+  GeneralQuery,
+  GroupResource,
+  GroupsQuery,
+  InterfaceResource,
+  NodeLatencyProbeResult,
+  NodeResource,
+  NodesConnection,
+  NodesQuery,
+  PageInfo,
+  RoutingsQuery,
+  RoutingView,
+  SubscriptionResource,
+  SubscriptionsQuery,
+  TrafficOverviewQueryData,
+  UserQuery,
+} from './types'
 
-    return jsonStorage[0]
+type JSONStorageResponse = {
+  values: string[]
+}
+
+type GeneralStateAPI = {
+  running: boolean
+  modified: boolean
+  version: string
+}
+
+type InterfaceAPI = {
+  name: string
+  ifindex?: number
+  index?: number
+  ip?: string[]
+  addresses?: string[]
+  flag?: {
+    up: boolean
+    default?: Array<{
+      ipVersion?: string
+      gateway?: string | null
+      source?: string | null
+    }>
   }
 }
 
-export function getDefaultsRequest(gqlClient: GQLClientInterface) {
+type RuntimeOverviewAPI = {
+  updatedAt: string
+  uploadRate: string
+  downloadRate: string
+  uploadTotal: string
+  downloadTotal: string
+  activeConnections: number
+  udpSessions: number
+  rssBytes?: string
+  heapAllocBytes?: string
+  goroutines?: number
+  samples: Array<{
+    timestamp: string
+    uploadRate: string
+    downloadRate: string
+  }>
+}
+
+type NodeAPI = {
+  id: number
+  link: string
+  name: string
+  address: string
+  protocol: string
+  transport?: string | null
+  tag?: string | null
+  subscriptionId?: number | null
+}
+
+type NodeListAPI = {
+  items: NodeAPI[]
+  edges?: NodeAPI[]
+  totalCount: number
+  pageInfo?: PageInfo
+}
+
+type NodeLatencyAPI = {
+  id: number
+  latencyMs?: number | null
+  alive: boolean
+  testedAt: string
+  message?: string | null
+}
+
+type ConfigAPI = {
+  id: number
+  name: string
+  selected: boolean
+  parsedGlobal?: ConfigGlobal
+}
+
+type RoutingAPI = {
+  id: number
+  name: string
+  selected: boolean
+  parsedRouting?: RoutingView
+}
+
+type DNSAPI = {
+  id: number
+  name: string
+  selected: boolean
+  parsedDns?: DNSView
+}
+
+type GroupAPI = {
+  id: number
+  name: string
+  policy: string
+  policyParams: Array<{ key?: string | null; val: string }>
+  nodes: NodeAPI[]
+  subscriptions: Array<{
+    subscriptionId: number
+    nameFilterRegex?: string | null
+    matchedCount: number
+    matchedNodes: NodeAPI[]
+    updatedAt: string
+    status: string
+    info: string
+    link: string
+    tag?: string | null
+  }>
+}
+
+type SubscriptionAPI = {
+  id: number
+  tag?: string | null
+  status: string
+  link: string
+  info: string
+  updatedAt: string
+  cronExp: string
+  cronEnable: boolean
+  nodeCount: number
+}
+
+export function getModeRequest(apiClient: APIClientInterface) {
   return async () => {
-    const data = await gqlClient.request(
-      graphql(`
-        query Defaults($paths: [String!]) {
-          jsonStorage(paths: $paths)
-        }
-      `),
-      {
-        paths: ['defaultConfigID', 'defaultRoutingID', 'defaultDNSID', 'defaultGroupID'],
-      },
-    )
+    const { values } = await apiClient.get<JSONStorageResponse>('/user/me/storage', { path: ['mode'] })
+    return values[0]
+  }
+}
 
-    const [defaultConfigID, defaultRoutingID, defaultDNSID, defaultGroupID] = data.jsonStorage
-
+export function getDefaultsRequest(apiClient: APIClientInterface) {
+  return async () => {
+    const { values } = await apiClient.get<JSONStorageResponse>('/user/me/storage', {
+      path: ['defaultConfigID', 'defaultRoutingID', 'defaultDNSID', 'defaultGroupID'],
+    })
+    const [defaultConfigID, defaultRoutingID, defaultDNSID, defaultGroupID] = values
     return {
       defaultConfigID,
       defaultRoutingID,
@@ -60,114 +183,51 @@ export function getDefaultsRequest(gqlClient: GQLClientInterface) {
   }
 }
 
-export function getInterfacesRequest(gqlClient: GQLClientInterface) {
-  return () =>
-    gqlClient.request(
-      graphql(`
-        query Interfaces($up: Boolean) {
-          general {
-            interfaces(up: $up) {
-              name
-              ifindex
-              ip
-              flag {
-                default {
-                  gateway
-                }
-              }
-            }
-          }
-        }
-      `),
-      {
-        up: true,
+export function getInterfacesRequest(apiClient: APIClientInterface) {
+  return async (): Promise<GeneralQuery> => {
+    const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true })
+    return {
+      general: {
+        dae: { running: false, modified: false, version: '' },
+        interfaces: data.items.map(adaptInterface),
       },
-    )
+    }
+  }
 }
 
 export function useDefaultsQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   const { data } = useQuery({
     queryKey: QUERY_KEY_STORAGE,
-    queryFn: async () =>
-      gqlClient.request(
-        graphql(`
-          query JsonStorage($paths: [String!]) {
-            jsonStorage(paths: $paths)
-          }
-        `),
-        {
-          paths: ['defaultConfigID', 'defaultRoutingID', 'defaultDNSID', 'defaultGroupID'],
-        },
-      ),
+    queryFn: () => getDefaultsRequest(apiClient)(),
   })
 
   if (!data) {
     return
   }
 
-  const [defaultConfigID, defaultRoutingID, defaultDNSID, defaultGroupID] = data.jsonStorage
-
-  return {
-    defaultConfigID,
-    defaultRoutingID,
-    defaultDNSID,
-    defaultGroupID,
-  }
+  return data
 }
 
 export function useGeneralQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_GENERAL,
-    queryFn: async () =>
-      gqlClient.request(
-        graphql(`
-          query General($up: Boolean) {
-            general {
-              dae {
-                running
-                modified
-                version
-              }
-              interfaces(up: $up) {
-                name
-                ifindex
-                ip
-                flag {
-                  default {
-                    gateway
-                  }
-                }
-              }
-            }
-          }
-        `),
-        {
-          up: true,
+    queryFn: async (): Promise<GeneralQuery> => {
+      const [state, interfaces] = await Promise.all([
+        apiClient.get<GeneralStateAPI>('/general/state'),
+        apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true }),
+      ])
+      return {
+        general: {
+          dae: state,
+          interfaces: interfaces.items.map(adaptInterface),
         },
-      ),
+      }
+    },
   })
-}
-
-export interface TrafficOverviewQueryData {
-  updatedAt: string
-  uploadRate: number
-  downloadRate: number
-  uploadTotal: string
-  downloadTotal: string
-  activeConnections: number
-  udpSessions: number
-  rssBytes: string
-  heapAllocBytes: string
-  goroutines: number
-  samples: Array<{
-    timestamp: string
-    uploadRate: number
-    downloadRate: number
-  }>
 }
 
 function trafficOverviewRefetchInterval(windowSec: number) {
@@ -178,45 +238,29 @@ function trafficOverviewRefetchInterval(windowSec: number) {
 }
 
 export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: [...QUERY_KEY_TRAFFIC, windowSec, maxPoints],
-    queryFn: async () => {
-      const data = await gqlClient.request<
-        { general: { runtimeOverview: TrafficOverviewQueryData } },
-        { windowSec: number; maxPoints: number }
-      >(
-        `
-          query TrafficOverview($windowSec: Int!, $maxPoints: Int!) {
-            general {
-              runtimeOverview(windowSec: $windowSec, maxPoints: $maxPoints) {
-                updatedAt
-                uploadRate
-                downloadRate
-                uploadTotal
-                downloadTotal
-                activeConnections
-                udpSessions
-                rssBytes
-                heapAllocBytes
-                goroutines
-                samples {
-                  timestamp
-                  uploadRate
-                  downloadRate
-                }
-              }
-            }
-          }
-        `,
-        {
-          windowSec,
-          maxPoints,
-        },
-      )
-
-      return data.general.runtimeOverview
+    queryFn: async (): Promise<TrafficOverviewQueryData> => {
+      const data = await apiClient.get<RuntimeOverviewAPI>('/runtime/overview', { windowSec, maxPoints })
+      return {
+        updatedAt: data.updatedAt,
+        uploadRate: Number(data.uploadRate),
+        downloadRate: Number(data.downloadRate),
+        uploadTotal: data.uploadTotal,
+        downloadTotal: data.downloadTotal,
+        activeConnections: data.activeConnections,
+        udpSessions: data.udpSessions,
+        rssBytes: data.rssBytes || '0',
+        heapAllocBytes: data.heapAllocBytes || '0',
+        goroutines: data.goroutines ?? 0,
+        samples: data.samples.map((sample) => ({
+          timestamp: sample.timestamp,
+          uploadRate: Number(sample.uploadRate),
+          downloadRate: Number(sample.downloadRate),
+        })),
+      }
     },
     placeholderData: (previousData) => previousData,
     refetchInterval: () => trafficOverviewRefetchInterval(windowSec),
@@ -225,26 +269,19 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
 }
 
 export function useNodeLatenciesQuery(refetchIntervalMs: number) {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_NODE_LATENCY,
-    queryFn: async () => {
-      const data = await gqlClient.request<{ nodeLatencies: NodeLatencyProbeResult[] }>(
-        `
-          query NodeLatencies {
-            nodeLatencies {
-              id
-              latencyMs
-              alive
-              testedAt
-              message
-            }
-          }
-        `,
-      )
-
-      return data.nodeLatencies
+    queryFn: async (): Promise<NodeLatencyProbeResult[]> => {
+      const data = await apiClient.get<{ items: NodeLatencyAPI[] }>('/nodes/latencies')
+      return data.items.map((item) => ({
+        id: String(item.id),
+        latencyMs: item.latencyMs ?? null,
+        alive: item.alive,
+        testedAt: item.testedAt,
+        message: item.message ?? null,
+      }))
     },
     placeholderData: (previousData) => previousData,
     refetchInterval: () => refetchIntervalMs,
@@ -253,238 +290,214 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number) {
 }
 
 export function useNodesQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_NODE,
-    queryFn: async () =>
-      gqlClient.request<NodesQuery>(
-        `
-          query Nodes {
-            nodes {
-              edges {
-                id
-                name
-                link
-                address
-                protocol
-                transport
-                tag
-              }
-            }
-          }
-        `,
-      ),
+    queryFn: async (): Promise<NodesQuery> => {
+      const data = await apiClient.get<NodeListAPI>('/nodes')
+      return {
+        nodes: adaptNodesConnection(data),
+      }
+    },
   })
 }
 
 export function useSubscriptionsQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_SUBSCRIPTION,
-    queryFn: async () =>
-      gqlClient.request(
-        graphql(`
-          query Subscriptions {
-            subscriptions {
-              id
-              tag
-              status
-              link
-              info
-              updatedAt
-              cronExp
-              cronEnable
-              nodes {
-                edges {
-                  id
-                  name
-                  protocol
-                  transport
-                  link
-                }
-              }
-            }
+    queryFn: async (): Promise<SubscriptionsQuery> => {
+      const data = await apiClient.get<{ items: SubscriptionAPI[] }>('/subscriptions')
+      const subscriptions = await Promise.all(
+        data.items.map(async (subscription): Promise<SubscriptionResource> => {
+          const nodes = await apiClient.get<NodeListAPI>(`/subscriptions/${subscription.id}/nodes`)
+          return {
+            id: String(subscription.id),
+            tag: subscription.tag ?? null,
+            status: subscription.status,
+            link: subscription.link,
+            info: subscription.info,
+            updatedAt: subscription.updatedAt,
+            cronExp: subscription.cronExp,
+            cronEnable: subscription.cronEnable,
+            nodes: adaptNodesConnection(nodes),
           }
-        `),
-      ),
+        }),
+      )
+      return { subscriptions }
+    },
   })
 }
 
 export function useConfigsQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_CONFIG,
-    queryFn: async () =>
-      gqlClient.request(
-        graphql(`
-          query Configs {
-            configs {
-              id
-              name
-              selected
-              global {
-                logLevel
-                tproxyPort
-                allowInsecure
-                checkInterval
-                checkTolerance
-                lanInterface
-                wanInterface
-                udpCheckDns
-                tcpCheckUrl
-                fallbackResolver
-                dialMode
-                tcpCheckHttpMethod
-                disableWaitingNetwork
-                autoConfigKernelParameter
-                sniffingTimeout
-                tlsImplementation
-                utlsImitate
-                tproxyPortProtect
-                soMarkFromDae
-                pprofPort
-                enableLocalTcpFastRedirect
-                mptcp
-                bandwidthMaxTx
-                bandwidthMaxRx
-              }
-            }
-          }
-        `),
-      ),
+    queryFn: async (): Promise<ConfigsQuery> => {
+      const data = await apiClient.get<{ items: ConfigAPI[] }>('/configs', { expand: 'parsed' })
+      return {
+        configs: data.items.map((config) => ({
+          id: String(config.id),
+          name: config.name,
+          selected: config.selected,
+          global: config.parsedGlobal || ({} as ConfigGlobal),
+        })),
+      }
+    },
   })
 }
 
 export function useGroupsQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_GROUP,
-    queryFn: async () =>
-      gqlClient.request(
-        graphql(`
-          query Groups {
-            groups {
-              id
-              name
-              nodes {
-                id
-                link
-                name
-                address
-                protocol
-                transport
-                tag
-                subscriptionID
-              }
-              subscriptions {
-                nameFilterRegex
-                matchedCount
-                subscription {
-                  id
-                  updatedAt
-                  tag
-                  link
-                  status
-                  info
-                }
-                matchedNodes {
-                  id
-                  link
-                  name
-                  address
-                  protocol
-                  transport
-                  tag
-                  subscriptionID
-                }
-              }
-              policy
-              policyParams {
-                key
-                val
-              }
-            }
-          }
-        `),
-      ),
+    queryFn: async (): Promise<GroupsQuery> => {
+      const data = await apiClient.get<{ items: GroupAPI[] }>('/groups')
+      return {
+        groups: data.items.map((group) => ({
+          id: String(group.id),
+          name: group.name,
+          nodes: group.nodes.map(adaptNode),
+          subscriptions: group.subscriptions.map((binding) => ({
+            nameFilterRegex: binding.nameFilterRegex ?? null,
+            matchedCount: binding.matchedCount,
+            subscription: {
+              id: String(binding.subscriptionId),
+              updatedAt: binding.updatedAt,
+              tag: binding.tag ?? null,
+              status: binding.status,
+              link: binding.link,
+              info: binding.info,
+            },
+            matchedNodes: binding.matchedNodes.map(adaptNode),
+          })),
+          policy: group.policy as GroupResource['policy'],
+          policyParams: group.policyParams.map((param) => ({
+            key: param.key ?? null,
+            val: param.val,
+          })),
+        })),
+      }
+    },
   })
 }
 
 export function useRoutingsQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_ROUTING,
-    queryFn: async () =>
-      gqlClient.request(
-        graphql(`
-          query Routings {
-            routings {
-              id
-              name
-              selected
-              routing {
-                string
-              }
-            }
-          }
-        `),
-      ),
+    queryFn: async (): Promise<RoutingsQuery> => {
+      const data = await apiClient.get<{ items: RoutingAPI[] }>('/routings', { expand: 'parsed' })
+      return {
+        routings: data.items.map((routing) => ({
+          id: String(routing.id),
+          name: routing.name,
+          selected: routing.selected,
+          routing: routing.parsedRouting || { string: '' },
+        })),
+      }
+    },
   })
 }
 
 export function useDNSsQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_DNS,
-    queryFn: async () =>
-      gqlClient.request(
-        graphql(`
-          query DNSs {
-            dnss {
-              id
-              name
-              dns {
-                string
-
-                routing {
-                  request {
-                    string
-                  }
-                  response {
-                    string
-                  }
-                }
-              }
-              selected
-            }
-          }
-        `),
-      ),
+    queryFn: async (): Promise<DNSsQuery> => {
+      const data = await apiClient.get<{ items: DNSAPI[] }>('/dns', { expand: 'parsed' })
+      return {
+        dnss: data.items.map((dns) => ({
+          id: String(dns.id),
+          name: dns.name,
+          selected: dns.selected,
+          dns: dns.parsedDns || {
+            string: '',
+            routing: {
+              request: { string: '' },
+              response: { string: '' },
+            },
+          },
+        })),
+      }
+    },
   })
 }
 
 export function useUserQuery() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useQuery({
     queryKey: QUERY_KEY_USER,
-    queryFn: async () =>
-      gqlClient.request(
-        graphql(`
-          query User {
-            user {
-              username
-              name
-              avatar
-            }
-          }
-        `),
-      ),
+    queryFn: async (): Promise<UserQuery> => {
+      const user = await apiClient.get<UserQuery['user']>('/user/me')
+      return { user }
+    },
   })
+}
+
+function adaptNodesConnection(data: NodeListAPI): NodesConnection {
+  const items = (data.edges || data.items).map(adaptNode)
+  return {
+    totalCount: data.totalCount,
+    edges: items,
+    pageInfo: data.pageInfo || {
+      startCursor: items[0]?.id ?? null,
+      endCursor: items.length > 0 ? items[items.length - 1].id : null,
+      hasNextPage: false,
+    },
+  }
+}
+
+function adaptNode(node: NodeAPI): NodeResource {
+  return {
+    id: String(node.id),
+    link: node.link,
+    name: node.name,
+    address: node.address,
+    protocol: node.protocol,
+    transport: node.transport ?? deriveTransport(node.link, node.protocol),
+    tag: node.tag ?? null,
+    subscriptionID: node.subscriptionId ? String(node.subscriptionId) : null,
+  }
+}
+
+function adaptInterface(iface: InterfaceAPI): InterfaceResource {
+  const defaultRoutes = iface.flag?.default || []
+  return {
+    name: iface.name,
+    ifindex: iface.ifindex || iface.index || 0,
+    ip: iface.ip || iface.addresses || [],
+    flag: {
+      up: iface.flag?.up ?? false,
+      default: defaultRoutes,
+    },
+  }
+}
+
+function deriveTransport(link: string, protocol: string): string | null {
+  const parsed = parseNodeUrl(link)
+  if (parsed?.type === 'v2ray' && parsed.data && typeof parsed.data === 'object' && 'net' in parsed.data) {
+    const net = parsed.data.net
+    return typeof net === 'string' ? net : null
+  }
+  if (parsed?.type === 'trojan' && parsed.data && typeof parsed.data === 'object' && 'obfs' in parsed.data) {
+    return parsed.data.obfs === 'websocket' ? 'ws' : null
+  }
+  if (parsed?.type === 'ss' && parsed.data && typeof parsed.data === 'object' && 'plugin' in parsed.data) {
+    if (parsed.data.plugin === 'v2ray-plugin' && 'mode' in parsed.data && typeof parsed.data.mode === 'string') {
+      return parsed.data.mode
+    }
+    return typeof parsed.data.plugin === 'string' && parsed.data.plugin ? parsed.data.plugin : null
+  }
+  if (protocol === 'http' || protocol === 'https' || protocol === 'socks5') {
+    return protocol
+  }
+  return null
 }

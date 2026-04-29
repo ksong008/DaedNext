@@ -5,14 +5,13 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 
 import { useCreateGroupMutation, useGroupSetPolicyMutation } from '~/apis'
+import { Policy } from '~/apis/types'
 import { FormActions } from '~/components/FormActions'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
 import { Select } from '~/components/ui/select'
 import { DEFAULT_GROUP_POLICY } from '~/constants'
 import { useSetValue } from '~/hooks/useSetValue'
-import { Policy } from '~/schemas/gql/graphql'
-
 const schema = z.object({
   name: z.string().min(1, 'Name is required'),
   policy: z.nativeEnum(Policy),

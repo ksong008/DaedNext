@@ -12,12 +12,12 @@ import type {
   tuicSchema,
   v2raySchema,
 } from './schema'
-import type { GlobalInput } from '~/schemas/gql/graphql'
+import type { GlobalInput } from '~/apis/types'
 
-import { Policy } from '~/schemas/gql/graphql'
+import { Policy } from '~/apis/types'
 import { DialMode, LogLevel, TcpCheckHttpMethod, TLSImplementation, UTLSImitate } from './misc'
 
-export const DEFAULT_ENDPOINT_URL = `${location.protocol}//${location.hostname}:2023/graphql`
+export const DEFAULT_ENDPOINT_URL = `${location.protocol}//${location.hostname}:2023/api`
 
 export const DEFAULT_LOG_LEVEL = LogLevel.info
 export const DEFAULT_TPROXY_PORT = 12345

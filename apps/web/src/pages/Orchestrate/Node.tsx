@@ -1,6 +1,6 @@
 import type { QRCodeModalRef } from '~/components/QRCodeModal.tsx'
-import type { NodesQuery } from '~/schemas/gql/graphql.ts'
 import type { NodeLatencyProbeResult } from '~/apis'
+import type { NodesQuery } from '~/apis/types'
 import { Droppable } from '@hello-pangea/dnd'
 import { Cloud, CloudUpload, Eye, FileInput, Pencil } from 'lucide-react'
 import { Fragment, useRef, useState } from 'react'

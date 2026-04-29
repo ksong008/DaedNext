@@ -1,32 +1,20 @@
-import type { TypedDocumentNode } from '@graphql-typed-document-node/core'
-import type { ClientError, RequestDocument, Variables } from 'graphql-request'
 import { useStore } from '@nanostores/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { GraphQLClient } from 'graphql-request'
 import { createContext, use, useMemo } from 'react'
-import { toast } from 'sonner'
 
-import { isMockMode, MockGraphQLClient } from '~/mocks'
+import { APIClient, type APIClientInterface, normalizeEndpointURL } from '~/apis/client'
+import { isMockMode, MockAPIClient } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 
-// Define a common interface for GraphQL clients
-export interface GQLClientInterface {
-  request: <T, V extends Variables = Variables>(
-    document: RequestDocument | TypedDocumentNode<T, V>,
-    variables?: V,
-  ) => Promise<T>
+export type APIClientType = APIClientInterface
+
+export const APIClientContext = createContext<APIClientType>(null as unknown as APIClientType)
+
+export function APIClientProvider({ client, children }: { client: APIClientType; children: React.ReactNode }) {
+  return <APIClientContext value={client}>{children}</APIClientContext>
 }
 
-// Use an interface type to support both real and mock clients
-export type GQLClient = GQLClientInterface
-
-export const GQLClientContext = createContext<GQLClient>(null as unknown as GQLClient)
-
-export function GQLQueryClientProvider({ client, children }: { client: GQLClient; children: React.ReactNode }) {
-  return <GQLClientContext value={client}>{children}</GQLClientContext>
-}
-
-export const useGQLQueryClient = () => use(GQLClientContext)
+export const useAPIClient = () => use(APIClientContext)
 
 type ColorScheme = 'dark' | 'light'
 type ThemeMode = 'system' | 'light' | 'dark'
@@ -58,28 +46,12 @@ export function QueryProvider({ children, colorScheme, themeMode, setThemeMode }
 
   const queryClient = useMemo(() => new QueryClient(), [])
 
-  const gqlClient = useMemo<GQLClient>(() => {
-    // Use mock client in mock mode
+  const apiClient = useMemo<APIClientType>(() => {
+    const normalizedEndpointURL = normalizeEndpointURL(endpointURL)
     if (isMockMode()) {
-      return new MockGraphQLClient('mock://localhost')
+      return new MockAPIClient(normalizedEndpointURL)
     }
-
-    return new GraphQLClient(endpointURL, {
-      headers: {
-        authorization: `Bearer ${token}`,
-      },
-      responseMiddleware: (response) => {
-        const error = (response as ClientError).response?.errors?.[0]
-
-        if (error) {
-          toast.error(error.message)
-
-          if (error.message === 'access denied') {
-            tokenAtom.set('')
-          }
-        }
-      },
-    })
+    return new APIClient(normalizedEndpointURL, token)
   }, [endpointURL, token])
 
   const colorSchemeContextValue = useMemo(
@@ -90,7 +62,7 @@ export function QueryProvider({ children, colorScheme, themeMode, setThemeMode }
   return (
     <ColorSchemeContext value={colorSchemeContextValue}>
       <QueryClientProvider client={queryClient}>
-        <GQLQueryClientProvider client={gqlClient}>{children}</GQLQueryClientProvider>
+        <APIClientProvider client={apiClient}>{children}</APIClientProvider>
       </QueryClientProvider>
     </ColorSchemeContext>
   )

@@ -16,6 +16,8 @@ export default defineConfig(() => {
         '~': path.resolve(__dirname, 'src'),
         '@daeuniverse/dae-node-parser': path.resolve(__dirname, '../../packages/dae-node-parser/src/index.ts'),
         '@daeuniverse/dae-editor': path.resolve(__dirname, '../../packages/dae-editor/src/index.ts'),
+        '@daeuniverse/dae-lang-core': path.resolve(__dirname, '../../packages/dae-lang-core/src/index.ts'),
+        '@daeuniverse/dae-lsp/server/browser': path.resolve(__dirname, '../../packages/dae-lsp/src/browser-server.ts'),
       },
     },
     plugins: [react(), tailwindcss()],

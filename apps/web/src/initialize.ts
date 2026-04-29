@@ -12,14 +12,14 @@ import {
   DEFAULT_ROUTING_NAME,
   MODE,
 } from '~/constants'
-import { useGQLQueryClient } from '~/contexts'
+import { useAPIClient } from '~/contexts'
 import { isMockMode, MOCK_DEFAULT_IDS } from '~/mocks'
 import { defaultResourcesAtom, modeAtom } from '~/store'
 
 export function useInitialize() {
   const ensureDefaultResourcesMutation = useEnsureDefaultResourcesMutation()
-  const gqlClient = useGQLQueryClient()
-  const getInterfaces = getInterfacesRequest(gqlClient)
+  const apiClient = useAPIClient()
+  const getInterfaces = getInterfacesRequest(apiClient)
 
   return useCallback(async () => {
     // In mock mode, use mock default IDs directly

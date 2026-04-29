@@ -1,0 +1,39 @@
+name: Live Audit
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  live-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: pnpm/action-setup@v5.0.0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.24.3'
+          cache: false
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Playwright Firefox
+        run: npx playwright install --with-deps firefox
+
+      - name: Run live audit
+        env:
+          DAEWING_DIR: ${{ github.workspace }}/wing
+          GO_BIN: go
+          Pnpm_BIN: pnpm
+        run: node scripts/live_audit_runner.mjs

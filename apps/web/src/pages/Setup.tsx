@@ -1,5 +1,4 @@
 import { useStore } from '@nanostores/react'
-import request from 'graphql-request'
 import { Link2, LockKeyhole, User } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -10,9 +9,9 @@ import { z } from 'zod'
 
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
+import { APIClient, normalizeEndpointURL } from '~/apis/client'
 import { DEFAULT_ENDPOINT_URL } from '~/constants'
 import { cn } from '~/lib/utils'
-import { graphql } from '~/schemas/gql'
 import { endpointURLAtom, tokenAtom } from '~/store'
 
 const endpointURLSchema = z.object({
@@ -30,14 +29,8 @@ const loginSchema = z.object({
 })
 
 async function getNumberUsers(endpointURL: string) {
-  const { numberUsers } = await request(
-    endpointURL,
-    graphql(`
-      query NumberUsers {
-        numberUsers
-      }
-    `),
-  )
+  const client = new APIClient(normalizeEndpointURL(endpointURL))
+  const { numberUsers } = await client.get<{ numberUsers: number }>('/auth/status')
 
   return numberUsers
 }
@@ -76,7 +69,7 @@ export function SetupPage() {
       return
     }
 
-    endpointURLAtom.set(endpointFormData.endpointURL)
+    endpointURLAtom.set(normalizeEndpointURL(endpointFormData.endpointURL))
 
     try {
       const numberUsers = await getNumberUsers(endpointFormData.endpointURL)
@@ -108,18 +101,8 @@ export function SetupPage() {
     const { username, password } = signupFormData
 
     try {
-      await request(
-        endpointFormData.endpointURL,
-        graphql(`
-          mutation CreateUser($username: String!, $password: String!) {
-            createUser(username: $username, password: $password)
-          }
-        `),
-        {
-          username,
-          password,
-        },
-      )
+      const client = new APIClient(normalizeEndpointURL(endpointFormData.endpointURL))
+      await client.post('/auth/users', { username, password })
 
       const numberUsers = await getNumberUsers(endpointFormData.endpointURL)
 
@@ -148,18 +131,11 @@ export function SetupPage() {
     const { username, password } = loginFormData
 
     try {
-      const { token } = await request(
-        endpointFormData.endpointURL,
-        graphql(`
-          query Token($username: String!, $password: String!) {
-            token(username: $username, password: $password)
-          }
-        `),
-        {
-          username,
-          password,
-        },
-      )
+      const client = new APIClient(normalizeEndpointURL(endpointFormData.endpointURL))
+      const { token } = await client.post<{ token: string }>('/auth/token', {
+        username,
+        password,
+      })
 
       toast.success(t('notifications.login succeeded'))
 

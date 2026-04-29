@@ -50,7 +50,7 @@ dist: package.json pnpm-lock.yaml
 ## End Web
 
 ## Begin Bundle
-DAE_WING_READY=wing/graphql/service/config/global/generated_resolver.go
+DAE_WING_READY=wing/dae-core/control/bpf_bpfeb.o
 
 $(DAE_WING_READY): wing
 	cd wing && \

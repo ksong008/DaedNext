@@ -311,7 +311,7 @@
   "select": "select",
   "selected": "selected",
   "settings": "Settings",
-  "setup endpoint": "Setup your backend endpoint URL (GraphQL)",
+  "setup endpoint": "Setup your backend endpoint URL (API)",
   "sniffingTimeout": "Sniffing Timeout",
   "soMarkFromDae": "Set socket mark for dae",
   "software options": "Software Options",

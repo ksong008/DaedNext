@@ -1,6 +1,6 @@
 /**
  * Mock data for e2e testing and screenshots
- * This file provides realistic mock data for all GraphQL responses
+ * This file provides realistic mock data for the REST/OpenAPI-backed UI flows
  *
  * Usage:
  *   1. Set VITE_MOCK_MODE=true in .env or run: pnpm dev:mock
@@ -9,15 +9,15 @@
 
 import type {
   ConfigsQuery,
-  DnSsQuery,
+  DNSsQuery,
   GeneralQuery,
   GroupsQuery,
   NodesQuery,
   RoutingsQuery,
   SubscriptionsQuery,
   UserQuery,
-} from '~/schemas/gql/graphql'
-import { Policy } from '~/schemas/gql/graphql'
+} from '~/apis/types'
+import { Policy } from '~/apis/types'
 
 // Check if mock mode is enabled
 export const isMockMode = () => import.meta.env.VITE_MOCK_MODE === 'true'
@@ -73,7 +73,7 @@ export const mockGeneral: GeneralQuery = {
       },
     ],
   },
-}
+} as any
 
 // Configs
 export const mockConfigs: ConfigsQuery = {
@@ -145,7 +145,7 @@ export const mockConfigs: ConfigsQuery = {
       },
     },
   ],
-}
+} as any
 
 // Nodes
 export const mockNodes: NodesQuery = {
@@ -190,7 +190,7 @@ export const mockNodes: NodesQuery = {
       },
     ],
   },
-}
+} as any
 
 // Subscriptions
 export const mockSubscriptions: SubscriptionsQuery = {
@@ -284,7 +284,7 @@ export const mockSubscriptions: SubscriptionsQuery = {
       },
     },
   ],
-}
+} as any
 
 // Groups
 export const mockGroups: GroupsQuery = {
@@ -463,7 +463,7 @@ export const mockGroups: GroupsQuery = {
       ],
     },
   ],
-}
+} as any
 
 // Routings
 export const mockRoutings: RoutingsQuery = {
@@ -497,23 +497,21 @@ fallback: proxy`,
       },
     },
   ],
-}
+} as any
 
 // DNS
-export const mockDNSs: DnSsQuery = {
+export const mockDNSs: DNSsQuery = {
   dnss: [
     {
-      __typename: 'Dns',
       id: 'dns-1',
       name: 'default',
       selected: true,
       dns: {
-        __typename: 'DaeDns',
         string: `# Default DNS configuration
 upstream {
   googledns: 'tcp+udp://dns.google.com:53'
   alidns: 'udp://dns.alidns.com:53'
-}
+} as any
 
 routing {
   request {
@@ -522,26 +520,21 @@ routing {
   }
 }`,
         routing: {
-          __typename: 'DnsRouting',
           request: {
-            __typename: 'DaeRouting',
             string: `qname(geosite:cn) -> alidns
 fallback: googledns`,
           },
           response: {
-            __typename: 'DaeRouting',
             string: '',
           },
         },
       },
     },
     {
-      __typename: 'Dns',
       id: 'dns-2',
       name: 'DoH Only',
       selected: false,
       dns: {
-        __typename: 'DaeDns',
         string: `# DoH DNS configuration
 upstream {
   cloudflare: 'https://cloudflare-dns.com/dns-query'
@@ -554,13 +547,10 @@ routing {
   }
 }`,
         routing: {
-          __typename: 'DnsRouting',
           request: {
-            __typename: 'DaeRouting',
             string: 'fallback: cloudflare',
           },
           response: {
-            __typename: 'DaeRouting',
             string: '',
           },
         },
@@ -577,7 +567,7 @@ export const mockUser: UserQuery = {
     name: 'Administrator',
     avatar: '',
   },
-}
+} as any
 
 // JSON Storage (defaults)
 export const mockJsonStorage = {

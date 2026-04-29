@@ -3,9 +3,16 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "baseUrl": "./",
-    "paths": { "~/*": ["src/*"] },
+    "paths": {
+      "~/*": ["src/*"],
+      "@daeuniverse/dae-node-parser": ["../../packages/dae-node-parser/src/index.ts"],
+      "@daeuniverse/dae-editor": ["../../packages/dae-editor/src/index.ts"],
+      "@daeuniverse/dae-lang-core": ["../../packages/dae-lang-core/src/index.ts"],
+      "@daeuniverse/dae-lsp/server/browser": ["../../packages/dae-lsp/src/browser-server.ts"]
+    },
     "types": ["vitest/globals"],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "ignoreDeprecations": "6.0"
   },
   "references": [{ "path": "./tsconfig.node.json" }],
   "include": ["src"]

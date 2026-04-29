@@ -1,7 +1,7 @@
 import type { GroupFormModalRef } from '~/components/GroupFormModal'
 import type { NodeLatencyProbeResult } from '~/apis'
 import type { DraggingResource } from '~/constants'
-import type { GroupsQuery, NodesQuery, SubscriptionsQuery } from '~/schemas/gql/graphql'
+import type { GroupResource, GroupSubscriptionResource, GroupsQuery, NodesQuery, Policy, SubscriptionsQuery } from '~/apis/types'
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import type { DraggableStateSnapshot } from '@hello-pangea/dnd'
 import { Draggable, Droppable } from '@hello-pangea/dnd'
@@ -150,6 +150,7 @@ export function GroupResource({
         const description = [node.name && node.name !== title ? node.name : '', node.address]
           .filter(Boolean)
           .join(' · ')
+        const metaTone: GroupPickerItem['metaTone'] = nodeLatencies?.[node.id] ? 'primary' : 'default'
 
         return {
           id: node.id,
@@ -158,7 +159,7 @@ export function GroupResource({
           meta: [node.transport, t('groupPicker.manualNode'), formatLatencyMeta(nodeLatencies?.[node.id])]
             .filter(Boolean)
             .join(' · '),
-          metaTone: nodeLatencies?.[node.id] ? 'primary' : 'default',
+          metaTone,
           badge: node.protocol || undefined,
           keywords: [node.name, node.tag, node.address, node.protocol].filter(Boolean) as string[],
         }
@@ -174,6 +175,7 @@ export function GroupResource({
           const description = [node.name && node.name !== title ? node.name : '', node.address]
             .filter(Boolean)
             .join(' · ')
+          const metaTone: GroupPickerItem['metaTone'] = nodeLatencies?.[node.id] ? 'primary' : 'default'
 
           return {
             id: node.id,
@@ -186,7 +188,7 @@ export function GroupResource({
             ]
               .filter(Boolean)
               .join(' · '),
-            metaTone: nodeLatencies?.[node.id] ? 'primary' : 'default',
+            metaTone,
             badge: node.protocol || undefined,
             keywords: [node.name, node.tag, node.address, node.protocol, subscriptionName].filter(Boolean) as string[],
           }
@@ -256,9 +258,9 @@ export function GroupResource({
   }: {
     groupId: string
     name: string
-    policy: string
-    groupNodes: GroupsQuery['groups'][number]['nodes']
-    groupSubscriptions: GroupsQuery['groups'][number]['subscriptions']
+    policy: Policy
+    groupNodes: GroupResource['nodes']
+    groupSubscriptions: GroupSubscriptionResource[]
     dragHandleProps?: DraggableProvidedDragHandleProps | null
     snapshot?: DraggableStateSnapshot
   }) => (

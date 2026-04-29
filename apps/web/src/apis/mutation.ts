@@ -1,7 +1,7 @@
 import type { MODE } from '~/constants'
 
-import type { GlobalInput, ImportArgument, Policy, PolicyParam } from '~/schemas/gql/graphql'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+
 import {
   QUERY_KEY_CONFIG,
   QUERY_KEY_DNS,
@@ -9,61 +9,81 @@ import {
   QUERY_KEY_GROUP,
   QUERY_KEY_NODE,
   QUERY_KEY_ROUTING,
+  QUERY_KEY_STORAGE,
   QUERY_KEY_SUBSCRIPTION,
   QUERY_KEY_USER,
 } from '~/constants'
-import { useGQLQueryClient } from '~/contexts'
-import { graphql } from '~/schemas/gql'
+import { useAPIClient } from '~/contexts'
+
+import { toID, toNumericID } from './client'
+import type { GlobalInput, ImportArgument, NodeLatencyProbeResult, Policy, PolicyParam } from './types'
+
+type CountResponse = {
+  updated?: number
+  removed?: number
+}
+
+type ResourceWithID = {
+  id: number
+}
+
+type TokenResponse = {
+  token: string
+}
+
+type SubscriptionImportResponse = {
+  link: string
+  nodeImportResult: Array<{
+    link: string
+    error?: string | null
+    node?: { id: number } | null
+  }>
+  subscription: {
+    id: number
+  }
+}
+
+type NodeImportListResponse = {
+  items: Array<{
+    link: string
+    error?: string | null
+    node?: { id: number } | null
+  }>
+}
 
 export function useSetJsonStorageMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useMutation({
-    mutationFn: (object: Record<string, string>) => {
+    mutationFn: async (object: Record<string, string>) => {
       const paths = Object.keys(object)
       const values = paths.map((path) => object[path])
-
-      return gqlClient.request(
-        graphql(`
-          mutation SetJsonStorage($paths: [String!]!, $values: [String!]!) {
-            setJsonStorage(paths: $paths, values: $values)
-          }
-        `),
-        {
-          paths,
-          values,
-        },
-      )
+      const response = await apiClient.put<CountResponse>('/user/me/storage', { paths, values })
+      return { setJsonStorage: response.updated ?? 0 }
     },
   })
 }
 
 export function useSetModeMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useMutation({
-    mutationFn: (mode: MODE) => {
-      return gqlClient.request(
-        graphql(`
-          mutation SetMode($paths: [String!]!, $values: [String!]!) {
-            setJsonStorage(paths: $paths, values: $values)
-          }
-        `),
-        {
-          paths: ['mode'],
-          values: [mode],
-        },
-      )
+    mutationFn: async (mode: MODE) => {
+      const response = await apiClient.put<CountResponse>('/user/me/storage', {
+        paths: ['mode'],
+        values: [mode],
+      })
+      return { setJsonStorage: response.updated ?? 0 }
     },
   })
 }
 
 export function useEnsureDefaultResourcesMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       configName,
       global,
       dnsName,
@@ -85,62 +105,36 @@ export function useEnsureDefaultResourcesMutation() {
       policy: Policy
       policyParams: PolicyParam[]
       mode: string
-    }) =>
-      gqlClient.request<{
+    }) => {
+      const ensured = await apiClient.post<{
+        defaultConfigID: string
+        defaultRoutingID: string
+        defaultDNSID: string
+        defaultGroupID: string
+        mode: string
+      }>('/user/me/default-resources', {
+        configName,
+        global,
+        dnsName,
+        dns,
+        routingName,
+        routing,
+        groupName,
+        policy,
+        policyParams,
+        mode,
+      })
+
+      return {
         ensureDefaultResources: {
-          defaultConfigID: string
-          defaultRoutingID: string
-          defaultDNSID: string
-          defaultGroupID: string
-          mode: string
-        }
-      }>(
-        `
-          mutation EnsureDefaultResources(
-            $configName: String!
-            $global: globalInput!
-            $dnsName: String!
-            $dns: String!
-            $routingName: String!
-            $routing: String!
-            $groupName: String!
-            $policy: Policy!
-            $policyParams: [PolicyParam!]
-            $mode: String!
-          ) {
-            ensureDefaultResources(
-              configName: $configName
-              global: $global
-              dnsName: $dnsName
-              dns: $dns
-              routingName: $routingName
-              routing: $routing
-              groupName: $groupName
-              policy: $policy
-              policyParams: $policyParams
-              mode: $mode
-            ) {
-              defaultConfigID
-              defaultRoutingID
-              defaultDNSID
-              defaultGroupID
-              mode
-            }
-          }
-        `,
-        {
-          configName,
-          global,
-          dnsName,
-          dns,
-          routingName,
-          routing,
-          groupName,
-          policy,
-          policyParams,
-          mode,
+          defaultConfigID: ensured.defaultConfigID,
+          defaultRoutingID: ensured.defaultRoutingID,
+          defaultDNSID: ensured.defaultDNSID,
+          defaultGroupID: ensured.defaultGroupID,
+          mode: ensured.mode,
         },
-      ),
+      }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -153,24 +147,13 @@ export function useEnsureDefaultResourcesMutation() {
 }
 
 export function useCreateConfigMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ name, global }: { name?: string; global?: GlobalInput }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation CreateConfig($name: String, $global: globalInput) {
-            createConfig(name: $name, global: $global) {
-              id
-            }
-          }
-        `),
-        {
-          name,
-          global,
-        },
-      )
+    mutationFn: async ({ name, global }: { name?: string; global?: GlobalInput }) => {
+      const resource = await apiClient.post<ResourceWithID>('/configs', { name, parsedGlobal: global })
+      return { createConfig: { id: toID(resource.id) } }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -179,24 +162,13 @@ export function useCreateConfigMutation() {
 }
 
 export function useUpdateConfigMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, global }: { id: string; global: GlobalInput }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateConfig($id: ID!, $global: globalInput!) {
-            updateConfig(id: $id, global: $global) {
-              id
-            }
-          }
-        `),
-        {
-          id,
-          global,
-        },
-      )
+    mutationFn: async ({ id, global }: { id: string; global: GlobalInput }) => {
+      const resource = await apiClient.put<ResourceWithID>(`/configs/${id}`, { parsedGlobal: global })
+      return { updateConfig: { id: toID(resource.id) } }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -206,21 +178,13 @@ export function useUpdateConfigMutation() {
 }
 
 export function useRemoveConfigMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RemoveConfig($id: ID!) {
-            removeConfig(id: $id)
-          }
-        `),
-        {
-          id,
-        },
-      )
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/configs/${id}`)
+      return { removeConfig: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -229,21 +193,13 @@ export function useRemoveConfigMutation() {
 }
 
 export function useSelectConfigMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id }: { id: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation SelectConfig($id: ID!) {
-            selectConfig(id: $id)
-          }
-        `),
-        {
-          id,
-        },
-      )
+    mutationFn: async ({ id }: { id: string }) => {
+      await apiClient.post(`/configs/${id}/select`)
+      return { selectConfig: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -253,22 +209,13 @@ export function useSelectConfigMutation() {
 }
 
 export function useRenameConfigMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RenameConfig($id: ID!, $name: String!) {
-            renameConfig(id: $id, name: $name)
-          }
-        `),
-        {
-          id,
-          name,
-        },
-      )
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      await apiClient.put(`/configs/${id}`, { name })
+      return { renameConfig: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -277,24 +224,13 @@ export function useRenameConfigMutation() {
 }
 
 export function useCreateRoutingMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ name, routing }: { name?: string; routing?: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation CreateRouting($name: String, $routing: String) {
-            createRouting(name: $name, routing: $routing) {
-              id
-            }
-          }
-        `),
-        {
-          name,
-          routing,
-        },
-      )
+    mutationFn: async ({ name, routing }: { name?: string; routing?: string }) => {
+      const resource = await apiClient.post<ResourceWithID>('/routings', { name, routing })
+      return { createRouting: { id: toID(resource.id) } }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -303,24 +239,13 @@ export function useCreateRoutingMutation() {
 }
 
 export function useUpdateRoutingMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, routing }: { id: string; routing: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateRouting($id: ID!, $routing: String!) {
-            updateRouting(id: $id, routing: $routing) {
-              id
-            }
-          }
-        `),
-        {
-          id,
-          routing,
-        },
-      )
+    mutationFn: async ({ id, routing }: { id: string; routing: string }) => {
+      const resource = await apiClient.put<ResourceWithID>(`/routings/${id}`, { routing })
+      return { updateRouting: { id: toID(resource.id) } }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -330,21 +255,13 @@ export function useUpdateRoutingMutation() {
 }
 
 export function useRemoveRoutingMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RemoveRouting($id: ID!) {
-            removeRouting(id: $id)
-          }
-        `),
-        {
-          id,
-        },
-      )
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/routings/${id}`)
+      return { removeRouting: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -354,21 +271,13 @@ export function useRemoveRoutingMutation() {
 }
 
 export function useSelectRoutingMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id }: { id: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation SelectRouting($id: ID!) {
-            selectRouting(id: $id)
-          }
-        `),
-        {
-          id,
-        },
-      )
+    mutationFn: async ({ id }: { id: string }) => {
+      await apiClient.post(`/routings/${id}/select`)
+      return { selectRouting: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -378,22 +287,13 @@ export function useSelectRoutingMutation() {
 }
 
 export function useRenameRoutingMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RenameRouting($id: ID!, $name: String!) {
-            renameRouting(id: $id, name: $name)
-          }
-        `),
-        {
-          id,
-          name,
-        },
-      )
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      await apiClient.put(`/routings/${id}`, { name })
+      return { renameRouting: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -403,24 +303,13 @@ export function useRenameRoutingMutation() {
 }
 
 export function useCreateDNSMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ name, dns }: { name?: string; dns?: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation CreateDNS($name: String, $dns: String) {
-            createDns(name: $name, dns: $dns) {
-              id
-            }
-          }
-        `),
-        {
-          name,
-          dns,
-        },
-      )
+    mutationFn: async ({ name, dns }: { name?: string; dns?: string }) => {
+      const resource = await apiClient.post<ResourceWithID>('/dns', { name, dns })
+      return { createDns: { id: toID(resource.id) } }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -429,24 +318,13 @@ export function useCreateDNSMutation() {
 }
 
 export function useUpdateDNSMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, dns }: { id: string; dns: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateDNS($id: ID!, $dns: String!) {
-            updateDns(id: $id, dns: $dns) {
-              id
-            }
-          }
-        `),
-        {
-          id,
-          dns,
-        },
-      )
+    mutationFn: async ({ id, dns }: { id: string; dns: string }) => {
+      const resource = await apiClient.put<ResourceWithID>(`/dns/${id}`, { dns })
+      return { updateDns: { id: toID(resource.id) } }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -456,21 +334,13 @@ export function useUpdateDNSMutation() {
 }
 
 export function useRemoveDNSMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RemoveDNS($id: ID!) {
-            removeDns(id: $id)
-          }
-        `),
-        {
-          id,
-        },
-      )
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/dns/${id}`)
+      return { removeDns: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -479,21 +349,13 @@ export function useRemoveDNSMutation() {
 }
 
 export function useSelectDNSMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id }: { id: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation SelectDNS($id: ID!) {
-            selectDns(id: $id)
-          }
-        `),
-        {
-          id,
-        },
-      )
+    mutationFn: async ({ id }: { id: string }) => {
+      await apiClient.post(`/dns/${id}/select`)
+      return { selectDns: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -503,22 +365,13 @@ export function useSelectDNSMutation() {
 }
 
 export function useRenameDNSMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RenameDNS($id: ID!, $name: String!) {
-            renameDns(id: $id, name: $name)
-          }
-        `),
-        {
-          id,
-          name,
-        },
-      )
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      await apiClient.put(`/dns/${id}`, { name })
+      return { renameDns: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -527,25 +380,13 @@ export function useRenameDNSMutation() {
 }
 
 export function useCreateGroupMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ name, policy, policyParams }: { name: string; policy: Policy; policyParams: PolicyParam[] }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation CreateGroup($name: String!, $policy: Policy!, $policyParams: [PolicyParam!]) {
-            createGroup(name: $name, policy: $policy, policyParams: $policyParams) {
-              id
-            }
-          }
-        `),
-        {
-          name,
-          policy,
-          policyParams,
-        },
-      )
+    mutationFn: async ({ name, policy, policyParams }: { name: string; policy: Policy; policyParams: PolicyParam[] }) => {
+      const resource = await apiClient.post<ResourceWithID>('/groups', { name, policy, policyParams })
+      return { createGroup: { id: toID(resource.id) } }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -554,21 +395,13 @@ export function useCreateGroupMutation() {
 }
 
 export function useRemoveGroupMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RemoveGroup($id: ID!) {
-            removeGroup(id: $id)
-          }
-        `),
-        {
-          id,
-        },
-      )
+    mutationFn: async (id: string) => {
+      await apiClient.delete(`/groups/${id}`)
+      return { removeGroup: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -577,23 +410,13 @@ export function useRemoveGroupMutation() {
 }
 
 export function useGroupSetPolicyMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, policy, policyParams }: { id: string; policy: Policy; policyParams: PolicyParam[] }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation GroupSetPolicy($id: ID!, $policy: Policy!, $policyParams: [PolicyParam!]) {
-            groupSetPolicy(id: $id, policy: $policy, policyParams: $policyParams)
-          }
-        `),
-        {
-          id,
-          policy,
-          policyParams,
-        },
-      )
+    mutationFn: async ({ id, policy, policyParams }: { id: string; policy: Policy; policyParams: PolicyParam[] }) => {
+      await apiClient.put(`/groups/${id}`, { policy, policyParams })
+      return { groupSetPolicy: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -603,22 +426,13 @@ export function useGroupSetPolicyMutation() {
 }
 
 export function useRenameGroupMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, name }: { id: string; name: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RenameGroup($id: ID!, $name: String!) {
-            renameGroup(id: $id, name: $name)
-          }
-        `),
-        {
-          id,
-          name,
-        },
-      )
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      await apiClient.put(`/groups/${id}`, { name })
+      return { renameGroup: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -628,22 +442,13 @@ export function useRenameGroupMutation() {
 }
 
 export function useGroupAddNodesMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, nodeIDs }: { id: string; nodeIDs: string[] }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation GroupAddNodes($id: ID!, $nodeIDs: [ID!]!) {
-            groupAddNodes(id: $id, nodeIDs: $nodeIDs)
-          }
-        `),
-        {
-          id,
-          nodeIDs,
-        },
-      )
+    mutationFn: async ({ id, nodeIDs }: { id: string; nodeIDs: string[] }) => {
+      await apiClient.post(`/groups/${id}/nodes`, { nodeIds: nodeIDs.map(toNumericID) })
+      return { groupAddNodes: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -653,22 +458,13 @@ export function useGroupAddNodesMutation() {
 }
 
 export function useGroupDelNodesMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, nodeIDs }: { id: string; nodeIDs: string[] }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation GroupDelNodes($id: ID!, $nodeIDs: [ID!]!) {
-            groupDelNodes(id: $id, nodeIDs: $nodeIDs)
-          }
-        `),
-        {
-          id,
-          nodeIDs,
-        },
-      )
+    mutationFn: async ({ id, nodeIDs }: { id: string; nodeIDs: string[] }) => {
+      await apiClient.delete(`/groups/${id}/nodes`, { nodeIds: nodeIDs.map(toNumericID) })
+      return { groupDelNodes: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -678,11 +474,11 @@ export function useGroupDelNodesMutation() {
 }
 
 export function useGroupAddSubscriptionsMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       id,
       subscriptionIDs,
       nameFilterRegex,
@@ -691,18 +487,11 @@ export function useGroupAddSubscriptionsMutation() {
       subscriptionIDs: string[]
       nameFilterRegex?: string | null
     }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation GroupAddSubscriptions($id: ID!, $subscriptionIDs: [ID!]!, $nameFilterRegex: String) {
-            groupAddSubscriptions(id: $id, subscriptionIDs: $subscriptionIDs, nameFilterRegex: $nameFilterRegex)
-          }
-        `),
-        {
-          id,
-          subscriptionIDs,
-          nameFilterRegex,
-        },
-      )
+      await apiClient.post(`/groups/${id}/subscriptions`, {
+        subscriptionIds: subscriptionIDs.map(toNumericID),
+        nameFilterRegex: nameFilterRegex ?? null,
+      })
+      return { groupAddSubscriptions: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -712,22 +501,13 @@ export function useGroupAddSubscriptionsMutation() {
 }
 
 export function useGroupDelSubscriptionsMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, subscriptionIDs }: { id: string; subscriptionIDs: string[] }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation GroupDelSubscriptions($id: ID!, $subscriptionIDs: [ID!]!) {
-            groupDelSubscriptions(id: $id, subscriptionIDs: $subscriptionIDs)
-          }
-        `),
-        {
-          id,
-          subscriptionIDs,
-        },
-      )
+    mutationFn: async ({ id, subscriptionIDs }: { id: string; subscriptionIDs: string[] }) => {
+      await apiClient.delete(`/groups/${id}/subscriptions`, { subscriptionIds: subscriptionIDs.map(toNumericID) })
+      return { groupDelSubscriptions: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -737,28 +517,22 @@ export function useGroupDelSubscriptionsMutation() {
 }
 
 export function useImportNodesMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: ImportArgument[]) => {
-      return gqlClient.request(
-        graphql(`
-          mutation ImportNodes($rollbackError: Boolean!, $args: [ImportArgument!]!) {
-            importNodes(rollbackError: $rollbackError, args: $args) {
-              link
-              error
-              node {
-                id
-              }
-            }
-          }
-        `),
-        {
-          rollbackError: false,
-          args: data,
-        },
-      )
+    mutationFn: async (data: ImportArgument[]) => {
+      const result = await apiClient.post<NodeImportListResponse>('/nodes', {
+        rollbackError: false,
+        args: data,
+      })
+      return {
+        importNodes: result.items.map((item) => ({
+          link: item.link,
+          error: item.error ?? null,
+          node: item.node ? { id: toID(item.node.id) } : null,
+        })),
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
@@ -767,21 +541,13 @@ export function useImportNodesMutation() {
 }
 
 export function useRemoveNodesMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (ids: string[]) => {
-      return gqlClient.request(
-        graphql(`
-          mutation RemoveNodes($ids: [ID!]!) {
-            removeNodes(ids: $ids)
-          }
-        `),
-        {
-          ids,
-        },
-      )
+    mutationFn: async (ids: string[]) => {
+      const result = await apiClient.delete<{ removed: number }>('/nodes', { ids: ids.map(toNumericID) })
+      return { removeNodes: result.removed }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
@@ -792,27 +558,22 @@ export function useRemoveNodesMutation() {
 }
 
 export function useUpdateNodeMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, newLink }: { id: string; newLink: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateNode($id: ID!, $newLink: String!) {
-            updateNode(id: $id, newLink: $newLink) {
-              id
-              name
-              tag
-              link
-            }
-          }
-        `),
-        {
-          id,
-          newLink,
+    mutationFn: async ({ id, newLink }: { id: string; newLink: string }) => {
+      const node = await apiClient.put<{ id: number; name: string; tag?: string | null; link: string }>(`/nodes/${id}`, {
+        link: newLink,
+      })
+      return {
+        updateNode: {
+          id: toID(node.id),
+          name: node.name,
+          tag: node.tag ?? null,
+          link: node.link,
         },
-      )
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
@@ -823,35 +584,30 @@ export function useUpdateNodeMutation() {
 }
 
 export function useImportSubscriptionsMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (data: ImportArgument[]) =>
       Promise.all(
-        data.map((subscription) =>
-          gqlClient.request(
-            graphql(`
-              mutation ImportSubscription($rollbackError: Boolean!, $arg: ImportArgument!) {
-                importSubscription(rollbackError: $rollbackError, arg: $arg) {
-                  link
-                  sub {
-                    id
-                  }
-                  nodeImportResult {
-                    node {
-                      id
-                    }
-                  }
-                }
-              }
-            `),
-            {
-              rollbackError: false,
-              arg: subscription,
+        data.map(async (subscription) => {
+          const result = await apiClient.post<SubscriptionImportResponse>('/subscriptions', {
+            rollbackError: false,
+            link: subscription.link,
+            tag: subscription.tag ?? null,
+          })
+          return {
+            importSubscription: {
+              link: result.link,
+              sub: {
+                id: toID(result.subscription.id),
+              },
+              nodeImportResult: result.nodeImportResult.map((item) => ({
+                node: item.node ? { id: toID(item.node.id) } : null,
+              })),
             },
-          ),
-        ),
+          }
+        }),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
@@ -860,26 +616,20 @@ export function useImportSubscriptionsMutation() {
 }
 
 export function useUpdateSubscriptionsMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (ids: string[]) =>
       Promise.all(
-        ids.map((id) =>
-          gqlClient.request(
-            graphql(`
-              mutation UpdateSubscription($id: ID!) {
-                updateSubscription(id: $id) {
-                  id
-                }
-              }
-            `),
-            {
-              id,
+        ids.map(async (id) => {
+          const subscription = await apiClient.post<{ id: number }>(`/subscriptions/${id}/refresh`)
+          return {
+            updateSubscription: {
+              id: toID(subscription.id),
             },
-          ),
-        ),
+          }
+        }),
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
@@ -889,55 +639,36 @@ export function useUpdateSubscriptionsMutation() {
   })
 }
 
-export interface NodeLatencyProbeResult {
-  id: string
-  latencyMs?: number | null
-  alive: boolean
-  testedAt: string
-  message?: string | null
-}
-
 export function useTestNodeLatenciesMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useMutation({
     mutationFn: async (ids?: string[]) => {
-      const data = await gqlClient.request<{ testNodeLatencies: NodeLatencyProbeResult[] }, { ids?: string[] }>(
-        `
-          mutation TestNodeLatencies($ids: [ID!]) {
-            testNodeLatencies(ids: $ids) {
-              id
-              latencyMs
-              alive
-              testedAt
-              message
-            }
-          }
-        `,
-        ids && ids.length > 0 ? { ids } : {},
+      const data = await apiClient.post<{ items: Array<Omit<NodeLatencyProbeResult, 'id'> & { id: number }> }>(
+        '/nodes/latencies',
+        ids && ids.length > 0 ? { ids: ids.map(toNumericID) } : {},
       )
 
-      return data.testNodeLatencies
+      return data.items.map((item) => ({
+        id: toID(item.id),
+        latencyMs: item.latencyMs ?? null,
+        alive: item.alive,
+        testedAt: item.testedAt,
+        message: item.message ?? null,
+      }))
     },
   })
 }
 
 export function useRemoveSubscriptionsMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (ids: string[]) =>
-      gqlClient.request(
-        graphql(`
-          mutation RemoveSubscriptions($ids: [ID!]!) {
-            removeSubscriptions(ids: $ids)
-          }
-        `),
-        {
-          ids,
-        },
-      ),
+    mutationFn: async (ids: string[]) => {
+      const result = await apiClient.delete<{ removed: number }>('/subscriptions', { ids: ids.map(toNumericID) })
+      return { removeSubscriptions: result.removed }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -947,21 +678,14 @@ export function useRemoveSubscriptionsMutation() {
 }
 
 export function useRunMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (dry: boolean) =>
-      gqlClient.request(
-        graphql(`
-          mutation Run($dry: Boolean!) {
-            run(dry: $dry)
-          }
-        `),
-        {
-          dry,
-        },
-      ),
+    mutationFn: async (dry: boolean) => {
+      const result = await apiClient.post<{ applied: number }>('/runtime/reload', { dry })
+      return { run: result.applied }
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
     },
@@ -969,21 +693,13 @@ export function useRunMutation() {
 }
 
 export function useUpdateAvatarMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (avatar: string) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateAvatar($avatar: String) {
-            updateAvatar(avatar: $avatar)
-          }
-        `),
-        {
-          avatar,
-        },
-      )
+    mutationFn: async (avatar: string) => {
+      const user = await apiClient.patch('/user/me', { avatar })
+      return { updateAvatar: user }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
@@ -992,21 +708,13 @@ export function useUpdateAvatarMutation() {
 }
 
 export function useUpdateNameMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (name: string) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateName($name: String) {
-            updateName(name: $name)
-          }
-        `),
-        {
-          name,
-        },
-      )
+    mutationFn: async (name: string) => {
+      const user = await apiClient.patch('/user/me', { name })
+      return { updateName: user }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
@@ -1015,46 +723,27 @@ export function useUpdateNameMutation() {
 }
 
 export function useUpdatePasswordMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
 
   return useMutation({
-    mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
-      // Use raw GraphQL string instead of graphql template tag
-      const query = `
-        mutation UpdatePassword($currentPassword: String!, $newPassword: String!) {
-          updatePassword(currentPassword: $currentPassword, newPassword: $newPassword)
-        }
-      `
-
-      return gqlClient.request(query, {
+    mutationFn: async ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) => {
+      const response = await apiClient.post<TokenResponse>('/user/me/password', {
         currentPassword,
         newPassword,
       })
-    },
-    onSuccess: (data) => {
-      // The mutation returns a new token, which should be handled by the app
-      // to update the authentication state
-      return data
+      return { updatePassword: response.token }
     },
   })
 }
 
 export function useUpdateUsernameMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (username: string) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateUsername($username: String!) {
-            updateUsername(username: $username)
-          }
-        `),
-        {
-          username,
-        },
-      )
+    mutationFn: async (username: string) => {
+      const user = await apiClient.patch('/user/me', { username })
+      return { updateUsername: user }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
@@ -1063,22 +752,13 @@ export function useUpdateUsernameMutation() {
 }
 
 export function useTagNodeMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, tag }: { id: string; tag: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation TagNode($id: ID!, $tag: String!) {
-            tagNode(id: $id, tag: $tag)
-          }
-        `),
-        {
-          id,
-          tag,
-        },
-      )
+    mutationFn: async ({ id, tag }: { id: string; tag: string }) => {
+      await apiClient.put(`/nodes/${id}`, { tag })
+      return { tagNode: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
@@ -1088,22 +768,13 @@ export function useTagNodeMutation() {
 }
 
 export function useTagSubscriptionMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, tag }: { id: string; tag: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation TagSubscription($id: ID!, $tag: String!) {
-            tagSubscription(id: $id, tag: $tag)
-          }
-        `),
-        {
-          id,
-          tag,
-        },
-      )
+    mutationFn: async ({ id, tag }: { id: string; tag: string }) => {
+      await apiClient.put(`/subscriptions/${id}`, { tag })
+      return { tagSubscription: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
@@ -1113,26 +784,21 @@ export function useTagSubscriptionMutation() {
 }
 
 export function useUpdateSubscriptionLinkMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, link }: { id: string; link: string }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateSubscriptionLink($id: ID!, $link: String!) {
-            updateSubscriptionLink(id: $id, link: $link) {
-              id
-              link
-              tag
-            }
-          }
-        `),
-        {
-          id,
-          link,
+    mutationFn: async ({ id, link }: { id: string; link: string }) => {
+      const subscription = await apiClient.put<{ id: number; link: string; tag?: string | null }>(`/subscriptions/${id}`, {
+        link,
+      })
+      return {
+        updateSubscriptionLink: {
+          id: toID(subscription.id),
+          link: subscription.link,
+          tag: subscription.tag ?? null,
         },
-      )
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
@@ -1142,27 +808,22 @@ export function useUpdateSubscriptionLinkMutation() {
 }
 
 export function useUpdateSubscriptionCronMutation() {
-  const gqlClient = useGQLQueryClient()
+  const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, cronExp, cronEnable }: { id: string; cronExp: string; cronEnable: boolean }) => {
-      return gqlClient.request(
-        graphql(`
-          mutation UpdateSubscriptionCron($id: ID!, $cronExp: String!, $cronEnable: Boolean!) {
-            updateSubscriptionCron(id: $id, cronExp: $cronExp, cronEnable: $cronEnable) {
-              id
-              cronExp
-              cronEnable
-            }
-          }
-        `) as any,
-        {
-          id,
-          cronExp,
-          cronEnable,
-        },
+    mutationFn: async ({ id, cronExp, cronEnable }: { id: string; cronExp: string; cronEnable: boolean }) => {
+      const subscription = await apiClient.put<{ id: number; cronExp: string; cronEnable: boolean }>(
+        `/subscriptions/${id}`,
+        { cronExp, cronEnable },
       )
+      return {
+        updateSubscriptionCron: {
+          id: toID(subscription.id),
+          cronExp: subscription.cronExp,
+          cronEnable: subscription.cronEnable,
+        },
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })

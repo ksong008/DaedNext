@@ -10,6 +10,7 @@ export function DraggableResourceBadge({
   id,
   index,
   name,
+  subtitle,
   meta,
   onRemove,
   children,
@@ -17,6 +18,7 @@ export function DraggableResourceBadge({
   id: string
   index: number
   name: string
+  subtitle?: React.ReactNode
   meta?: React.ReactNode
   onRemove?: () => void
   children?: React.ReactNode
@@ -41,8 +43,10 @@ export function DraggableResourceBadge({
         <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
       </div>
 
-      {/* Name */}
-      <span className="text-xs font-medium truncate flex-1">{name}</span>
+      <div className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-medium">{name}</span>
+        {subtitle && <span className="block truncate text-[10px] text-muted-foreground">{subtitle}</span>}
+      </div>
 
       {meta && <span className="shrink-0 text-[10px] font-medium text-primary">{meta}</span>}
 

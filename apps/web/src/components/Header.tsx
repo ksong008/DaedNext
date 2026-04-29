@@ -82,6 +82,7 @@ const passwordChangeSchema = z
 export function HeaderWithActions() {
   const { t } = useTranslation()
   const endpointURL = useStore(endpointURLAtom)
+  const openapiURL = `${endpointURL.replace(/\/$/, '')}/openapi.json`
   const { themeMode, setThemeMode } = useColorScheme()
 
   const cycleThemeMode = () => {
@@ -336,9 +337,9 @@ export function HeaderWithActions() {
             <DropdownMenuContent align="end" className="w-[200px]">
               <DropdownMenuLabel>{t('debug')}</DropdownMenuLabel>
               <DropdownMenuItem asChild>
-                <Link to="/graphiql" target="_blank">
-                  GraphiQL
-                </Link>
+                <a href={openapiURL} target="_blank" rel="noopener noreferrer">
+                  OpenAPI
+                </a>
               </DropdownMenuItem>
 
               <DropdownMenuLabel>{t('settings')}</DropdownMenuLabel>
@@ -511,12 +512,12 @@ export function HeaderWithActions() {
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
                 {t('debug')}
               </span>
-              <Link to="/graphiql" target="_blank" onClick={closeBurger}>
+              <a href={openapiURL} target="_blank" rel="noopener noreferrer" onClick={closeBurger}>
                 <Button variant="ghost" className="w-full justify-start gap-2 h-9 px-2">
                   <Terminal className="h-4 w-4" />
-                  <span className="text-sm">GraphiQL</span>
+                  <span className="text-sm">OpenAPI</span>
                 </Button>
-              </Link>
+              </a>
 
               <Button
                 variant="ghost"

@@ -1,6 +1,6 @@
 import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
 import type { DraggingResource } from '~/constants'
-import type { GroupsQuery, NodesQuery, SubscriptionsQuery } from '~/schemas/gql/graphql'
+import type { GroupsQuery, NodesQuery, SubscriptionsQuery } from '~/apis/types'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'

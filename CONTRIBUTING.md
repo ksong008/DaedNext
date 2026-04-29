@@ -190,7 +190,7 @@ src/
 │   └── ui/         # Base UI components (shadcn/ui)
 ├── hooks/          # Custom React hooks
 ├── pages/          # Page components
-├── schemas/        # GraphQL schemas and types
+├── apis/           # Runtime API client and local API types
 ├── contexts/       # React context providers
 └── lib/            # Utility functions
 ```
