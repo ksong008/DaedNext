@@ -1,6 +1,6 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
-import { mkdtemp, access } from 'node:fs/promises'
+import { mkdtemp, access, mkdir } from 'node:fs/promises'
 import { constants as fsConstants, existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -27,10 +27,7 @@ const skipBuild = process.env.LIVE_AUDIT_SKIP_BUILD === '1'
 function resolveWingDir() {
   if (process.env.DAEWING_DIR) return process.env.DAEWING_DIR
 
-  const candidates = [
-    path.join(repoRoot, 'wing'),
-    path.resolve(repoRoot, '../dae-wing'),
-  ]
+  const candidates = [path.join(repoRoot, 'wing'), path.resolve(repoRoot, '../dae-wing')]
 
   for (const candidate of candidates) {
     if (existsSync(path.join(candidate, 'go.mod'))) {
@@ -120,7 +117,10 @@ async function main() {
   console.log(`[live-audit-runner] wingDir=${wingDir}`)
 
   const tempConfigDir = await mkdtemp(path.join(os.tmpdir(), 'daed-live-audit-'))
+  const artifactDir = process.env.AUDIT_ARTIFACT_DIR || path.join(tempConfigDir, 'artifacts')
   console.log(`[live-audit-runner] temp config dir: ${tempConfigDir}`)
+  await mkdir(artifactDir, { recursive: true })
+  console.log(`[live-audit-runner] artifact dir: ${artifactDir}`)
 
   let subscriptionServer
   const procs = []
@@ -143,12 +143,7 @@ async function main() {
 
   try {
     if (!skipBuild || !existsSync(path.join(repoRoot, 'apps/web/dist/index.html'))) {
-      await runCommand(
-        'build',
-        pnpmBin,
-        ['--filter', 'daed', 'build'],
-        { cwd: repoRoot, env: process.env },
-      )
+      await runCommand('build', pnpmBin, ['--filter', 'daed', 'build'], { cwd: repoRoot, env: process.env })
     }
 
     subscriptionServer = http.createServer((req, res) => {
@@ -170,7 +165,18 @@ async function main() {
     const previewProc = spawnManaged(
       'daed-preview',
       pnpmBin,
-      ['--filter', 'daed', 'exec', 'vite', 'preview', '--host', '127.0.0.1', '--port', String(frontendPort), '--strictPort'],
+      [
+        '--filter',
+        'daed',
+        'exec',
+        'vite',
+        'preview',
+        '--host',
+        '127.0.0.1',
+        '--port',
+        String(frontendPort),
+        '--strictPort',
+      ],
       { cwd: repoRoot, env: process.env },
     )
     procs.push(previewProc)
@@ -178,35 +184,29 @@ async function main() {
     await waitForUrl(`http://127.0.0.1:${apiPort}/api/health`, 'dae-wing api')
     await waitForUrl(`http://127.0.0.1:${frontendPort}/`, 'daed preview')
 
-    await runCommand(
-      'audit-fresh',
-      process.execPath,
-      [path.join(repoRoot, 'scripts/live_audit.mjs')],
-      {
-        cwd: repoRoot,
-        env: {
-          ...process.env,
-          FRONTEND_URL: frontendUrl,
-          API_BASE: apiBase,
-          SUBSCRIPTION_SOURCE: subscriptionUrl,
-        },
+    await runCommand('audit-fresh', process.execPath, [path.join(repoRoot, 'scripts/live_audit.mjs')], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FRONTEND_URL: frontendUrl,
+        API_BASE: apiBase,
+        SUBSCRIPTION_SOURCE: subscriptionUrl,
+        AUDIT_ARTIFACT_DIR: artifactDir,
+        AUDIT_ARTIFACT_PREFIX: 'fresh',
       },
-    )
+    })
 
-    await runCommand(
-      'audit-existing',
-      process.execPath,
-      [path.join(repoRoot, 'scripts/live_audit.mjs')],
-      {
-        cwd: repoRoot,
-        env: {
-          ...process.env,
-          FRONTEND_URL: frontendUrl,
-          API_BASE: apiBase,
-          SUBSCRIPTION_SOURCE: subscriptionUrl,
-        },
+    await runCommand('audit-existing', process.execPath, [path.join(repoRoot, 'scripts/live_audit.mjs')], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FRONTEND_URL: frontendUrl,
+        API_BASE: apiBase,
+        SUBSCRIPTION_SOURCE: subscriptionUrl,
+        AUDIT_ARTIFACT_DIR: artifactDir,
+        AUDIT_ARTIFACT_PREFIX: 'existing',
       },
-    )
+    })
 
     console.log('[live-audit-runner] completed successfully')
   } finally {

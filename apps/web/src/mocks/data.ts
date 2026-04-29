@@ -44,32 +44,26 @@ export const mockGeneral: GeneralQuery = {
       {
         __typename: 'Interface',
         name: 'eth0',
-        ifindex: 2,
-        ip: ['192.168.1.100/24', 'fe80::1/64'],
-        flag: {
-          __typename: 'InterfaceFlag',
-          default: [{ gateway: '192.168.1.1' }],
-        },
+        index: 2,
+        up: true,
+        addresses: ['192.168.1.100/24', 'fe80::1/64'],
+        defaultRoutes: [{ gateway: '192.168.1.1' }],
       },
       {
         __typename: 'Interface',
         name: 'wlan0',
-        ifindex: 3,
-        ip: ['192.168.1.101/24'],
-        flag: {
-          __typename: 'InterfaceFlag',
-          default: [],
-        },
+        index: 3,
+        up: true,
+        addresses: ['192.168.1.101/24'],
+        defaultRoutes: [],
       },
       {
         __typename: 'Interface',
         name: 'docker0',
-        ifindex: 4,
-        ip: ['172.17.0.1/16'],
-        flag: {
-          __typename: 'InterfaceFlag',
-          default: [],
-        },
+        index: 4,
+        up: true,
+        addresses: ['172.17.0.1/16'],
+        defaultRoutes: [],
       },
     ],
   },
@@ -151,7 +145,7 @@ export const mockConfigs: ConfigsQuery = {
 export const mockNodes: NodesQuery = {
   nodes: {
     __typename: 'NodesConnection',
-    edges: [
+    items: [
       {
         __typename: 'Node',
         id: 'node-1',
@@ -207,7 +201,7 @@ export const mockSubscriptions: SubscriptionsQuery = {
       cronEnable: true,
       nodes: {
         __typename: 'NodesConnection',
-        edges: [
+        items: [
           {
             __typename: 'Node',
             id: 'sub1-node-1',
@@ -258,7 +252,7 @@ export const mockSubscriptions: SubscriptionsQuery = {
       cronEnable: false,
       nodes: {
         __typename: 'NodesConnection',
-        edges: [
+        items: [
           {
             __typename: 'Node',
             id: 'sub2-node-1',

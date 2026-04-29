@@ -1,3 +1,5 @@
+import path from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { firefox } from 'playwright'
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:4199/#/setup'
@@ -5,6 +7,40 @@ const API_BASE = process.env.API_BASE || 'http://127.0.0.1:2023/api'
 const SUBSCRIPTION_SOURCE = process.env.SUBSCRIPTION_SOURCE || 'http://127.0.0.1:18080/sub.txt'
 const USERNAME = process.env.AUDIT_USERNAME || 'admin'
 const PASSWORD = process.env.AUDIT_PASSWORD || 'abc123'
+const AUDIT_ARTIFACT_DIR = process.env.AUDIT_ARTIFACT_DIR || ''
+const AUDIT_ARTIFACT_PREFIX = process.env.AUDIT_ARTIFACT_PREFIX || 'live-audit'
+
+let browser
+let page
+
+function makeArtifactBaseName(label) {
+  return `${AUDIT_ARTIFACT_PREFIX}-${label}`.replace(/[^a-zA-Z0-9._-]+/g, '-')
+}
+
+async function captureFailureArtifacts(currentPage, label, extraText = '') {
+  if (!AUDIT_ARTIFACT_DIR || !currentPage) return
+
+  await mkdir(AUDIT_ARTIFACT_DIR, { recursive: true })
+
+  const artifactBase = path.join(AUDIT_ARTIFACT_DIR, makeArtifactBaseName(label))
+  await currentPage.screenshot({ path: `${artifactBase}.png`, fullPage: true }).catch(() => {})
+
+  const bodyText = await currentPage
+    .locator('body')
+    .innerText()
+    .catch(() => '')
+  const details = [
+    `label: ${label}`,
+    `url: ${currentPage.url()}`,
+    extraText ? `details: ${extraText}` : '',
+    '',
+    bodyText,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  await writeFile(`${artifactBase}.txt`, details).catch(() => {})
+}
 
 function unwrapStoredString(value) {
   if (typeof value !== 'string') return ''
@@ -26,9 +62,9 @@ async function waitFor(predicate, label, timeoutMs = 15000) {
 }
 
 async function main() {
-  const browser = await firefox.launch({ headless: true })
+  browser = await firefox.launch({ headless: true })
   const context = await browser.newContext()
-  const page = await context.newPage()
+  page = await context.newPage()
   let signupDidNotAdvance = false
 
   page.on('response', async (response) => {
@@ -75,7 +111,10 @@ async function main() {
   }
 
   console.log('[audit] logging in')
-  if (!(await loginButton.isVisible().catch(() => false)) && (await createAccountButton.isVisible().catch(() => false))) {
+  if (
+    !(await loginButton.isVisible().catch(() => false)) &&
+    (await createAccountButton.isVisible().catch(() => false))
+  ) {
     signupDidNotAdvance = true
     console.log('[audit] signup completed but UI did not advance to login; reloading setup flow')
     await page.goto(FRONTEND_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
@@ -84,8 +123,11 @@ async function main() {
     await loginButton.waitFor({ state: 'visible', timeout: 15000 })
   }
   if (!(await loginButton.isVisible().catch(() => false))) {
-    const text = await page.locator('body').innerText().catch(() => '')
-    await page.screenshot({ path: '/tmp/live_audit_setup_failure.png', fullPage: true }).catch(() => {})
+    const text = await page
+      .locator('body')
+      .innerText()
+      .catch(() => '')
+    await captureFailureArtifacts(page, 'login-button-missing', 'Login button never appeared after setup flow')
     throw new Error(`Login button never appeared. Page text snapshot:\n${text}`)
   }
   const loginInputs = page.locator('form').filter({ has: loginButton }).locator('input')
@@ -244,7 +286,10 @@ async function main() {
   }, 'updated config fallbackResolver to appear')
   console.log('[audit] config content update flow passed')
   await configSection.locator('button:has(svg.lucide-trash-2)').first().click()
-  await page.getByRole('button', { name: /confirm/i }).last().click()
+  await page
+    .getByRole('button', { name: /confirm/i })
+    .last()
+    .click()
   await waitFor(async () => {
     const data = await apiJson('/configs?expand=parsed')
     return data.items?.length === initialConfigCount ? data : null
@@ -279,13 +324,18 @@ async function main() {
   await dnsDialog.getByRole('button', { name: /confirm/i }).click()
   await waitFor(async () => {
     const data = await apiJson('/dns?expand=parsed')
-    return data.items?.some((item) => item.name === renamedDNS && typeof item.dns === 'string' && item.dns.includes(updatedUpstream))
+    return data.items?.some(
+      (item) => item.name === renamedDNS && typeof item.dns === 'string' && item.dns.includes(updatedUpstream),
+    )
       ? data
       : null
   }, 'updated dns upstream to appear')
   console.log('[audit] dns content update flow passed')
   await dnsSection.locator('button:has(svg.lucide-trash-2)').first().click()
-  await page.getByRole('button', { name: /confirm/i }).last().click()
+  await page
+    .getByRole('button', { name: /confirm/i })
+    .last()
+    .click()
   await waitFor(async () => {
     const data = await apiJson('/dns?expand=parsed')
     return data.items?.length === initialDNSCount ? data : null
@@ -324,13 +374,18 @@ async function main() {
     const updated = data.items?.find((item) => item.name === renamedRouting)
     if (!updated) return null
     if (nextRoutingValue === 'global') {
-      return typeof updated.routing === 'string' && !updated.routing.includes('domain(geosite:cn) -> direct') ? data : null
+      return typeof updated.routing === 'string' && !updated.routing.includes('domain(geosite:cn) -> direct')
+        ? data
+        : null
     }
     return typeof updated.routing === 'string' && updated.routing.includes('domain(geosite:cn) -> direct') ? data : null
   }, 'updated routing mode to appear')
   console.log('[audit] routing content update flow passed')
   await routingSection.locator('button:has(svg.lucide-trash-2)').first().click()
-  await page.getByRole('button', { name: /confirm/i }).last().click()
+  await page
+    .getByRole('button', { name: /confirm/i })
+    .last()
+    .click()
   await waitFor(async () => {
     const data = await apiJson('/routings?expand=parsed')
     return data.items?.length === initialRoutingCount ? data : null
@@ -345,13 +400,19 @@ async function main() {
   await groupCreateDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
     const data = await apiJson('/groups')
-    return data.items?.some((item) => item.name === groupName) && data.items.length === initialGroupCount + 1 ? data : null
+    return data.items?.some((item) => item.name === groupName) && data.items.length === initialGroupCount + 1
+      ? data
+      : null
   }, 'group creation to appear')
   console.log('[audit] group create flow passed')
   await groupSection.locator('button:has(svg.lucide-settings-2)').last().click()
   const groupSettingsDialog = page.getByRole('dialog').last()
   await groupSettingsDialog.locator('[data-slot="select-trigger"]').click()
-  await page.locator('[data-slot="select-item"]').filter({ hasText: /^random$/i }).last().click()
+  await page
+    .locator('[data-slot="select-item"]')
+    .filter({ hasText: /^random$/i })
+    .last()
+    .click()
   await groupSettingsDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
     const data = await apiJson('/groups')
@@ -370,7 +431,10 @@ async function main() {
   console.log('[audit] group rename flow passed')
   const updatedGroupCard = groupSection.locator('div[data-group-card-id]').filter({ hasText: renamedGroup }).first()
   await updatedGroupCard.locator('button:has(svg.lucide-trash-2)').click()
-  await page.getByRole('button', { name: /confirm/i }).last().click()
+  await page
+    .getByRole('button', { name: /confirm/i })
+    .last()
+    .click()
   await waitFor(async () => {
     const data = await apiJson('/groups')
     return data.items?.every((item) => item.name !== renamedGroup) ? data : null
@@ -405,10 +469,15 @@ async function main() {
   console.log('[audit] node edit flow passed')
   const updatedNodeCard = nodeSection.locator('div.group.relative.bg-card').filter({ hasText: updatedNodeTag }).first()
   await updatedNodeCard.locator('button:has(svg.lucide-trash-2)').click()
-  await page.getByRole('button', { name: /confirm/i }).last().click()
+  await page
+    .getByRole('button', { name: /confirm/i })
+    .last()
+    .click()
   await waitFor(async () => {
     const data = await apiJson('/nodes')
-    return data.totalCount === initialNodeCount && data.edges?.every((item) => item.tag !== updatedNodeTag) ? data : null
+    return data.totalCount === initialNodeCount && data.edges?.every((item) => item.tag !== updatedNodeTag)
+      ? data
+      : null
   }, 'ui-imported node to be removed')
   console.log('[audit] node remove flow passed')
 
@@ -424,14 +493,18 @@ async function main() {
   await subscriptionDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
     const data = await apiJson('/subscriptions')
-    return data.items?.length === initialSubscriptionCount + 1 && data.items?.some((item) => item.tag === subscriptionTag)
+    return data.items?.length === initialSubscriptionCount + 1 &&
+      data.items?.some((item) => item.tag === subscriptionTag)
       ? data
       : null
   }, 'subscription import to appear')
   console.log('[audit] subscription import flow passed')
 
   const updatedSubscriptionTag = `edited-${subscriptionTag}`
-  const subscriptionCard = subscriptionSection.locator('div.group.relative.bg-card').filter({ hasText: subscriptionTag }).first()
+  const subscriptionCard = subscriptionSection
+    .locator('div.group.relative.bg-card')
+    .filter({ hasText: subscriptionTag })
+    .first()
   await subscriptionCard.locator('button:has(svg.lucide-pencil)').click()
   const editSubscriptionDialog = page.getByRole('dialog').last()
   const editSubscriptionInputs = editSubscriptionDialog.locator('input')
@@ -448,10 +521,14 @@ async function main() {
     .filter({ hasText: updatedSubscriptionTag })
     .first()
   await updatedSubscriptionCard.locator('button:has(svg.lucide-trash-2)').click()
-  await page.getByRole('button', { name: /confirm/i }).last().click()
+  await page
+    .getByRole('button', { name: /confirm/i })
+    .last()
+    .click()
   await waitFor(async () => {
     const data = await apiJson('/subscriptions')
-    return data.items?.length === initialSubscriptionCount && data.items?.every((item) => item.tag !== updatedSubscriptionTag)
+    return data.items?.length === initialSubscriptionCount &&
+      data.items?.every((item) => item.tag !== updatedSubscriptionTag)
       ? data
       : null
   }, 'subscription removal to complete')
@@ -462,9 +539,13 @@ async function main() {
   }
   console.log('[audit] live setup/bootstrap and core mutation smoke passed')
   await browser.close()
+  browser = undefined
+  page = undefined
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
+  await captureFailureArtifacts(page, 'failure', error instanceof Error ? error.stack || error.message : String(error))
   console.error(`[audit] failure: ${error instanceof Error ? error.stack || error.message : String(error)}`)
+  await browser?.close().catch(() => {})
   process.exit(1)
 })

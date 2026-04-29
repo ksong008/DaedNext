@@ -1,12 +1,15 @@
-name: Live Audit
+name: Integration Live Audit
 
 on:
   workflow_dispatch:
   workflow_call:
 
 jobs:
-  live-audit:
+  integration-live-audit:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v6
@@ -26,14 +29,23 @@ jobs:
           cache: false
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Firefox
         run: npx playwright install --with-deps firefox
 
-      - name: Run live audit
+      - name: Run integration live audit
         env:
           DAEWING_DIR: ${{ github.workspace }}/wing
           GO_BIN: go
-          Pnpm_BIN: pnpm
-        run: node scripts/live_audit_runner.mjs
+          PNPM_BIN: pnpm
+          AUDIT_ARTIFACT_DIR: ${{ runner.temp }}/live-audit-artifacts
+        run: pnpm test:integration
+
+      - name: Upload live audit artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-audit-artifacts
+          path: ${{ runner.temp }}/live-audit-artifacts/**
+          if-no-files-found: ignore

@@ -43,12 +43,6 @@ export interface GlobalInput {
   bandwidthMaxRx?: string
 }
 
-export interface PageInfo {
-  startCursor?: string | null
-  endCursor?: string | null
-  hasNextPage: boolean
-}
-
 export interface NodeResource {
   id: string
   link: string
@@ -62,8 +56,7 @@ export interface NodeResource {
 
 export interface NodesConnection {
   totalCount: number
-  edges: NodeResource[]
-  pageInfo: PageInfo
+  items: NodeResource[]
 }
 
 export interface SubscriptionResource {
@@ -169,16 +162,14 @@ export interface UserResource {
 
 export interface InterfaceResource {
   name: string
-  ifindex: number
-  ip: string[]
-  flag: {
-    up: boolean
-    default?: Array<{
-      ipVersion?: string
-      gateway?: string | null
-      source?: string | null
-    }>
-  }
+  index: number
+  up: boolean
+  addresses: string[]
+  defaultRoutes?: Array<{
+    ipVersion?: string
+    gateway?: string | null
+    source?: string | null
+  }>
 }
 
 export interface GeneralQuery {

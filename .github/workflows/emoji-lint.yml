@@ -1,0 +1,28 @@
+name: Emoji Lint
+
+on:
+  pull_request:
+    paths:
+      - "**/*.ts"
+      - "**/*.tsx"
+      - "**/*.js"
+      - "**/*.mjs"
+      - "**/*.cjs"
+      - "**/*.css"
+      - "**/*.sh"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - "**/*.json"
+      - "Makefile"
+      - "scripts/check_no_emoji.sh"
+      - ".github/workflows/emoji-lint.yml"
+
+jobs:
+  emoji-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Check for emoji in code
+        run: bash ./scripts/check_no_emoji.sh

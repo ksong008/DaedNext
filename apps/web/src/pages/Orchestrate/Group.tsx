@@ -93,7 +93,7 @@ export function GroupResource({
   }, [draggingResource])
 
   const groups: GroupsQuery['groups'] = groupsQuery?.groups || []
-  const nodes: NodesQuery['nodes']['edges'] = nodesQuery?.nodes.edges || []
+  const nodes: NodesQuery['nodes']['items'] = nodesQuery?.nodes.items || []
   const subscriptions: SubscriptionsQuery['subscriptions'] = subscriptionsQuery?.subscriptions || []
   const groupSortOrder = appState.groupSortableKeys as string[]
 
@@ -168,7 +168,7 @@ export function GroupResource({
     const subscriptionNodeItems = subscriptions.flatMap((subscription) => {
       const subscriptionName = subscription.tag || subscription.link
 
-      return subscription.nodes.edges
+      return subscription.nodes.items
         .filter((node) => !existingNodeIds.has(node.id))
         .map((node) => {
           const title = node.tag || node.name || node.address || node.id
@@ -215,8 +215,8 @@ export function GroupResource({
           id: subscription.id,
           title,
           description,
-          meta: `${subscription.nodes.edges.length} ${t('node')}`,
-          previewNodes: subscription.nodes.edges.map((node) => ({
+          meta: `${subscription.nodes.items.length} ${t('node')}`,
+          previewNodes: subscription.nodes.items.map((node) => ({
             id: node.id,
             title: node.name,
             protocol: node.protocol || undefined,

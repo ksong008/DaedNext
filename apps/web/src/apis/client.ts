@@ -17,9 +17,6 @@ export function normalizeEndpointURL(raw: string): string {
   const url = new URL(raw)
   let pathname = url.pathname.replace(/\/+$/, '')
 
-  if (pathname.endsWith('/graphql')) {
-    pathname = pathname.slice(0, -'/graphql'.length)
-  }
   if (pathname.endsWith('/api')) {
     url.pathname = pathname
   } else if (pathname === '' || pathname === '/') {

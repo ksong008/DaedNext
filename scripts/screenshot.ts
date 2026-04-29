@@ -185,10 +185,10 @@ async function takeScreenshots() {
   // Take screenshots for each page in both desktop and mobile viewports
   for (const pageConfig of PAGES) {
     // Desktop screenshot
-    await captureScreenshot(desktopPage, pageConfig, PC_DIR, pageConfig.name, '🖥️')
+    await captureScreenshot(desktopPage, pageConfig, PC_DIR, pageConfig.name, 'desktop')
 
     // Mobile screenshot
-    await captureScreenshot(mobilePage, pageConfig, MOBILE_DIR, pageConfig.name, '📱')
+    await captureScreenshot(mobilePage, pageConfig, MOBILE_DIR, pageConfig.name, 'mobile')
   }
 
   await desktopContext.close()
@@ -237,9 +237,9 @@ async function captureScreenshot(page: Page, config: PageConfig, outputDir: stri
       fullPage: false,
     })
 
-    console.log(`✓ Saved ${outputDir}/${filename}.png`)
+    console.log(`Saved ${outputDir}/${filename}.png`)
   } catch (error) {
-    console.error(`✗ Failed to capture ${filename}:`, error)
+    console.error(`Failed to capture ${filename}:`, error)
   }
 }
 

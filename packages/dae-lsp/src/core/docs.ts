@@ -117,7 +117,7 @@ export const PARAM_DOCS: Record<string, string> = {
   log_level: 'Log level for dae.\n\n**Values:** `error`, `warn`, `info`, `debug`, `trace`\n\nDefault: `info`',
   disable_waiting_network: 'Disable waiting for network before pulling subscriptions.\n\nDefault: `false`',
   enable_local_tcp_fast_redirect:
-    'Enable fast redirect for local TCP connections.\n\n⚠️ There is a known kernel issue that breaks certain clients/proxies, such as nadoo/glider.\nUsers may enable this experimental option at their own risks.\n\nDefault: `false`',
+    'Enable fast redirect for local TCP connections.\n\nWarning: there is a known kernel issue that breaks certain clients/proxies, such as nadoo/glider.\nUsers may enable this experimental option at their own risks.\n\nDefault: `false`',
 
   // Interface and kernel options
   lan_interface:
@@ -151,7 +151,7 @@ export const PARAM_DOCS: Record<string, string> = {
 
 Default: \`domain\``,
   allow_insecure:
-    'Allow insecure TLS certificates.\n\n⚠️ It is not recommended to turn it on unless you have to.\n\nDefault: `false`',
+    'Allow insecure TLS certificates.\n\nWarning: it is not recommended to turn it on unless you have to.\n\nDefault: `false`',
   sniffing_timeout:
     'Timeout to waiting for first data sending for sniffing.\nIt is always 0 if dial_mode is ip. Set it higher is useful in high latency LAN network.\n\n**Format:** Go duration (e.g., `100ms`, `200ms`)\n\nDefault: `100ms`',
 

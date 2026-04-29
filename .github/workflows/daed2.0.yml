@@ -1,0 +1,18 @@
+name: daed2.0 Integration
+
+on:
+  push:
+    branches:
+      - daed2.0
+  pull_request:
+    branches:
+      - daed2.0
+  workflow_dispatch:
+
+concurrency:
+  group: daed2.0-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-live-audit:
+    uses: ./.github/workflows/live-audit.yml

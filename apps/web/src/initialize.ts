@@ -30,7 +30,7 @@ export function useInitialize() {
     }
 
     const lanInterfaces = (await getInterfaces()).general.interfaces
-      .filter(({ flag }) => !!flag.default)
+      .filter(({ defaultRoutes }) => !!defaultRoutes)
       .map(({ name }) => name)
 
     const {

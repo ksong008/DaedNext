@@ -63,15 +63,14 @@ export class MockAPIClient implements APIClientInterface {
         return mockUser.user as T
       case 'GET /general/state':
         return mockGeneral.general.dae as T
-      case 'GET /general/schema':
-        return { openapi: '3.1.0', info: { title: 'mock' } } as T
       case 'GET /general/interfaces':
         return {
           items: mockGeneral.general.interfaces.map((iface) => ({
             name: iface.name,
-            ifindex: iface.ifindex,
-            ip: iface.ip,
-            flag: iface.flag,
+            index: iface.index,
+            up: iface.up,
+            addresses: iface.addresses,
+            defaultRoutes: iface.defaultRoutes,
           })),
         } as T
       case 'GET /runtime/overview':
@@ -93,10 +92,8 @@ export class MockAPIClient implements APIClientInterface {
         return { items: [] } as T
       case 'GET /nodes':
         return {
-          items: mockNodes.nodes.edges,
-          edges: mockNodes.nodes.edges,
-          totalCount: mockNodes.nodes.edges.length,
-          pageInfo: { startCursor: null, endCursor: null, hasNextPage: false },
+          items: mockNodes.nodes.items,
+          totalCount: mockNodes.nodes.items.length,
         } as T
       case 'GET /subscriptions':
         return {
@@ -109,7 +106,7 @@ export class MockAPIClient implements APIClientInterface {
             updatedAt: subscription.updatedAt,
             cronExp: subscription.cronExp,
             cronEnable: subscription.cronEnable,
-            nodeCount: subscription.nodes.edges.length,
+            nodeCount: subscription.nodes.items.length,
           })),
         } as T
       case 'GET /groups':
@@ -182,19 +179,8 @@ export class MockAPIClient implements APIClientInterface {
       const id = path.split('/')[2]
       const subscription = mockSubscriptions.subscriptions.find((item) => item.id === id)
       return {
-        items: subscription?.nodes.edges || [],
-        edges: subscription?.nodes.edges || [],
-        totalCount: subscription?.nodes.edges.length || 0,
-        pageInfo: { startCursor: null, endCursor: null, hasNextPage: false },
-      } as T
-    }
-
-    if (method === 'GET' && path.startsWith('/groups/by-name/')) {
-      const name = decodeURIComponent(path.split('/').slice(3).join('/'))
-      const group = mockGroups.groups.find((item) => item.name === name)
-      return {
-        id: numericID(group?.id || '0'),
-        name: group?.name || name,
+        items: subscription?.nodes.items || [],
+        totalCount: subscription?.nodes.items.length || 0,
       } as T
     }
 

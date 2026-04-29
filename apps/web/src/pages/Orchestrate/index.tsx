@@ -112,7 +112,7 @@ export function OrchestratePage() {
   }, [])
 
   // Get nodes from query (memoized to avoid dependency issues)
-  const nodes = useMemo(() => nodesQuery?.nodes.edges ?? [], [nodesQuery?.nodes.edges])
+  const nodes = useMemo(() => nodesQuery?.nodes.items ?? [], [nodesQuery?.nodes.items])
   const groups = useMemo(() => groupsQuery?.groups ?? [], [groupsQuery?.groups])
   const subscriptions = useMemo(() => subscriptionsQuery?.subscriptions ?? [], [subscriptionsQuery?.subscriptions])
   const getGroupById = useCallback(
@@ -178,7 +178,7 @@ export function OrchestratePage() {
   // Get sorted node IDs
   const sortedNodeIds = useMemo(() => {
     if (nodes.length === 0) return []
-    const currentIds = nodes.map((n: NodesQuery['nodes']['edges'][number]) => n.id)
+    const currentIds = nodes.map((n: NodesQuery['nodes']['items'][number]) => n.id)
     const currentIdSet = new Set(currentIds)
 
     const result = nodeSortOrder.filter((id) => currentIdSet.has(id))
@@ -196,7 +196,7 @@ export function OrchestratePage() {
   // Get sorted nodes
   const sortedNodes = useMemo(() => {
     if (nodes.length === 0) return []
-    const nodeMap = new Map(nodes.map((n: NodesQuery['nodes']['edges'][number]) => [n.id, n]))
+    const nodeMap = new Map(nodes.map((n: NodesQuery['nodes']['items'][number]) => [n.id, n]))
     return sortedNodeIds.map((id) => nodeMap.get(id)).filter(Boolean) as typeof nodes
   }, [nodes, sortedNodeIds])
 
@@ -233,7 +233,7 @@ export function OrchestratePage() {
     }
 
     for (const subscription of sortedSubscriptions) {
-      for (const node of subscription.nodes.edges) {
+      for (const node of subscription.nodes.items) {
         nodeIDs.add(node.id)
       }
     }

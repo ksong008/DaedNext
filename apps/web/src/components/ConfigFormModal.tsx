@@ -185,14 +185,14 @@ export function ConfigFormDrawer({
     const interfaces = generalQuery?.general.interfaces
 
     if (interfaces) {
-      return [
-        { label: t('autoDetect'), value: 'auto' },
-        ...interfaces
-          .filter(({ flag }: { flag: { default?: unknown } }) => !!flag.default)
-          .map(({ name, ip }: { name: string; ip: string[] }) => ({
+        return [
+          { label: t('autoDetect'), value: 'auto' },
+          ...interfaces
+          .filter(({ defaultRoutes }: { defaultRoutes?: unknown }) => !!defaultRoutes)
+          .map(({ name, addresses }: { name: string; addresses: string[] }) => ({
             label: name,
             value: name,
-            description: ip.length > 0 ? ip.join(', ') : undefined,
+            description: addresses.length > 0 ? addresses.join(', ') : undefined,
           })),
       ]
     }
@@ -204,10 +204,10 @@ export function ConfigFormDrawer({
     const interfaces = generalQuery?.general.interfaces
 
     if (interfaces) {
-      return interfaces.map(({ name, ip }: { name: string; ip: string[] }) => ({
+      return interfaces.map(({ name, addresses }: { name: string; addresses: string[] }) => ({
         label: name,
         value: name,
-        description: ip.length > 0 ? ip.join(', ') : undefined,
+        description: addresses.length > 0 ? addresses.join(', ') : undefined,
       }))
     }
 

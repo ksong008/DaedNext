@@ -140,7 +140,7 @@ export function SubscriptionResource({
                   id={`subscription-${subscriptionID}`}
                   index={index}
                   name={tag || link}
-                  leftSection={`${nodes.edges.length} ${t('node')}`}
+                  leftSection={`${nodes.items.length} ${t('node')}`}
                   actions={
                     <Fragment>
                       <SimpleTooltip label={t('actions.edit')}>
@@ -208,7 +208,7 @@ export function SubscriptionResource({
                               {...droppableProvided.droppableProps}
                               className="flex flex-wrap gap-2 pt-2"
                             >
-                              {nodes.edges.map(({ id, name, transport }, nodeIndex) => (
+                              {nodes.items.map(({ id, name, transport }, nodeIndex) => (
                                 <DraggableResourceBadge
                                   key={id}
                                   id={`subscription-node-${id}`}

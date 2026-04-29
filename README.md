@@ -130,11 +130,12 @@ pnpm dev
 
 ### Available Scripts
 
-| Command        | Description              |
-| -------------- | ------------------------ |
-| `pnpm dev`     | Start development server |
-| `pnpm build`   | Build for production     |
-| `pnpm lint`    | Lint and fix code        |
+| Command                 | Description                            |
+| ----------------------- | -------------------------------------- |
+| `pnpm dev`              | Start development server               |
+| `pnpm build`            | Build for production                   |
+| `pnpm test:integration` | Run the live browser integration audit |
+| `pnpm lint`             | Lint and fix code                      |
 
 ## 🤝 Contributing
 

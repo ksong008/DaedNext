@@ -22,7 +22,7 @@ export function NodeResource({
   highlight,
   nodeLatencies,
 }: {
-  sortedNodes: NodesQuery['nodes']['edges']
+  sortedNodes: NodesQuery['nodes']['items']
   highlight?: boolean
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
 }) {

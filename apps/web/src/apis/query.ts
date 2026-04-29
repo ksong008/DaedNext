@@ -30,7 +30,6 @@ import type {
   NodeResource,
   NodesConnection,
   NodesQuery,
-  PageInfo,
   RoutingsQuery,
   RoutingView,
   SubscriptionResource,
@@ -51,18 +50,14 @@ type GeneralStateAPI = {
 
 type InterfaceAPI = {
   name: string
-  ifindex?: number
-  index?: number
-  ip?: string[]
-  addresses?: string[]
-  flag?: {
-    up: boolean
-    default?: Array<{
-      ipVersion?: string
-      gateway?: string | null
-      source?: string | null
-    }>
-  }
+  index: number
+  up: boolean
+  addresses: string[]
+  defaultRoutes?: Array<{
+    ipVersion?: string
+    gateway?: string | null
+    source?: string | null
+  }>
 }
 
 type RuntimeOverviewAPI = {
@@ -96,9 +91,8 @@ type NodeAPI = {
 
 type NodeListAPI = {
   items: NodeAPI[]
-  edges?: NodeAPI[]
   totalCount: number
-  pageInfo?: PageInfo
+  nextAfterId?: number | null
 }
 
 type NodeLatencyAPI = {
@@ -443,15 +437,10 @@ export function useUserQuery() {
 }
 
 function adaptNodesConnection(data: NodeListAPI): NodesConnection {
-  const items = (data.edges || data.items).map(adaptNode)
+  const items = data.items.map(adaptNode)
   return {
     totalCount: data.totalCount,
-    edges: items,
-    pageInfo: data.pageInfo || {
-      startCursor: items[0]?.id ?? null,
-      endCursor: items.length > 0 ? items[items.length - 1].id : null,
-      hasNextPage: false,
-    },
+    items,
   }
 }
 
@@ -469,15 +458,12 @@ function adaptNode(node: NodeAPI): NodeResource {
 }
 
 function adaptInterface(iface: InterfaceAPI): InterfaceResource {
-  const defaultRoutes = iface.flag?.default || []
   return {
     name: iface.name,
-    ifindex: iface.ifindex || iface.index || 0,
-    ip: iface.ip || iface.addresses || [],
-    flag: {
-      up: iface.flag?.up ?? false,
-      default: defaultRoutes,
-    },
+    index: iface.index,
+    up: iface.up,
+    addresses: iface.addresses,
+    defaultRoutes: iface.defaultRoutes || [],
   }
 }
 
