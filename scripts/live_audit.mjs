@@ -257,15 +257,19 @@ async function main() {
   const nodeSection = sections.nth(4)
 
   const initialConfigCount = configs.items.length
-  const currentFallbackResolver = configs.items?.[0]?.parsedGlobal?.fallbackResolver || '8.8.8.8:53'
+  const initialConfigIds = new Set(configs.items.map((item) => String(item.id)))
   await configSection.locator('button:has(svg.lucide-copy)').first().click()
-  await waitFor(async () => {
+  const duplicatedConfig = await waitFor(async () => {
     const data = await apiJson('/configs?expand=parsed')
-    return data.items?.length === initialConfigCount + 1 ? data : null
+    const created = data.items?.find((item) => !initialConfigIds.has(String(item.id)))
+    return created ? created : null
   }, 'duplicated config to appear')
   console.log('[audit] config duplicate flow passed')
+  const duplicatedConfigName = duplicatedConfig.name
+  const currentFallbackResolver = duplicatedConfig.parsedGlobal?.fallbackResolver || '8.8.8.8:53'
   const renamedConfig = `global-copy-${Date.now()}`
-  await configSection.locator('button:has(svg.lucide-type)').last().click()
+  const duplicatedConfigCard = configSection.locator('.transition-all').filter({ hasText: duplicatedConfigName }).first()
+  await duplicatedConfigCard.locator('button:has(svg.lucide-type)').click()
   const configRenameInput = configSection.locator('input').last()
   await configRenameInput.fill(renamedConfig)
   await configRenameInput.press('Enter')
@@ -275,7 +279,8 @@ async function main() {
   }, 'renamed config to appear')
   console.log('[audit] config rename flow passed')
   const updatedFallbackResolver = currentFallbackResolver === '1.0.0.1:53' ? '8.8.8.8:53' : '1.0.0.1:53'
-  await configSection.locator('button:has(svg.lucide-settings-2)').first().click()
+  const renamedConfigCard = configSection.locator('.transition-all').filter({ hasText: renamedConfig }).first()
+  await renamedConfigCard.locator('button:has(svg.lucide-settings-2)').click()
   const configDialog = page.getByRole('dialog').last()
   const fallbackResolverInput = configDialog.locator(`input[value="${currentFallbackResolver}"]`).first()
   await fallbackResolverInput.fill(updatedFallbackResolver)
@@ -285,11 +290,8 @@ async function main() {
     return data.items?.some((item) => item.parsedGlobal?.fallbackResolver === updatedFallbackResolver) ? data : null
   }, 'updated config fallbackResolver to appear')
   console.log('[audit] config content update flow passed')
-  await configSection.locator('button:has(svg.lucide-trash-2)').first().click()
-  await page
-    .getByRole('button', { name: /confirm/i })
-    .last()
-    .click()
+  await renamedConfigCard.locator('button:has(svg.lucide-trash-2)').click()
+  await page.getByRole('dialog').last().locator('[data-slot="dialog-footer"]').getByRole('button').last().click()
   await waitFor(async () => {
     const data = await apiJson('/configs?expand=parsed')
     return data.items?.length === initialConfigCount ? data : null
@@ -297,14 +299,18 @@ async function main() {
   console.log('[audit] config remove flow passed')
 
   const initialDNSCount = (await apiJson('/dns?expand=parsed')).items.length
+  const initialDNSIds = new Set((await apiJson('/dns?expand=parsed')).items.map((item) => String(item.id)))
   await dnsSection.locator('button:has(svg.lucide-copy)').first().click()
-  await waitFor(async () => {
+  const duplicatedDNS = await waitFor(async () => {
     const data = await apiJson('/dns?expand=parsed')
-    return data.items?.length === initialDNSCount + 1 ? data : null
+    const created = data.items?.find((item) => !initialDNSIds.has(String(item.id)))
+    return created ? created : null
   }, 'duplicated dns to appear')
   console.log('[audit] dns duplicate flow passed')
+  const duplicatedDNSName = duplicatedDNS.name
   const renamedDNS = `dns-copy-${Date.now()}`
-  await dnsSection.locator('button:has(svg.lucide-type)').last().click()
+  const duplicatedDNSCard = dnsSection.locator('.transition-all').filter({ hasText: duplicatedDNSName }).first()
+  await duplicatedDNSCard.locator('button:has(svg.lucide-type)').click()
   const dnsRenameInput = dnsSection.locator('input').last()
   await dnsRenameInput.fill(renamedDNS)
   await dnsRenameInput.press('Enter')
@@ -316,7 +322,7 @@ async function main() {
   const currentDNS = (await apiJson('/dns?expand=parsed')).items.find((item) => item.name === renamedDNS)
   const currentUpstream = currentDNS?.dns?.includes('223.5.5.6:53') ? 'udp://223.5.5.6:53' : 'udp://223.5.5.5:53'
   const updatedUpstream = currentUpstream === 'udp://223.5.5.6:53' ? 'udp://223.5.5.5:53' : 'udp://223.5.5.6:53'
-  const renamedDNSCard = dnsSection.locator('.border').filter({ hasText: renamedDNS }).first()
+  const renamedDNSCard = dnsSection.locator('.transition-all').filter({ hasText: renamedDNS }).first()
   await renamedDNSCard.locator('button:has(svg.lucide-settings-2)').click()
   const dnsDialog = page.getByRole('dialog').last()
   const dnsInputs = dnsDialog.locator('input')
@@ -331,11 +337,8 @@ async function main() {
       : null
   }, 'updated dns upstream to appear')
   console.log('[audit] dns content update flow passed')
-  await dnsSection.locator('button:has(svg.lucide-trash-2)').first().click()
-  await page
-    .getByRole('button', { name: /confirm/i })
-    .last()
-    .click()
+  await renamedDNSCard.locator('button:has(svg.lucide-trash-2)').click()
+  await page.getByRole('dialog').last().locator('[data-slot="dialog-footer"]').getByRole('button').last().click()
   await waitFor(async () => {
     const data = await apiJson('/dns?expand=parsed')
     return data.items?.length === initialDNSCount ? data : null
@@ -343,14 +346,18 @@ async function main() {
   console.log('[audit] dns remove flow passed')
 
   const initialRoutingCount = (await apiJson('/routings?expand=parsed')).items.length
+  const initialRoutingIds = new Set((await apiJson('/routings?expand=parsed')).items.map((item) => String(item.id)))
   await routingSection.locator('button:has(svg.lucide-copy)').first().click()
-  await waitFor(async () => {
+  const duplicatedRouting = await waitFor(async () => {
     const data = await apiJson('/routings?expand=parsed')
-    return data.items?.length === initialRoutingCount + 1 ? data : null
+    const created = data.items?.find((item) => !initialRoutingIds.has(String(item.id)))
+    return created ? created : null
   }, 'duplicated routing to appear')
   console.log('[audit] routing duplicate flow passed')
+  const duplicatedRoutingName = duplicatedRouting.name
   const renamedRouting = `routing-copy-${Date.now()}`
-  await routingSection.locator('button:has(svg.lucide-type)').last().click()
+  const duplicatedRoutingCard = routingSection.locator('.transition-all').filter({ hasText: duplicatedRoutingName }).first()
+  await duplicatedRoutingCard.locator('button:has(svg.lucide-type)').click()
   const routingRenameInput = routingSection.locator('input').last()
   await routingRenameInput.fill(renamedRouting)
   await routingRenameInput.press('Enter')
@@ -364,7 +371,7 @@ async function main() {
     typeof currentRouting?.routing === 'string' && currentRouting.routing.includes('domain(geosite:cn) -> direct')
       ? 'global'
       : 'nonCn'
-  const renamedRoutingCard = routingSection.locator('.border').filter({ hasText: renamedRouting }).first()
+  const renamedRoutingCard = routingSection.locator('.transition-all').filter({ hasText: renamedRouting }).first()
   await renamedRoutingCard.locator('button:has(svg.lucide-settings-2)').click()
   const routingDialog = page.getByRole('dialog').last()
   await routingDialog.locator(`[data-slot="radio-group-item"][value="${nextRoutingValue}"]`).click()
@@ -381,11 +388,8 @@ async function main() {
     return typeof updated.routing === 'string' && updated.routing.includes('domain(geosite:cn) -> direct') ? data : null
   }, 'updated routing mode to appear')
   console.log('[audit] routing content update flow passed')
-  await routingSection.locator('button:has(svg.lucide-trash-2)').first().click()
-  await page
-    .getByRole('button', { name: /confirm/i })
-    .last()
-    .click()
+  await renamedRoutingCard.locator('button:has(svg.lucide-trash-2)').click()
+  await page.getByRole('dialog').last().locator('[data-slot="dialog-footer"]').getByRole('button').last().click()
   await waitFor(async () => {
     const data = await apiJson('/routings?expand=parsed')
     return data.items?.length === initialRoutingCount ? data : null
@@ -431,10 +435,7 @@ async function main() {
   console.log('[audit] group rename flow passed')
   const updatedGroupCard = groupSection.locator('div[data-group-card-id]').filter({ hasText: renamedGroup }).first()
   await updatedGroupCard.locator('button:has(svg.lucide-trash-2)').click()
-  await page
-    .getByRole('button', { name: /confirm/i })
-    .last()
-    .click()
+  await page.getByRole('dialog').last().locator('[data-slot="dialog-footer"]').getByRole('button').last().click()
   await waitFor(async () => {
     const data = await apiJson('/groups')
     return data.items?.every((item) => item.name !== renamedGroup) ? data : null
@@ -469,10 +470,7 @@ async function main() {
   console.log('[audit] node edit flow passed')
   const updatedNodeCard = nodeSection.locator('div.group.relative.bg-card').filter({ hasText: updatedNodeTag }).first()
   await updatedNodeCard.locator('button:has(svg.lucide-trash-2)').click()
-  await page
-    .getByRole('button', { name: /confirm/i })
-    .last()
-    .click()
+  await page.getByRole('dialog').last().locator('[data-slot="dialog-footer"]').getByRole('button').last().click()
   await waitFor(async () => {
     const data = await apiJson('/nodes')
     return data.totalCount === initialNodeCount && data.items?.every((item) => item.tag !== updatedNodeTag)
@@ -521,10 +519,7 @@ async function main() {
     .filter({ hasText: updatedSubscriptionTag })
     .first()
   await updatedSubscriptionCard.locator('button:has(svg.lucide-trash-2)').click()
-  await page
-    .getByRole('button', { name: /confirm/i })
-    .last()
-    .click()
+  await page.getByRole('dialog').last().locator('[data-slot="dialog-footer"]').getByRole('button').last().click()
   await waitFor(async () => {
     const data = await apiJson('/subscriptions')
     return data.items?.length === initialSubscriptionCount &&
