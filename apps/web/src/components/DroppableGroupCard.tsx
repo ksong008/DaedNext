@@ -116,7 +116,7 @@ export function DroppableGroupCard({
               </div>
             )}
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
               {!isEditing && dragHandleProps && (
                 <SimpleTooltip label={t('a11y.dragToReorder')}>
                   <div
@@ -152,6 +152,7 @@ export function DroppableGroupCard({
                     variant="ghost"
                     size="xs"
                     className="text-destructive hover:text-destructive"
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => setConfirmOpen(true)}
                   >
                     <Trash2 className="h-4 w-4" />
