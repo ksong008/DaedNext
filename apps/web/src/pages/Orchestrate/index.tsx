@@ -241,6 +241,37 @@ export function OrchestratePage() {
     return Array.from(nodeIDs)
   }, [sortedNodes, sortedSubscriptions])
 
+  useEffect(() => {
+    const visibleNodeIdSet = new Set(allLatencyProbeNodeIds)
+    const canonicalResultMap = new Map((nodeLatenciesQuery.data ?? []).map((result) => [result.id, result]))
+
+    setManualLatencyProbeOverrides((previousResults) => {
+      let changed = false
+      const nextResults: Record<string, NodeLatencyProbeResult> = {}
+
+      for (const [id, result] of Object.entries(previousResults)) {
+        if (!visibleNodeIdSet.has(id)) {
+          changed = true
+          continue
+        }
+
+        const canonicalResult = canonicalResultMap.get(id)
+        if (canonicalResult && canonicalResult.testedAt && result.testedAt) {
+          const canonicalTime = Date.parse(canonicalResult.testedAt)
+          const overrideTime = Date.parse(result.testedAt)
+          if (!Number.isNaN(canonicalTime) && !Number.isNaN(overrideTime) && canonicalTime >= overrideTime) {
+            changed = true
+            continue
+          }
+        }
+
+        nextResults[id] = result
+      }
+
+      return changed ? nextResults : previousResults
+    })
+  }, [allLatencyProbeNodeIds, nodeLatenciesQuery.data])
+
   const groupSortOrder = appState.groupSortableKeys as string[]
 
   const sortedGroupIds = useMemo(() => {

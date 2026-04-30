@@ -7,6 +7,7 @@ import { defineConfig } from 'vite'
 import { version } from './package.json'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const displayVersion = version.replace(/\.0$/, '')
 
 export default defineConfig(() => {
   return {
@@ -25,7 +26,7 @@ export default defineConfig(() => {
       chunkSizeWarningLimit: 10 * 1024 * 1024,
     },
     define: {
-      'import.meta.env.APP_VERSION': JSON.stringify(version),
+      'import.meta.env.APP_VERSION': JSON.stringify(displayVersion),
     },
     test: { globals: true },
   }
