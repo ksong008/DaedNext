@@ -100,6 +100,22 @@ jobs:
         run: make bundle
       - name: Smoke test
         run: ./bundled/${{ matrix.output_name }} --version
+      - name: Collect runtime files
+        run: |
+          mkdir -p artifact
+          cp bundled/${{ matrix.output_name }} artifact/daed
+          cp install/daed.service artifact/
+          cp install/daed.desktop artifact/
+          cp -r install/icons artifact/icons
+          curl -L -o artifact/geoip.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geoip.dat
+          curl -L -o artifact/geosite.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geosite.dat
+          tar -C artifact -czf ${{ matrix.output_name }}-test.tar.gz .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.output_name }}-test
+          path: |
+            artifact/**
+            ${{ matrix.output_name }}-test.tar.gz
 
   integration-live-audit:
     needs: web-quality
