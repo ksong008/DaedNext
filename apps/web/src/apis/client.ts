@@ -33,17 +33,32 @@ export function buildAPIURL(endpointURL: string, path: string, query?: Record<st
   return url
 }
 
+function canonicalizeEndpointPathname(pathname: string) {
+  const trimmedPath = pathname.replace(/\/+$/, '')
+
+  if (trimmedPath === '' || trimmedPath === '/') {
+    return '/api'
+  }
+
+  const segments = trimmedPath.split('/').filter(Boolean)
+  const lastSegment = segments.at(-1)?.toLowerCase()
+
+  if (lastSegment === 'api') {
+    segments[segments.length - 1] = 'api'
+    return `/${segments.join('/')}`
+  }
+
+  if (lastSegment === 'graphql') {
+    segments[segments.length - 1] = 'api'
+    return `/${segments.join('/')}`
+  }
+
+  return `/${[...segments, 'api'].join('/')}`
+}
+
 export function normalizeEndpointURL(raw: string): string {
   const url = new URL(raw)
-  let pathname = url.pathname.replace(/\/+$/, '')
-
-  if (pathname.endsWith('/api')) {
-    url.pathname = pathname
-  } else if (pathname === '' || pathname === '/') {
-    url.pathname = '/api'
-  } else {
-    url.pathname = `${pathname}/api`
-  }
+  url.pathname = canonicalizeEndpointPathname(url.pathname)
   url.search = ''
   url.hash = ''
   return url.toString().replace(/\/$/, '')

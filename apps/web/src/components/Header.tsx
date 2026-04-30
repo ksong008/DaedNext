@@ -48,6 +48,7 @@ import { i18n } from '~/i18n'
 import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { fileToBase64 } from '~/utils'
+import { normalizeEndpointURL } from '~/apis/client'
 
 import { CommandPalette, useCommandPaletteActions } from './CommandPalette'
 import { FormActions } from './FormActions'
@@ -82,7 +83,8 @@ const passwordChangeSchema = z
 export function HeaderWithActions() {
   const { t } = useTranslation()
   const endpointURL = useStore(endpointURLAtom)
-  const openapiURL = `${endpointURL.replace(/\/$/, '')}/openapi.json`
+  const normalizedEndpointURL = normalizeEndpointURL(endpointURL)
+  const openapiURL = `${normalizedEndpointURL.replace(/\/$/, '')}/openapi.json`
   const { themeMode, setThemeMode } = useColorScheme()
 
   const cycleThemeMode = () => {
@@ -297,7 +299,7 @@ export function HeaderWithActions() {
           </Link>
 
           {!matchSmallScreen && (
-            <SimpleTooltip label={endpointURL}>
+            <SimpleTooltip label={normalizedEndpointURL}>
               <Code className="text-xs font-semibold px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary transition-colors">
                 {import.meta.env.APP_VERSION}
               </Code>

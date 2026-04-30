@@ -15,6 +15,17 @@ describe('normalizeEndpointURL', () => {
 
     expect(normalizeEndpointURL('http://127.0.0.1:2023/api')).toBe('http://127.0.0.1:2023/api')
   })
+
+  it('canonicalizes a legacy /graphql endpoint to /api', async () => {
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      hostname: '127.0.0.1',
+    })
+    const { normalizeEndpointURL } = await import('./client')
+
+    expect(normalizeEndpointURL('http://127.0.0.1:2023/graphql')).toBe('http://127.0.0.1:2023/api')
+    expect(normalizeEndpointURL('http://127.0.0.1:2023/GraphQL')).toBe('http://127.0.0.1:2023/api')
+  })
 })
 
 describe('APIClient', () => {

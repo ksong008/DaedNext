@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createContext, use, useMemo } from 'react'
+import { createContext, use, useEffect, useMemo } from 'react'
 
 import { APIClient, type APIClientInterface, normalizeEndpointURL } from '~/apis/client'
 import { isMockMode, MockAPIClient } from '~/mocks'
@@ -45,6 +45,13 @@ export function QueryProvider({ children, colorScheme, themeMode, setThemeMode }
   const token = useStore(tokenAtom)
 
   const queryClient = useMemo(() => new QueryClient(), [])
+
+  useEffect(() => {
+    const normalizedEndpointURL = normalizeEndpointURL(endpointURL)
+    if (normalizedEndpointURL !== endpointURL) {
+      endpointURLAtom.set(normalizedEndpointURL)
+    }
+  }, [endpointURL])
 
   const apiClient = useMemo<APIClientType>(() => {
     const normalizedEndpointURL = normalizeEndpointURL(endpointURL)

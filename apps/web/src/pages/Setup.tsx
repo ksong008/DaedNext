@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react'
 import { Link2, LockKeyhole, User } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -43,8 +43,9 @@ export function SetupPage() {
   const [numberUsers, setNumberUsers] = useState(0)
 
   const defaultEndpointURL = useStore(endpointURLAtom)
+  const normalizedDefaultEndpointURL = normalizeEndpointURL(defaultEndpointURL)
 
-  const [endpointFormData, setEndpointFormData] = useState({ endpointURL: defaultEndpointURL })
+  const [endpointFormData, setEndpointFormData] = useState({ endpointURL: normalizedDefaultEndpointURL })
   const [endpointFormErrors, setEndpointFormErrors] = useState<{ endpointURL?: string }>({})
 
   const [signupFormData, setSignupFormData] = useState({ username: '', password: '' })
@@ -52,6 +53,18 @@ export function SetupPage() {
 
   const [loginFormData, setLoginFormData] = useState({ username: '', password: '' })
   const [loginFormErrors, setLoginFormErrors] = useState<{ username?: string; password?: string }>({})
+
+  useEffect(() => {
+    setEndpointFormData((current) => {
+      if (current.endpointURL === normalizedDefaultEndpointURL) {
+        return current
+      }
+      if (current.endpointURL === defaultEndpointURL) {
+        return { endpointURL: normalizedDefaultEndpointURL }
+      }
+      return current
+    })
+  }, [defaultEndpointURL, normalizedDefaultEndpointURL])
 
   const handleEndpointURLSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
