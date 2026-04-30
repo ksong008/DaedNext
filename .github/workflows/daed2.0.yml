@@ -9,18 +9,98 @@ on:
       - daed2.0
   workflow_dispatch:
 
+permissions: read-all
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 concurrency:
   group: daed2.0-integration-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   web-surface-lint:
-    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
       - name: Check retired frontend markers
         run: bash ./scripts/check_retired_frontend_markers.sh
 
-  integration-live-audit:
+  web-quality:
     needs: web-surface-lint
+    timeout-minutes: 30
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.12.0'
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck daed
+        run: pnpm --filter daed check-types
+      - name: Run daed unit tests
+        run: pnpm --filter daed test
+
+  build-linux-amd64:
+    needs: web-quality
+    name: Build Linux AMD64 ${{ matrix.goamd64 }}
+    timeout-minutes: 45
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goamd64: v2
+            output_name: daed-linux-x86_64_v2_sse
+          - goamd64: v3
+            output_name: daed-linux-x86_64_v3_avx2
+    env:
+      GOOS: linux
+      GOARCH: amd64
+      GOAMD64: ${{ matrix.goamd64 }}
+      CGO_ENABLED: 0
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.12.0'
+          cache: pnpm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.24.3'
+          cache: false
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build web
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm build --filter daed
+      - name: Build bundle
+        env:
+          VERSION: test-${{ github.sha }}
+          GOFLAGS: -trimpath -modcacherw
+          OUTPUT: ../bundled/${{ matrix.output_name }}
+          APPNAME: daed
+          WEB_DIST: ../apps/web/dist
+        working-directory: wing
+        run: make bundle
+      - name: Smoke test
+        run: ./bundled/${{ matrix.output_name }} --version
+
+  integration-live-audit:
+    needs: web-quality
     uses: ./.github/workflows/live-audit.yml
