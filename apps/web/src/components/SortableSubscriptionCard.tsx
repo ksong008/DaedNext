@@ -67,13 +67,17 @@ export function SortableSubscriptionCard({
                 </div>
 
                 {/* Actions - visible on hover */}
-                <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+                <div
+                  className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0"
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
                   {actions}
                   <SimpleTooltip label={t('actions.remove')}>
                     <Button
                       variant="ghost"
                       size="xs"
                       className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => setConfirmOpen(true)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
