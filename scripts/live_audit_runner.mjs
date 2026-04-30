@@ -1,6 +1,6 @@
 import http from 'node:http'
 import { spawn } from 'node:child_process'
-import { mkdtemp, access, mkdir } from 'node:fs/promises'
+import { mkdtemp, access, mkdir, readdir } from 'node:fs/promises'
 import { constants as fsConstants, existsSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -19,6 +19,7 @@ if (nodeMajor < 20) {
 
 const pnpmBin = process.env.PNPM_BIN || 'pnpm'
 const goBin = process.env.GO_BIN || 'go'
+const makeBin = process.env.MAKE_BIN || 'make'
 const frontendPort = process.env.LIVE_AUDIT_FRONTEND_PORT || '4199'
 const apiPort = process.env.LIVE_AUDIT_API_PORT || '2024'
 const subscriptionPort = process.env.LIVE_AUDIT_SUBSCRIPTION_PORT || '18080'
@@ -92,6 +93,28 @@ async function waitForUrl(url, label, timeoutMs = 60000) {
   throw new Error(`Timed out waiting for ${label} at ${url}`)
 }
 
+function hasGeneratedBpfSources(entries) {
+  return entries.some(name => /^bpf.*_bpf(?:el|eb)\.go$/.test(name))
+}
+
+async function ensureDaeCoreBpfArtifacts(wingDir) {
+  const daeCoreDir = path.join(wingDir, 'dae-core')
+  const [controlEntries, traceEntries] = await Promise.all([
+    readdir(path.join(daeCoreDir, 'control')),
+    readdir(path.join(daeCoreDir, 'trace')),
+  ])
+
+  if (hasGeneratedBpfSources(controlEntries) && hasGeneratedBpfSources(traceEntries)) {
+    return
+  }
+
+  console.log('[live-audit-runner] missing dae-core eBPF generated sources; running `make ebpf`')
+  await runCommand('dae-core-ebpf', makeBin, ['ebpf'], {
+    cwd: daeCoreDir,
+    env: process.env,
+  })
+}
+
 async function killProcess(proc, signal = 'SIGINT') {
   if (!proc || proc.killed) return
   proc.kill(signal)
@@ -142,6 +165,8 @@ async function main() {
   })
 
   try {
+    await ensureDaeCoreBpfArtifacts(wingDir)
+
     if (!skipBuild || !existsSync(path.join(repoRoot, 'apps/web/dist/index.html'))) {
       await runCommand('build', pnpmBin, ['--filter', 'daed', 'build'], { cwd: repoRoot, env: process.env })
     }
