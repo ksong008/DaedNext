@@ -3,6 +3,9 @@
   "type": "module",
   "private": true,
   "packageManager": "pnpm@10.24.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "description": "A Web Dashboard For dae",
   "author": {
     "email": "dae@v2raya.org",
