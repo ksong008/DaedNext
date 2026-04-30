@@ -189,10 +189,10 @@ export function ConfigFormDrawer({
           { label: t('autoDetect'), value: 'auto' },
           ...interfaces
           .filter(({ defaultRoutes }: { defaultRoutes?: unknown }) => !!defaultRoutes)
-          .map(({ name, addresses }: { name: string; addresses: string[] }) => ({
+          .map(({ name, addresses }: { name: string; addresses?: string[] | null }) => ({
             label: name,
             value: name,
-            description: addresses.length > 0 ? addresses.join(', ') : undefined,
+            description: Array.isArray(addresses) && addresses.length > 0 ? addresses.join(', ') : undefined,
           })),
       ]
     }
@@ -204,10 +204,10 @@ export function ConfigFormDrawer({
     const interfaces = generalQuery?.general.interfaces
 
     if (interfaces) {
-      return interfaces.map(({ name, addresses }: { name: string; addresses: string[] }) => ({
+      return interfaces.map(({ name, addresses }: { name: string; addresses?: string[] | null }) => ({
         label: name,
         value: name,
-        description: addresses.length > 0 ? addresses.join(', ') : undefined,
+        description: Array.isArray(addresses) && addresses.length > 0 ? addresses.join(', ') : undefined,
       }))
     }
 

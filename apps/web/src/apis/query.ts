@@ -491,8 +491,8 @@ function adaptInterface(iface: InterfaceAPI): InterfaceResource {
     name: iface.name,
     index: iface.index,
     up: iface.up,
-    addresses: iface.addresses,
-    defaultRoutes: iface.defaultRoutes || [],
+    addresses: Array.isArray(iface.addresses) ? iface.addresses : [],
+    defaultRoutes: Array.isArray(iface.defaultRoutes) ? iface.defaultRoutes : [],
   }
 }
 
