@@ -409,7 +409,8 @@ async function main() {
       : null
   }, 'group creation to appear')
   console.log('[audit] group create flow passed')
-  await groupSection.locator('button:has(svg.lucide-settings-2)').last().click()
+  const createdGroupCard = groupSection.locator('div[data-group-card-id]').filter({ hasText: groupName }).first()
+  await createdGroupCard.locator('button:has(svg.lucide-settings-2)').click()
   const groupSettingsDialog = page.getByRole('dialog').last()
   await groupSettingsDialog.locator('[data-slot="select-trigger"]').click()
   await page
@@ -424,7 +425,7 @@ async function main() {
   }, 'group policy update to appear')
   console.log('[audit] group policy update flow passed')
   const renamedGroup = `audit-group-renamed-${Date.now()}`
-  await groupSection.locator('button:has(svg.lucide-type)').last().click()
+  await createdGroupCard.locator('button:has(svg.lucide-type)').click()
   const groupRenameInput = groupSection.locator('input').last()
   await groupRenameInput.fill(renamedGroup)
   await groupRenameInput.press('Enter')
