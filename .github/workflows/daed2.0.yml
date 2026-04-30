@@ -52,7 +52,7 @@ jobs:
         run: pnpm --filter daed test
 
   build-linux-amd64:
-    needs: web-quality
+    needs: integration-live-audit
     name: Build Linux AMD64 ${{ matrix.goamd64 }}
     timeout-minutes: 45
     runs-on: ubuntu-22.04
