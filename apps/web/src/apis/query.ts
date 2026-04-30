@@ -395,10 +395,10 @@ export function useSubscriptionsQuery() {
   return useQuery({
     queryKey: QUERY_KEY_SUBSCRIPTION,
     queryFn: async (): Promise<SubscriptionListView> => {
-      const data = await apiClient.get<{ items: SubscriptionAPI[] }>('/subscriptions')
+      const data = await apiClient.get<{ items: Array<SubscriptionAPI & { nodes?: NodeListAPI }> }>('/subscriptions', { expand: 'nodes' })
       const subscriptions = await Promise.all(
         data.items.map(async (subscription): Promise<SubscriptionResource> => {
-          const nodes = await apiClient.get<NodeListAPI>(`/subscriptions/${subscription.id}/nodes`)
+          const nodes = subscription.nodes ?? (await apiClient.get<NodeListAPI>(`/subscriptions/${subscription.id}/nodes`))
           return {
             id: String(subscription.id),
             tag: subscription.tag ?? null,
