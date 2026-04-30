@@ -399,7 +399,7 @@ async function main() {
   const groupName = `audit-group-${Date.now()}`
   const initialGroupCount = groups.items.length
   await groupSection.locator('button:has(svg.lucide-plus)').first().click()
-  const groupCreateDialog = page.getByRole('dialog')
+  const groupCreateDialog = page.getByRole('dialog').last()
   await groupCreateDialog.locator('input').first().fill(groupName)
   await groupCreateDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
@@ -445,7 +445,7 @@ async function main() {
   const uiNodeTag = `ui-node-${Date.now()}`
   const initialNodeCount = (await apiJson('/nodes')).totalCount
   await nodeSection.locator('button:has(svg.lucide-cloud-upload)').first().click()
-  const importDialog = page.getByRole('dialog')
+  const importDialog = page.getByRole('dialog').last()
   const importInputs = importDialog.locator('input')
   await importInputs.nth(0).fill('http://user:pass@127.0.0.1:8081#ui-node')
   await importInputs.nth(1).fill(uiNodeTag)

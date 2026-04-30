@@ -55,6 +55,7 @@ function spawnManaged(name, command, args, options) {
   const proc = spawn(command, args, {
     cwd: options.cwd,
     env: options.env,
+    detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   streamProcess(name, proc)
@@ -64,6 +65,39 @@ function spawnManaged(name, command, args, options) {
     }
   })
   return proc
+}
+
+function isProcessRunning(proc) {
+  return !!proc && proc.exitCode == null && proc.signalCode == null
+}
+
+function signalProcessTree(proc, signal) {
+  if (!proc?.pid) return
+  try {
+    if (process.platform !== 'win32') {
+      process.kill(-proc.pid, signal)
+      return
+    }
+  } catch {
+    // fall back to direct child signaling below
+  }
+
+  try {
+    proc.kill(signal)
+  } catch {
+    // process is already gone
+  }
+}
+
+async function waitForProcessExit(proc, timeoutMs) {
+  if (!isProcessRunning(proc)) return true
+  return await new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs)
+    proc.once('exit', () => {
+      clearTimeout(timer)
+      resolve(true)
+    })
+  })
 }
 
 async function runCommand(name, command, args, options) {
@@ -116,18 +150,11 @@ async function ensureDaeCoreBpfArtifacts(wingDir) {
 }
 
 async function killProcess(proc, signal = 'SIGINT') {
-  if (!proc || proc.killed) return
-  proc.kill(signal)
-  await new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      if (!proc.killed) proc.kill('SIGKILL')
-      resolve()
-    }, 5000)
-    proc.once('exit', () => {
-      clearTimeout(timer)
-      resolve()
-    })
-  })
+  if (!isProcessRunning(proc)) return
+  signalProcessTree(proc, signal)
+  if (await waitForProcessExit(proc, 5000)) return
+  signalProcessTree(proc, 'SIGKILL')
+  await waitForProcessExit(proc, 5000)
 }
 
 async function main() {
