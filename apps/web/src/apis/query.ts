@@ -155,6 +155,35 @@ type SubscriptionAPI = {
   nodeCount: number
 }
 
+function normalizeConfigGlobal(global?: Partial<ConfigGlobal> | null): ConfigGlobal {
+  return {
+    logLevel: global?.logLevel ?? '',
+    tproxyPort: global?.tproxyPort ?? 0,
+    allowInsecure: global?.allowInsecure ?? false,
+    checkInterval: global?.checkInterval ?? '',
+    checkTolerance: global?.checkTolerance ?? '',
+    lanInterface: global?.lanInterface ?? [],
+    wanInterface: global?.wanInterface ?? [],
+    udpCheckDns: global?.udpCheckDns ?? [],
+    tcpCheckUrl: global?.tcpCheckUrl ?? [],
+    fallbackResolver: global?.fallbackResolver ?? '',
+    dialMode: global?.dialMode ?? '',
+    tcpCheckHttpMethod: global?.tcpCheckHttpMethod ?? '',
+    disableWaitingNetwork: global?.disableWaitingNetwork ?? false,
+    autoConfigKernelParameter: global?.autoConfigKernelParameter ?? false,
+    sniffingTimeout: global?.sniffingTimeout ?? '',
+    tlsImplementation: global?.tlsImplementation ?? '',
+    utlsImitate: global?.utlsImitate ?? '',
+    tproxyPortProtect: global?.tproxyPortProtect ?? false,
+    soMarkFromDae: global?.soMarkFromDae ?? 0,
+    pprofPort: global?.pprofPort ?? 0,
+    enableLocalTcpFastRedirect: global?.enableLocalTcpFastRedirect ?? false,
+    mptcp: global?.mptcp ?? false,
+    bandwidthMaxTx: global?.bandwidthMaxTx ?? '',
+    bandwidthMaxRx: global?.bandwidthMaxRx ?? '',
+  }
+}
+
 export function getModeRequest(apiClient: APIClientInterface) {
   return async () => {
     const { values } = await apiClient.get<JSONStorageResponse>('/user/me/storage', { path: ['mode'] })
@@ -337,7 +366,7 @@ export function useConfigsQuery() {
           id: String(config.id),
           name: config.name,
           selected: config.selected,
-          global: config.parsedGlobal || ({} as ConfigGlobal),
+          global: normalizeConfigGlobal(config.parsedGlobal),
         })),
       }
     },
