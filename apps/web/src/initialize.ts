@@ -33,9 +33,8 @@ export function useInitialize() {
       .filter(({ defaultRoutes }) => !!defaultRoutes)
       .map(({ name }) => name)
 
-    const {
-      ensureDefaultResources: { defaultConfigID, defaultDNSID, defaultGroupID, defaultRoutingID, mode },
-    } = await ensureDefaultResourcesMutation.mutateAsync({
+    const { defaultConfigID, defaultDNSID, defaultGroupID, defaultRoutingID, mode } =
+      await ensureDefaultResourcesMutation.mutateAsync({
       configName: DEFAULT_CONFIG_NAME,
       global: DEFAULT_CONFIG_WITH_LAN_INTERFACEs(lanInterfaces),
       dnsName: DEFAULT_DNS_NAME,
@@ -46,7 +45,7 @@ export function useInitialize() {
       policy: DEFAULT_GROUP_POLICY,
       policyParams: [],
       mode: MODE.simple,
-    })
+      })
 
     modeAtom.set(mode as MODE)
     defaultResourcesAtom.set({ defaultConfigID, defaultDNSID, defaultGroupID, defaultRoutingID })

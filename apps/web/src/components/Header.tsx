@@ -262,14 +262,13 @@ export function HeaderWithActions() {
     }
 
     try {
-      const response = await updatePasswordMutation.mutateAsync({
+      const token = await updatePasswordMutation.mutateAsync({
         currentPassword: passwordFormData.currentPassword,
         newPassword: passwordFormData.newPassword,
       })
 
       // Update token with the new one
-      if (response && typeof response === 'object' && 'updatePassword' in response) {
-        const token = (response as { updatePassword: string }).updatePassword
+      if (typeof token === 'string' && token) {
         tokenAtom.set(token)
       }
 

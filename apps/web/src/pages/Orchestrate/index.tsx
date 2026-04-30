@@ -1,6 +1,6 @@
 import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
 import type { DraggingResource } from '~/constants'
-import type { GroupsQuery, NodesQuery, SubscriptionsQuery } from '~/apis/types'
+import type { GroupListView, NodeListView, SubscriptionListView } from '~/apis/types'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -116,13 +116,13 @@ export function OrchestratePage() {
   const groups = useMemo(() => groupsQuery?.groups ?? [], [groupsQuery?.groups])
   const subscriptions = useMemo(() => subscriptionsQuery?.subscriptions ?? [], [subscriptionsQuery?.subscriptions])
   const getGroupById = useCallback(
-    (groupId: string) => groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === groupId),
+    (groupId: string) => groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === groupId),
     [groupsQuery?.groups],
   )
   const getGroupSubscriptionBinding = useCallback(
     (groupId: string, subscriptionId: string) =>
       getGroupById(groupId)?.subscriptions.find(
-        (binding: GroupsQuery['groups'][number]['subscriptions'][number]) => binding.subscription.id === subscriptionId,
+        (binding: GroupListView['groups'][number]['subscriptions'][number]) => binding.subscription.id === subscriptionId,
       ),
     [getGroupById],
   )
@@ -178,7 +178,7 @@ export function OrchestratePage() {
   // Get sorted node IDs
   const sortedNodeIds = useMemo(() => {
     if (nodes.length === 0) return []
-    const currentIds = nodes.map((n: NodesQuery['nodes']['items'][number]) => n.id)
+    const currentIds = nodes.map((n: NodeListView['nodes']['items'][number]) => n.id)
     const currentIdSet = new Set(currentIds)
 
     const result = nodeSortOrder.filter((id) => currentIdSet.has(id))
@@ -196,14 +196,14 @@ export function OrchestratePage() {
   // Get sorted nodes
   const sortedNodes = useMemo(() => {
     if (nodes.length === 0) return []
-    const nodeMap = new Map(nodes.map((n: NodesQuery['nodes']['items'][number]) => [n.id, n]))
+    const nodeMap = new Map(nodes.map((n: NodeListView['nodes']['items'][number]) => [n.id, n]))
     return sortedNodeIds.map((id) => nodeMap.get(id)).filter(Boolean) as typeof nodes
   }, [nodes, sortedNodeIds])
 
   // Get sorted subscription IDs
   const sortedSubscriptionIds = useMemo(() => {
     if (subscriptions.length === 0) return []
-    const currentIds = subscriptions.map((s: SubscriptionsQuery['subscriptions'][number]) => s.id)
+    const currentIds = subscriptions.map((s: SubscriptionListView['subscriptions'][number]) => s.id)
     const currentIdSet = new Set(currentIds)
 
     const result = subscriptionSortOrder.filter((id) => currentIdSet.has(id))
@@ -221,7 +221,7 @@ export function OrchestratePage() {
   // Get sorted subscriptions
   const sortedSubscriptions = useMemo(() => {
     if (subscriptions.length === 0) return []
-    const subMap = new Map(subscriptions.map((s: SubscriptionsQuery['subscriptions'][number]) => [s.id, s]))
+    const subMap = new Map(subscriptions.map((s: SubscriptionListView['subscriptions'][number]) => [s.id, s]))
     return sortedSubscriptionIds.map((id) => subMap.get(id)).filter(Boolean) as typeof subscriptions
   }, [subscriptions, sortedSubscriptionIds])
 
@@ -245,7 +245,7 @@ export function OrchestratePage() {
 
   const sortedGroupIds = useMemo(() => {
     if (groups.length === 0) return []
-    const currentIds = groups.map((group: GroupsQuery['groups'][number]) => group.id)
+    const currentIds = groups.map((group: GroupListView['groups'][number]) => group.id)
     const currentIdSet = new Set(currentIds)
     const result = groupSortOrder.filter((id) => currentIdSet.has(id))
     const resultSet = new Set(result)
@@ -471,10 +471,10 @@ export function OrchestratePage() {
 
         if (sourceDroppableId === 'node-list') {
           const nodeId = draggableId.replace('node-', '')
-          const targetGroup = groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === fallbackGroupId)
+          const targetGroup = groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === fallbackGroupId)
           if (
             targetGroup &&
-            !targetGroup.nodes.find((node: GroupsQuery['groups'][number]['nodes'][number]) => node.id === nodeId)
+            !targetGroup.nodes.find((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
           ) {
             groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [nodeId] })
             return
@@ -483,10 +483,10 @@ export function OrchestratePage() {
 
         if (sourceDroppableId.startsWith('subscription-') && sourceDroppableId.endsWith('-nodes') && sourceDroppableId !== 'subscription-list') {
           const nodeId = draggableId.replace('subscription-node-', '')
-          const targetGroup = groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === fallbackGroupId)
+          const targetGroup = groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === fallbackGroupId)
           if (
             targetGroup &&
-            !targetGroup.nodes.find((node: GroupsQuery['groups'][number]['nodes'][number]) => node.id === nodeId)
+            !targetGroup.nodes.find((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
           ) {
             groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [nodeId] })
             return
@@ -497,10 +497,10 @@ export function OrchestratePage() {
           const sourceGroupId = sourceDroppableId.replace('-nodes', '')
           const parsed = parseGroupItemId(draggableId)
           if (parsed && sourceGroupId !== fallbackGroupId) {
-            const targetGroup = groupsQuery?.groups.find((group: GroupsQuery['groups'][number]) => group.id === fallbackGroupId)
+            const targetGroup = groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === fallbackGroupId)
             if (
               targetGroup &&
-              !targetGroup.nodes.find((node: GroupsQuery['groups'][number]['nodes'][number]) => node.id === parsed.itemId)
+              !targetGroup.nodes.find((node: GroupListView['groups'][number]['nodes'][number]) => node.id === parsed.itemId)
             ) {
               groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [parsed.itemId] })
               return
@@ -557,11 +557,11 @@ export function OrchestratePage() {
     if (isFromSubscriptionNodes && confirmedDestDroppableId.endsWith('-nodes')) {
       const nodeId = draggableId.replace('subscription-node-', '')
       const targetGroupId = confirmedDestDroppableId.replace('-nodes', '')
-      const targetGroup = groupsQuery?.groups.find((g: GroupsQuery['groups'][number]) => g.id === targetGroupId)
+      const targetGroup = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === targetGroupId)
 
       if (
         targetGroup &&
-        !targetGroup.nodes.find((n: GroupsQuery['groups'][number]['nodes'][number]) => n.id === nodeId)
+        !targetGroup.nodes.find((n: GroupListView['groups'][number]['nodes'][number]) => n.id === nodeId)
       ) {
         groupAddNodesMutation.mutate({ id: targetGroupId, nodeIDs: [nodeId] })
       }
@@ -576,9 +576,9 @@ export function OrchestratePage() {
       if (sourceGroupId === destGroupId) {
         // Same group sorting
         if (source.index !== destination.index) {
-          const group = groupsQuery?.groups.find((g: GroupsQuery['groups'][number]) => g.id === sourceGroupId)
+          const group = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === sourceGroupId)
           if (group) {
-            const currentIds = group.nodes.map((n: GroupsQuery['groups'][number]['nodes'][number]) => n.id)
+            const currentIds = group.nodes.map((n: GroupListView['groups'][number]['nodes'][number]) => n.id)
             const sortedIds = getGroupSortedIds(sourceGroupId, 'nodes', currentIds)
             updateGroupSortOrder(sourceGroupId, 'nodes', arrayMove(sortedIds, source.index, destination.index))
           }
@@ -587,10 +587,10 @@ export function OrchestratePage() {
         // Cross-group drag - add node to target group
         const parsed = parseGroupItemId(draggableId)
         if (parsed) {
-          const targetGroup = groupsQuery?.groups.find((g: GroupsQuery['groups'][number]) => g.id === destGroupId)
+          const targetGroup = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === destGroupId)
           if (
             targetGroup &&
-            !targetGroup.nodes.find((n: GroupsQuery['groups'][number]['nodes'][number]) => n.id === parsed.itemId)
+            !targetGroup.nodes.find((n: GroupListView['groups'][number]['nodes'][number]) => n.id === parsed.itemId)
           ) {
             groupAddNodesMutation.mutate({ id: destGroupId, nodeIDs: [parsed.itemId] })
           }
@@ -607,10 +607,10 @@ export function OrchestratePage() {
       if (sourceGroupId === destGroupId) {
         // Same group sorting
         if (source.index !== destination.index) {
-          const group = groupsQuery?.groups.find((g: GroupsQuery['groups'][number]) => g.id === sourceGroupId)
+          const group = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === sourceGroupId)
           if (group) {
             const currentIds = group.subscriptions.map(
-              (s: GroupsQuery['groups'][number]['subscriptions'][number]) => s.subscription.id,
+              (s: GroupListView['groups'][number]['subscriptions'][number]) => s.subscription.id,
             )
             const sortedIds = getGroupSortedIds(sourceGroupId, 'subscriptions', currentIds)
             updateGroupSortOrder(sourceGroupId, 'subscriptions', arrayMove(sortedIds, source.index, destination.index))
@@ -638,11 +638,11 @@ export function OrchestratePage() {
     if (sourceDroppableId === 'node-list' && confirmedDestDroppableId.endsWith('-nodes')) {
       const nodeId = draggableId.replace('node-', '')
       const targetGroupId = confirmedDestDroppableId.replace('-nodes', '')
-      const targetGroup = groupsQuery?.groups.find((g: GroupsQuery['groups'][number]) => g.id === targetGroupId)
+      const targetGroup = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === targetGroupId)
 
       if (
         targetGroup &&
-        !targetGroup.nodes.find((n: GroupsQuery['groups'][number]['nodes'][number]) => n.id === nodeId)
+        !targetGroup.nodes.find((n: GroupListView['groups'][number]['nodes'][number]) => n.id === nodeId)
       ) {
         groupAddNodesMutation.mutate({ id: targetGroupId, nodeIDs: [nodeId] })
       }

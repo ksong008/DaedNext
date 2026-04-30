@@ -1,7 +1,7 @@
 import type { GroupFormModalRef } from '~/components/GroupFormModal'
 import type { NodeLatencyProbeResult } from '~/apis'
 import type { DraggingResource } from '~/constants'
-import type { GroupResource, GroupSubscriptionResource, GroupsQuery, NodesQuery, Policy, SubscriptionsQuery } from '~/apis/types'
+import type { GroupResource, GroupSubscriptionResource, GroupListView, NodeListView, Policy, SubscriptionListView } from '~/apis/types'
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import type { DraggableStateSnapshot } from '@hello-pangea/dnd'
 import { Draggable, Droppable } from '@hello-pangea/dnd'
@@ -92,9 +92,9 @@ export function GroupResource({
     return undefined
   }, [draggingResource])
 
-  const groups: GroupsQuery['groups'] = groupsQuery?.groups || []
-  const nodes: NodesQuery['nodes']['items'] = nodesQuery?.nodes.items || []
-  const subscriptions: SubscriptionsQuery['subscriptions'] = subscriptionsQuery?.subscriptions || []
+  const groups: GroupListView['groups'] = groupsQuery?.groups || []
+  const nodes: NodeListView['nodes']['items'] = nodesQuery?.nodes.items || []
+  const subscriptions: SubscriptionListView['subscriptions'] = subscriptionsQuery?.subscriptions || []
   const groupSortOrder = appState.groupSortableKeys as string[]
 
   const setGroupExpanded = useCallback((groupId: string, expanded: boolean) => {
@@ -244,7 +244,7 @@ export function GroupResource({
 
   const sortedGroups = useMemo(() => {
     const groupMap = new Map(groups.map((group) => [group.id, group]))
-    return sortedGroupIds.map((id) => groupMap.get(id)).filter(Boolean) as GroupsQuery['groups']
+    return sortedGroupIds.map((id) => groupMap.get(id)).filter(Boolean) as GroupListView['groups']
   }, [groups, sortedGroupIds])
 
   const renderGroupCard = ({

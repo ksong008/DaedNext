@@ -8,14 +8,14 @@
  */
 
 import type {
-  ConfigsQuery,
-  DNSsQuery,
-  GeneralQuery,
-  GroupsQuery,
-  NodesQuery,
-  RoutingsQuery,
-  SubscriptionsQuery,
-  UserQuery,
+  ConfigListView,
+  CurrentUserView,
+  DNSListView,
+  GeneralStateView,
+  GroupListView,
+  NodeListView,
+  RoutingListView,
+  SubscriptionListView,
 } from '~/apis/types'
 import { Policy } from '~/apis/types'
 
@@ -31,18 +31,15 @@ export const MOCK_DEFAULT_IDS = {
 }
 
 // General/System info
-export const mockGeneral: GeneralQuery = {
+export const mockGeneral: GeneralStateView = {
   general: {
-    __typename: 'General',
     dae: {
-      __typename: 'Dae',
       running: true,
       modified: false,
       version: 'v0.8.0',
     },
     interfaces: [
       {
-        __typename: 'Interface',
         name: 'eth0',
         index: 2,
         up: true,
@@ -50,7 +47,6 @@ export const mockGeneral: GeneralQuery = {
         defaultRoutes: [{ gateway: '192.168.1.1' }],
       },
       {
-        __typename: 'Interface',
         name: 'wlan0',
         index: 3,
         up: true,
@@ -58,7 +54,6 @@ export const mockGeneral: GeneralQuery = {
         defaultRoutes: [],
       },
       {
-        __typename: 'Interface',
         name: 'docker0',
         index: 4,
         up: true,
@@ -70,15 +65,13 @@ export const mockGeneral: GeneralQuery = {
 } as any
 
 // Configs
-export const mockConfigs: ConfigsQuery = {
+export const mockConfigs: ConfigListView = {
   configs: [
     {
-      __typename: 'Config',
       id: 'config-1',
       name: 'default',
       selected: true,
       global: {
-        __typename: 'Global',
         logLevel: 'info',
         tproxyPort: 12345,
         allowInsecure: false,
@@ -106,12 +99,10 @@ export const mockConfigs: ConfigsQuery = {
       },
     },
     {
-      __typename: 'Config',
       id: 'config-2',
       name: 'Gaming Config',
       selected: false,
       global: {
-        __typename: 'Global',
         logLevel: 'warn',
         tproxyPort: 12346,
         allowInsecure: false,
@@ -142,12 +133,10 @@ export const mockConfigs: ConfigsQuery = {
 } as any
 
 // Nodes
-export const mockNodes: NodesQuery = {
+export const mockNodes: NodeListView = {
   nodes: {
-    __typename: 'NodesConnection',
     items: [
       {
-        __typename: 'Node',
         id: 'node-1',
         name: 'Tokyo-01',
         link: 'vmess://eyJhZGQiOiJ0b2t5by5leGFtcGxlLmNvbSIsInBzIjoiVG9reW8tMDEifQ==',
@@ -156,7 +145,6 @@ export const mockNodes: NodesQuery = {
         tag: 'JP-Tokyo-Premium',
       },
       {
-        __typename: 'Node',
         id: 'node-2',
         name: 'Singapore-02',
         link: 'trojan://password@sg.example.com:443',
@@ -165,7 +153,6 @@ export const mockNodes: NodesQuery = {
         tag: 'SG-Singapore-Standard',
       },
       {
-        __typename: 'Node',
         id: 'node-3',
         name: 'HongKong-03',
         link: 'ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ=@hk.example.com:8388',
@@ -174,7 +161,6 @@ export const mockNodes: NodesQuery = {
         tag: 'HK-HongKong-IPLC',
       },
       {
-        __typename: 'Node',
         id: 'node-4',
         name: 'US-West-04',
         link: 'vless://uuid@us.example.com:443?type=ws',
@@ -187,10 +173,9 @@ export const mockNodes: NodesQuery = {
 } as any
 
 // Subscriptions
-export const mockSubscriptions: SubscriptionsQuery = {
+export const mockSubscriptions: SubscriptionListView = {
   subscriptions: [
     {
-      __typename: 'Subscription',
       id: 'sub-1',
       tag: 'Premium Provider',
       status: 'ok',
@@ -200,38 +185,32 @@ export const mockSubscriptions: SubscriptionsQuery = {
       cronExp: '0 0 * * *',
       cronEnable: true,
       nodes: {
-        __typename: 'NodesConnection',
         items: [
           {
-            __typename: 'Node',
             id: 'sub1-node-1',
             name: 'Tokyo-Premium-01',
             protocol: 'vmess',
             link: 'vmess://xxxxx',
           },
           {
-            __typename: 'Node',
             id: 'sub1-node-2',
             name: 'Singapore-Premium-02',
             protocol: 'trojan',
             link: 'trojan://xxxxx',
           },
           {
-            __typename: 'Node',
             id: 'sub1-node-3',
             name: 'HongKong-Premium-03',
             protocol: 'shadowsocks',
             link: 'ss://xxxxx',
           },
           {
-            __typename: 'Node',
             id: 'sub1-node-4',
             name: 'US-Premium-04',
             protocol: 'vless',
             link: 'vless://xxxxx',
           },
           {
-            __typename: 'Node',
             id: 'sub1-node-5',
             name: 'Korea-Premium-05',
             protocol: 'hysteria2',
@@ -241,7 +220,6 @@ export const mockSubscriptions: SubscriptionsQuery = {
       },
     },
     {
-      __typename: 'Subscription',
       id: 'sub-2',
       tag: 'Backup Provider',
       status: 'ok',
@@ -251,24 +229,20 @@ export const mockSubscriptions: SubscriptionsQuery = {
       cronExp: '0 12 * * 1',
       cronEnable: false,
       nodes: {
-        __typename: 'NodesConnection',
         items: [
           {
-            __typename: 'Node',
             id: 'sub2-node-1',
             name: 'Japan-Backup-01',
             protocol: 'vmess',
             link: 'vmess://xxxxx',
           },
           {
-            __typename: 'Node',
             id: 'sub2-node-2',
             name: 'Taiwan-Backup-02',
             protocol: 'trojan',
             link: 'trojan://xxxxx',
           },
           {
-            __typename: 'Node',
             id: 'sub2-node-3',
             name: 'Germany-Backup-03',
             protocol: 'shadowsocks',
@@ -281,17 +255,15 @@ export const mockSubscriptions: SubscriptionsQuery = {
 } as any
 
 // Groups
-export const mockGroups: GroupsQuery = {
+export const mockGroups: GroupListView = {
   groups: [
     {
-      __typename: 'Group',
       id: 'group-1',
       name: 'Proxy',
       policy: Policy.MinMovingAvg,
       policyParams: [],
       nodes: [
         {
-          __typename: 'Node',
           id: 'node-1',
           link: 'vmess://xxxxx',
           name: 'Tokyo-01',
@@ -301,7 +273,6 @@ export const mockGroups: GroupsQuery = {
           subscriptionID: null,
         },
         {
-          __typename: 'Node',
           id: 'node-2',
           link: 'trojan://xxxxx',
           name: 'Singapore-02',
@@ -313,11 +284,9 @@ export const mockGroups: GroupsQuery = {
       ],
       subscriptions: [
         {
-          __typename: 'GroupSubscription',
           matchedCount: 5,
           nameFilterRegex: 'Premium',
           subscription: {
-            __typename: 'Subscription',
             id: 'sub-1',
             updatedAt: '2024-11-28T10:30:00Z',
             tag: 'Premium Provider',
@@ -327,7 +296,6 @@ export const mockGroups: GroupsQuery = {
           },
           matchedNodes: [
             {
-              __typename: 'Node',
               id: 'sub1-node-1',
               link: 'vmess://xxxxx',
               name: 'Tokyo-Premium-01',
@@ -337,7 +305,6 @@ export const mockGroups: GroupsQuery = {
               subscriptionID: 'sub-1',
             },
             {
-              __typename: 'Node',
               id: 'sub1-node-2',
               link: 'trojan://xxxxx',
               name: 'Singapore-Premium-02',
@@ -347,7 +314,6 @@ export const mockGroups: GroupsQuery = {
               subscriptionID: 'sub-1',
             },
             {
-              __typename: 'Node',
               id: 'sub1-node-3',
               link: 'ss://xxxxx',
               name: 'HongKong-Premium-03',
@@ -357,7 +323,6 @@ export const mockGroups: GroupsQuery = {
               subscriptionID: 'sub-1',
             },
             {
-              __typename: 'Node',
               id: 'sub1-node-4',
               link: 'vless://xxxxx',
               name: 'US-Premium-04',
@@ -367,7 +332,6 @@ export const mockGroups: GroupsQuery = {
               subscriptionID: 'sub-1',
             },
             {
-              __typename: 'Node',
               id: 'sub1-node-5',
               link: 'hysteria2://xxxxx',
               name: 'Korea-Premium-05',
@@ -381,14 +345,12 @@ export const mockGroups: GroupsQuery = {
       ],
     },
     {
-      __typename: 'Group',
       id: 'group-2',
       name: 'Gaming',
       policy: Policy.Min,
       policyParams: [],
       nodes: [
         {
-          __typename: 'Node',
           id: 'node-3',
           link: 'ss://xxxxx',
           name: 'HongKong-03',
@@ -401,7 +363,6 @@ export const mockGroups: GroupsQuery = {
       subscriptions: [],
     },
     {
-      __typename: 'Group',
       id: 'group-3',
       name: 'Streaming',
       policy: Policy.Random,
@@ -409,11 +370,9 @@ export const mockGroups: GroupsQuery = {
       nodes: [],
       subscriptions: [
         {
-          __typename: 'GroupSubscription',
           matchedCount: 3,
           nameFilterRegex: null,
           subscription: {
-            __typename: 'Subscription',
             id: 'sub-2',
             updatedAt: '2024-11-27T15:45:00Z',
             tag: 'Backup Provider',
@@ -423,7 +382,6 @@ export const mockGroups: GroupsQuery = {
           },
           matchedNodes: [
             {
-              __typename: 'Node',
               id: 'sub2-node-1',
               link: 'vmess://xxxxx',
               name: 'Japan-Backup-01',
@@ -433,7 +391,6 @@ export const mockGroups: GroupsQuery = {
               subscriptionID: 'sub-2',
             },
             {
-              __typename: 'Node',
               id: 'sub2-node-2',
               link: 'trojan://xxxxx',
               name: 'Taiwan-Backup-02',
@@ -443,7 +400,6 @@ export const mockGroups: GroupsQuery = {
               subscriptionID: 'sub-2',
             },
             {
-              __typename: 'Node',
               id: 'sub2-node-3',
               link: 'ss://xxxxx',
               name: 'Germany-Backup-03',
@@ -460,15 +416,13 @@ export const mockGroups: GroupsQuery = {
 } as any
 
 // Routings
-export const mockRoutings: RoutingsQuery = {
+export const mockRoutings: RoutingListView = {
   routings: [
     {
-      __typename: 'Routing',
       id: 'routing-1',
       name: 'default',
       selected: true,
       routing: {
-        __typename: 'DaeRouting',
         string: `# Default routing rules
 pname(NetworkManager, systemd-resolved) -> must_direct
 dip(geoip:private) -> direct
@@ -478,12 +432,10 @@ fallback: proxy`,
       },
     },
     {
-      __typename: 'Routing',
       id: 'routing-2',
       name: 'Global Proxy',
       selected: false,
       routing: {
-        __typename: 'DaeRouting',
         string: `# Global proxy routing
 pname(NetworkManager, systemd-resolved) -> must_direct
 dip(geoip:private) -> direct
@@ -494,7 +446,7 @@ fallback: proxy`,
 } as any
 
 // DNS
-export const mockDNSs: DNSsQuery = {
+export const mockDNSs: DNSListView = {
   dnss: [
     {
       id: 'dns-1',
@@ -554,9 +506,8 @@ routing {
 }
 
 // User
-export const mockUser: UserQuery = {
+export const mockUser: CurrentUserView = {
   user: {
-    __typename: 'User',
     username: 'admin',
     name: 'Administrator',
     avatar: '',

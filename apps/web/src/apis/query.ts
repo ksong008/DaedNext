@@ -1,5 +1,7 @@
 import { parseNodeUrl } from '@daeuniverse/dae-node-parser'
-import { useQuery } from '@tanstack/react-query'
+import { useStore } from '@nanostores/react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
 
 import {
   QUERY_KEY_CONFIG,
@@ -15,27 +17,29 @@ import {
   QUERY_KEY_USER,
 } from '~/constants'
 import { useAPIClient } from '~/contexts'
+import { isMockMode } from '~/mocks'
+import { endpointURLAtom, tokenAtom } from '~/store'
 
-import type { APIClientInterface } from './client'
+import { buildAPIURL, normalizeEndpointURL, type APIClientInterface } from './client'
 import type {
   ConfigGlobal,
-  ConfigsQuery,
-  DNSsQuery,
+  ConfigListView,
+  DNSListView,
   DNSView,
-  GeneralQuery,
+  GeneralStateView,
   GroupResource,
-  GroupsQuery,
+  GroupListView,
   InterfaceResource,
+  NodeCollection,
   NodeLatencyProbeResult,
+  NodeListView,
   NodeResource,
-  NodesConnection,
-  NodesQuery,
-  RoutingsQuery,
+  RoutingListView,
   RoutingView,
   SubscriptionResource,
-  SubscriptionsQuery,
+  SubscriptionListView,
   TrafficOverviewQueryData,
-  UserQuery,
+  CurrentUserView,
 } from './types'
 
 type JSONStorageResponse = {
@@ -184,6 +188,38 @@ function normalizeConfigGlobal(global?: Partial<ConfigGlobal> | null): ConfigGlo
   }
 }
 
+function trafficOverviewQueryKey(windowSec: number, maxPoints: number) {
+  return [...QUERY_KEY_TRAFFIC, windowSec, maxPoints]
+}
+
+function adaptRuntimeOverview(data: RuntimeOverviewAPI): TrafficOverviewQueryData {
+  return {
+    updatedAt: data.updatedAt,
+    uploadRate: Number(data.uploadRate),
+    downloadRate: Number(data.downloadRate),
+    uploadTotal: data.uploadTotal,
+    downloadTotal: data.downloadTotal,
+    activeConnections: data.activeConnections,
+    udpSessions: data.udpSessions,
+    rssBytes: data.rssBytes || '0',
+    heapAllocBytes: data.heapAllocBytes || '0',
+    goroutines: data.goroutines ?? 0,
+    samples: data.samples.map((sample) => ({
+      timestamp: sample.timestamp,
+      uploadRate: Number(sample.uploadRate),
+      downloadRate: Number(sample.downloadRate),
+    })),
+  }
+}
+
+function buildRuntimeEventsURL(endpointURL: string, token: string, windowSec: number, maxPoints: number) {
+  return buildAPIURL(normalizeEndpointURL(endpointURL), '/events/runtime', {
+    windowSec,
+    maxPoints,
+    access_token: token,
+  }).toString()
+}
+
 export function getModeRequest(apiClient: APIClientInterface) {
   return async () => {
     const { values } = await apiClient.get<JSONStorageResponse>('/user/me/storage', { path: ['mode'] })
@@ -207,7 +243,7 @@ export function getDefaultsRequest(apiClient: APIClientInterface) {
 }
 
 export function getInterfacesRequest(apiClient: APIClientInterface) {
-  return async (): Promise<GeneralQuery> => {
+  return async (): Promise<GeneralStateView> => {
     const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true })
     return {
       general: {
@@ -238,7 +274,7 @@ export function useGeneralQuery() {
 
   return useQuery({
     queryKey: QUERY_KEY_GENERAL,
-    queryFn: async (): Promise<GeneralQuery> => {
+    queryFn: async (): Promise<GeneralStateView> => {
       const [state, interfaces] = await Promise.all([
         apiClient.get<GeneralStateAPI>('/general/state'),
         apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true }),
@@ -262,31 +298,58 @@ function trafficOverviewRefetchInterval(windowSec: number) {
 
 export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+  const endpointURL = useStore(endpointURLAtom)
+  const token = useStore(tokenAtom)
+  const [isStreamLive, setIsStreamLive] = useState(false)
+  const streamEnabled = !isMockMode() && !!token && typeof EventSource !== 'undefined'
+  const queryKey = useMemo(() => trafficOverviewQueryKey(windowSec, maxPoints), [windowSec, maxPoints])
+  const streamURL = useMemo(
+    () => (streamEnabled ? buildRuntimeEventsURL(endpointURL, token, windowSec, maxPoints) : null),
+    [endpointURL, maxPoints, streamEnabled, token, windowSec],
+  )
+
+  useEffect(() => {
+    if (!streamURL) {
+      setIsStreamLive(false)
+      return
+    }
+
+    setIsStreamLive(false)
+
+    const eventSource = new EventSource(streamURL)
+    const handleOverview = (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(event.data) as RuntimeOverviewAPI
+        queryClient.setQueryData(queryKey, adaptRuntimeOverview(payload))
+        setIsStreamLive(true)
+      } catch {
+        setIsStreamLive(false)
+      }
+    }
+    const handleStreamError = () => {
+      setIsStreamLive(false)
+    }
+
+    eventSource.addEventListener('runtime.overview', handleOverview as EventListener)
+    eventSource.addEventListener('runtime.error', handleStreamError)
+    eventSource.onerror = handleStreamError
+
+    return () => {
+      eventSource.removeEventListener('runtime.overview', handleOverview as EventListener)
+      eventSource.removeEventListener('runtime.error', handleStreamError)
+      eventSource.close()
+    }
+  }, [queryClient, queryKey, streamURL])
 
   return useQuery({
-    queryKey: [...QUERY_KEY_TRAFFIC, windowSec, maxPoints],
+    queryKey,
     queryFn: async (): Promise<TrafficOverviewQueryData> => {
       const data = await apiClient.get<RuntimeOverviewAPI>('/runtime/overview', { windowSec, maxPoints })
-      return {
-        updatedAt: data.updatedAt,
-        uploadRate: Number(data.uploadRate),
-        downloadRate: Number(data.downloadRate),
-        uploadTotal: data.uploadTotal,
-        downloadTotal: data.downloadTotal,
-        activeConnections: data.activeConnections,
-        udpSessions: data.udpSessions,
-        rssBytes: data.rssBytes || '0',
-        heapAllocBytes: data.heapAllocBytes || '0',
-        goroutines: data.goroutines ?? 0,
-        samples: data.samples.map((sample) => ({
-          timestamp: sample.timestamp,
-          uploadRate: Number(sample.uploadRate),
-          downloadRate: Number(sample.downloadRate),
-        })),
-      }
+      return adaptRuntimeOverview(data)
     },
     placeholderData: (previousData) => previousData,
-    refetchInterval: () => trafficOverviewRefetchInterval(windowSec),
+    refetchInterval: () => (isStreamLive ? false : trafficOverviewRefetchInterval(windowSec)),
     refetchIntervalInBackground: false,
   })
 }
@@ -317,7 +380,7 @@ export function useNodesQuery() {
 
   return useQuery({
     queryKey: QUERY_KEY_NODE,
-    queryFn: async (): Promise<NodesQuery> => {
+    queryFn: async (): Promise<NodeListView> => {
       const data = await apiClient.get<NodeListAPI>('/nodes')
       return {
         nodes: adaptNodesConnection(data),
@@ -331,7 +394,7 @@ export function useSubscriptionsQuery() {
 
   return useQuery({
     queryKey: QUERY_KEY_SUBSCRIPTION,
-    queryFn: async (): Promise<SubscriptionsQuery> => {
+    queryFn: async (): Promise<SubscriptionListView> => {
       const data = await apiClient.get<{ items: SubscriptionAPI[] }>('/subscriptions')
       const subscriptions = await Promise.all(
         data.items.map(async (subscription): Promise<SubscriptionResource> => {
@@ -359,7 +422,7 @@ export function useConfigsQuery() {
 
   return useQuery({
     queryKey: QUERY_KEY_CONFIG,
-    queryFn: async (): Promise<ConfigsQuery> => {
+    queryFn: async (): Promise<ConfigListView> => {
       const data = await apiClient.get<{ items: ConfigAPI[] }>('/configs', { expand: 'parsed' })
       return {
         configs: data.items.map((config) => ({
@@ -378,7 +441,7 @@ export function useGroupsQuery() {
 
   return useQuery({
     queryKey: QUERY_KEY_GROUP,
-    queryFn: async (): Promise<GroupsQuery> => {
+    queryFn: async (): Promise<GroupListView> => {
       const data = await apiClient.get<{ items: GroupAPI[] }>('/groups')
       return {
         groups: data.items.map((group) => ({
@@ -414,7 +477,7 @@ export function useRoutingsQuery() {
 
   return useQuery({
     queryKey: QUERY_KEY_ROUTING,
-    queryFn: async (): Promise<RoutingsQuery> => {
+    queryFn: async (): Promise<RoutingListView> => {
       const data = await apiClient.get<{ items: RoutingAPI[] }>('/routings', { expand: 'parsed' })
       return {
         routings: data.items.map((routing) => ({
@@ -433,7 +496,7 @@ export function useDNSsQuery() {
 
   return useQuery({
     queryKey: QUERY_KEY_DNS,
-    queryFn: async (): Promise<DNSsQuery> => {
+    queryFn: async (): Promise<DNSListView> => {
       const data = await apiClient.get<{ items: DNSAPI[] }>('/dns', { expand: 'parsed' })
       return {
         dnss: data.items.map((dns) => ({
@@ -458,14 +521,14 @@ export function useUserQuery() {
 
   return useQuery({
     queryKey: QUERY_KEY_USER,
-    queryFn: async (): Promise<UserQuery> => {
-      const user = await apiClient.get<UserQuery['user']>('/user/me')
+    queryFn: async (): Promise<CurrentUserView> => {
+      const user = await apiClient.get<CurrentUserView['user']>('/user/me')
       return { user }
     },
   })
 }
 
-function adaptNodesConnection(data: NodeListAPI): NodesConnection {
+function adaptNodesConnection(data: NodeListAPI): NodeCollection {
   const items = data.items.map(adaptNode)
   return {
     totalCount: data.totalCount,

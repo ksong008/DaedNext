@@ -59,7 +59,7 @@ export function useSetJsonStorageMutation() {
       const paths = Object.keys(object)
       const values = paths.map((path) => object[path])
       const response = await apiClient.put<CountResponse>('/user/me/storage', { paths, values })
-      return { setJsonStorage: response.updated ?? 0 }
+      return response.updated ?? 0
     },
   })
 }
@@ -73,7 +73,7 @@ export function useSetModeMutation() {
         paths: ['mode'],
         values: [mode],
       })
-      return { setJsonStorage: response.updated ?? 0 }
+      return response.updated ?? 0
     },
   })
 }
@@ -125,15 +125,7 @@ export function useEnsureDefaultResourcesMutation() {
         mode,
       })
 
-      return {
-        ensureDefaultResources: {
-          defaultConfigID: ensured.defaultConfigID,
-          defaultRoutingID: ensured.defaultRoutingID,
-          defaultDNSID: ensured.defaultDNSID,
-          defaultGroupID: ensured.defaultGroupID,
-          mode: ensured.mode,
-        },
-      }
+      return ensured
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -153,7 +145,7 @@ export function useCreateConfigMutation() {
   return useMutation({
     mutationFn: async ({ name, global }: { name?: string; global?: GlobalInput }) => {
       const resource = await apiClient.post<ResourceWithID>('/configs', { name, parsedGlobal: global })
-      return { createConfig: { id: toID(resource.id) } }
+      return toID(resource.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -168,7 +160,7 @@ export function useUpdateConfigMutation() {
   return useMutation({
     mutationFn: async ({ id, global }: { id: string; global: GlobalInput }) => {
       const resource = await apiClient.put<ResourceWithID>(`/configs/${id}`, { parsedGlobal: global })
-      return { updateConfig: { id: toID(resource.id) } }
+      return toID(resource.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -184,7 +176,6 @@ export function useRemoveConfigMutation() {
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.delete(`/configs/${id}`)
-      return { removeConfig: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -199,7 +190,6 @@ export function useSelectConfigMutation() {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       await apiClient.post(`/configs/${id}/select`)
-      return { selectConfig: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -215,7 +205,6 @@ export function useRenameConfigMutation() {
   return useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       await apiClient.put(`/configs/${id}`, { name })
-      return { renameConfig: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
@@ -230,7 +219,7 @@ export function useCreateRoutingMutation() {
   return useMutation({
     mutationFn: async ({ name, routing }: { name?: string; routing?: string }) => {
       const resource = await apiClient.post<ResourceWithID>('/routings', { name, routing })
-      return { createRouting: { id: toID(resource.id) } }
+      return toID(resource.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -245,7 +234,7 @@ export function useUpdateRoutingMutation() {
   return useMutation({
     mutationFn: async ({ id, routing }: { id: string; routing: string }) => {
       const resource = await apiClient.put<ResourceWithID>(`/routings/${id}`, { routing })
-      return { updateRouting: { id: toID(resource.id) } }
+      return toID(resource.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -261,7 +250,6 @@ export function useRemoveRoutingMutation() {
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.delete(`/routings/${id}`)
-      return { removeRouting: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -277,7 +265,6 @@ export function useSelectRoutingMutation() {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       await apiClient.post(`/routings/${id}/select`)
-      return { selectRouting: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -293,7 +280,6 @@ export function useRenameRoutingMutation() {
   return useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       await apiClient.put(`/routings/${id}`, { name })
-      return { renameRouting: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
@@ -309,7 +295,7 @@ export function useCreateDNSMutation() {
   return useMutation({
     mutationFn: async ({ name, dns }: { name?: string; dns?: string }) => {
       const resource = await apiClient.post<ResourceWithID>('/dns', { name, dns })
-      return { createDns: { id: toID(resource.id) } }
+      return toID(resource.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -324,7 +310,7 @@ export function useUpdateDNSMutation() {
   return useMutation({
     mutationFn: async ({ id, dns }: { id: string; dns: string }) => {
       const resource = await apiClient.put<ResourceWithID>(`/dns/${id}`, { dns })
-      return { updateDns: { id: toID(resource.id) } }
+      return toID(resource.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -340,7 +326,6 @@ export function useRemoveDNSMutation() {
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.delete(`/dns/${id}`)
-      return { removeDns: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -355,7 +340,6 @@ export function useSelectDNSMutation() {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       await apiClient.post(`/dns/${id}/select`)
-      return { selectDns: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -371,7 +355,6 @@ export function useRenameDNSMutation() {
   return useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       await apiClient.put(`/dns/${id}`, { name })
-      return { renameDns: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
@@ -386,7 +369,7 @@ export function useCreateGroupMutation() {
   return useMutation({
     mutationFn: async ({ name, policy, policyParams }: { name: string; policy: Policy; policyParams: PolicyParam[] }) => {
       const resource = await apiClient.post<ResourceWithID>('/groups', { name, policy, policyParams })
-      return { createGroup: { id: toID(resource.id) } }
+      return toID(resource.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -401,7 +384,6 @@ export function useRemoveGroupMutation() {
   return useMutation({
     mutationFn: async (id: string) => {
       await apiClient.delete(`/groups/${id}`)
-      return { removeGroup: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -416,7 +398,6 @@ export function useGroupSetPolicyMutation() {
   return useMutation({
     mutationFn: async ({ id, policy, policyParams }: { id: string; policy: Policy; policyParams: PolicyParam[] }) => {
       await apiClient.put(`/groups/${id}`, { policy, policyParams })
-      return { groupSetPolicy: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -432,7 +413,6 @@ export function useRenameGroupMutation() {
   return useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       await apiClient.put(`/groups/${id}`, { name })
-      return { renameGroup: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -448,7 +428,6 @@ export function useGroupAddNodesMutation() {
   return useMutation({
     mutationFn: async ({ id, nodeIDs }: { id: string; nodeIDs: string[] }) => {
       await apiClient.post(`/groups/${id}/nodes`, { nodeIds: nodeIDs.map(toNumericID) })
-      return { groupAddNodes: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -464,7 +443,6 @@ export function useGroupDelNodesMutation() {
   return useMutation({
     mutationFn: async ({ id, nodeIDs }: { id: string; nodeIDs: string[] }) => {
       await apiClient.delete(`/groups/${id}/nodes`, { nodeIds: nodeIDs.map(toNumericID) })
-      return { groupDelNodes: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -491,7 +469,6 @@ export function useGroupAddSubscriptionsMutation() {
         subscriptionIds: subscriptionIDs.map(toNumericID),
         nameFilterRegex: nameFilterRegex ?? null,
       })
-      return { groupAddSubscriptions: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -507,7 +484,6 @@ export function useGroupDelSubscriptionsMutation() {
   return useMutation({
     mutationFn: async ({ id, subscriptionIDs }: { id: string; subscriptionIDs: string[] }) => {
       await apiClient.delete(`/groups/${id}/subscriptions`, { subscriptionIds: subscriptionIDs.map(toNumericID) })
-      return { groupDelSubscriptions: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
@@ -526,13 +502,11 @@ export function useImportNodesMutation() {
         rollbackError: false,
         args: data,
       })
-      return {
-        importNodes: result.items.map((item) => ({
-          link: item.link,
-          error: item.error ?? null,
-          node: item.node ? { id: toID(item.node.id) } : null,
-        })),
-      }
+      return result.items.map((item) => ({
+        link: item.link,
+        error: item.error ?? null,
+        node: item.node ? { id: toID(item.node.id) } : null,
+      }))
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
@@ -547,7 +521,7 @@ export function useRemoveNodesMutation() {
   return useMutation({
     mutationFn: async (ids: string[]) => {
       const result = await apiClient.delete<{ removed: number }>('/nodes', { ids: ids.map(toNumericID) })
-      return { removeNodes: result.removed }
+      return result.removed
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
@@ -567,12 +541,10 @@ export function useUpdateNodeMutation() {
         link: newLink,
       })
       return {
-        updateNode: {
-          id: toID(node.id),
-          name: node.name,
-          tag: node.tag ?? null,
-          link: node.link,
-        },
+        id: toID(node.id),
+        name: node.name,
+        tag: node.tag ?? null,
+        link: node.link,
       }
     },
     onSuccess: () => {
@@ -597,15 +569,15 @@ export function useImportSubscriptionsMutation() {
             tag: subscription.tag ?? null,
           })
           return {
-            importSubscription: {
-              link: result.link,
-              sub: {
-                id: toID(result.subscription.id),
-              },
-              nodeImportResult: result.nodeImportResult.map((item) => ({
-                node: item.node ? { id: toID(item.node.id) } : null,
-              })),
+            link: result.link,
+            subscription: {
+              id: toID(result.subscription.id),
             },
+            nodeImportResult: result.nodeImportResult.map((item) => ({
+              link: item.link,
+              error: item.error ?? null,
+              node: item.node ? { id: toID(item.node.id) } : null,
+            })),
           }
         }),
       ),
@@ -624,11 +596,7 @@ export function useUpdateSubscriptionsMutation() {
       Promise.all(
         ids.map(async (id) => {
           const subscription = await apiClient.post<{ id: number }>(`/subscriptions/${id}/refresh`)
-          return {
-            updateSubscription: {
-              id: toID(subscription.id),
-            },
-          }
+          return toID(subscription.id)
         }),
       ),
     onSuccess: () => {
@@ -667,7 +635,7 @@ export function useRemoveSubscriptionsMutation() {
   return useMutation({
     mutationFn: async (ids: string[]) => {
       const result = await apiClient.delete<{ removed: number }>('/subscriptions', { ids: ids.map(toNumericID) })
-      return { removeSubscriptions: result.removed }
+      return result.removed
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
@@ -684,7 +652,7 @@ export function useRunMutation() {
   return useMutation({
     mutationFn: async (dry: boolean) => {
       const result = await apiClient.post<{ applied: number }>('/runtime/reload', { dry })
-      return { run: result.applied }
+      return result.applied
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
@@ -698,8 +666,7 @@ export function useUpdateAvatarMutation() {
 
   return useMutation({
     mutationFn: async (avatar: string) => {
-      const user = await apiClient.patch('/user/me', { avatar })
-      return { updateAvatar: user }
+      return apiClient.patch('/user/me', { avatar })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
@@ -713,8 +680,7 @@ export function useUpdateNameMutation() {
 
   return useMutation({
     mutationFn: async (name: string) => {
-      const user = await apiClient.patch('/user/me', { name })
-      return { updateName: user }
+      return apiClient.patch('/user/me', { name })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
@@ -731,7 +697,7 @@ export function useUpdatePasswordMutation() {
         currentPassword,
         newPassword,
       })
-      return { updatePassword: response.token }
+      return response.token
     },
   })
 }
@@ -742,8 +708,7 @@ export function useUpdateUsernameMutation() {
 
   return useMutation({
     mutationFn: async (username: string) => {
-      const user = await apiClient.patch('/user/me', { username })
-      return { updateUsername: user }
+      return apiClient.patch('/user/me', { username })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
@@ -758,7 +723,6 @@ export function useTagNodeMutation() {
   return useMutation({
     mutationFn: async ({ id, tag }: { id: string; tag: string }) => {
       await apiClient.put(`/nodes/${id}`, { tag })
-      return { tagNode: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
@@ -774,7 +738,6 @@ export function useTagSubscriptionMutation() {
   return useMutation({
     mutationFn: async ({ id, tag }: { id: string; tag: string }) => {
       await apiClient.put(`/subscriptions/${id}`, { tag })
-      return { tagSubscription: true }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
@@ -793,11 +756,9 @@ export function useUpdateSubscriptionLinkMutation() {
         link,
       })
       return {
-        updateSubscriptionLink: {
-          id: toID(subscription.id),
-          link: subscription.link,
-          tag: subscription.tag ?? null,
-        },
+        id: toID(subscription.id),
+        link: subscription.link,
+        tag: subscription.tag ?? null,
       }
     },
     onSuccess: () => {
@@ -818,11 +779,9 @@ export function useUpdateSubscriptionCronMutation() {
         { cronExp, cronEnable },
       )
       return {
-        updateSubscriptionCron: {
-          id: toID(subscription.id),
-          cronExp: subscription.cronExp,
-          cronEnable: subscription.cronEnable,
-        },
+        id: toID(subscription.id),
+        cronExp: subscription.cronExp,
+        cronEnable: subscription.cronEnable,
       }
     },
     onSuccess: () => {

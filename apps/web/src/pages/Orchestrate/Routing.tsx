@@ -1,5 +1,5 @@
 import type { RoutingFormModalRef } from '~/components/RoutingFormModal'
-import type { RoutingsQuery } from '~/apis/types'
+import type { RoutingListView } from '~/apis/types'
 import { useStore } from '@nanostores/react'
 import { Map, Settings2 } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
@@ -56,7 +56,7 @@ export function Routing() {
 
   return (
     <Section title={t('routing')} icon={<Map className="h-5 w-5" />} onCreate={openCreateRoutingFormModal} bordered>
-      {routingsQuery?.routings.map((routing: RoutingsQuery['routings'][number]) => (
+      {routingsQuery?.routings.map((routing: RoutingListView['routings'][number]) => (
         <SimpleCard
           key={routing.id}
           name={routing.name}

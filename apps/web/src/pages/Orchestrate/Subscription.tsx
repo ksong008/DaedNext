@@ -1,5 +1,5 @@
 import type { QRCodeModalRef } from '~/components/QRCodeModal'
-import type { SubscriptionsQuery } from '~/apis/types'
+import type { SubscriptionListView } from '~/apis/types'
 import { Droppable } from '@hello-pangea/dnd'
 import dayjs from 'dayjs'
 import { CloudCog, CloudUpload, Download, Eye, Gauge, Pencil } from 'lucide-react'
@@ -36,7 +36,7 @@ export function SubscriptionResource({
   lastLatencyProbeAt,
   onTestAllNodeLatencies,
 }: {
-  sortedSubscriptions: SubscriptionsQuery['subscriptions']
+  sortedSubscriptions: SubscriptionListView['subscriptions']
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
   testingLatencies?: boolean
   testingLatencyProgress?: { completed: number; total: number } | null

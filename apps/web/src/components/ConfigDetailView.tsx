@@ -1,4 +1,4 @@
-import type { ConfigsQuery } from '~/apis/types'
+import type { ConfigListView } from '~/apis/types'
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -17,7 +17,7 @@ import { Badge } from '~/components/ui/badge'
 import { Card } from '~/components/ui/card'
 import { cn } from '~/lib/utils'
 
-type Config = ConfigsQuery['configs'][number]
+type Config = ConfigListView['configs'][number]
 
 interface ConfigDetailViewProps {
   config: Config

@@ -90,7 +90,7 @@ export function ConfigureNodeFormModal({ opened, onClose }: { opened: boolean; o
       },
     ])
 
-    const importErrors = result.importNodes
+    const importErrors = result
       .map((item) => item.error?.trim())
       .filter((item): item is string => Boolean(item))
 

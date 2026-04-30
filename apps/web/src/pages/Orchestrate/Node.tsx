@@ -1,6 +1,6 @@
 import type { QRCodeModalRef } from '~/components/QRCodeModal.tsx'
 import type { NodeLatencyProbeResult } from '~/apis'
-import type { NodesQuery } from '~/apis/types'
+import type { NodeListView } from '~/apis/types'
 import { Droppable } from '@hello-pangea/dnd'
 import { Cloud, CloudUpload, Eye, FileInput, Pencil } from 'lucide-react'
 import { Fragment, useRef, useState } from 'react'
@@ -22,7 +22,7 @@ export function NodeResource({
   highlight,
   nodeLatencies,
 }: {
-  sortedNodes: NodesQuery['nodes']['items']
+  sortedNodes: NodeListView['nodes']['items']
   highlight?: boolean
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
 }) {

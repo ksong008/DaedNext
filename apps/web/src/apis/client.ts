@@ -13,6 +13,26 @@ export interface APIClientInterface {
   delete: <T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) => Promise<T>
 }
 
+export function buildAPIURL(endpointURL: string, path: string, query?: Record<string, APIQueryValue>) {
+  const normalizedPath = path.replace(/^\/+/, '')
+  const url = new URL(normalizedPath, `${endpointURL}/`)
+
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value == null) continue
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          url.searchParams.append(key, String(item))
+        }
+        continue
+      }
+      url.searchParams.set(key, String(value))
+    }
+  }
+
+  return url
+}
+
 export function normalizeEndpointURL(raw: string): string {
   const url = new URL(raw)
   let pathname = url.pathname.replace(/\/+$/, '')
@@ -61,20 +81,7 @@ export class APIClient implements APIClientInterface {
     body?: unknown,
     query?: Record<string, APIQueryValue>,
   ): Promise<T> {
-    const normalizedPath = path.replace(/^\/+/, '')
-    const url = new URL(normalizedPath, `${this.endpointURL}/`)
-    if (query) {
-      for (const [key, value] of Object.entries(query)) {
-        if (value == null) continue
-        if (Array.isArray(value)) {
-          for (const item of value) {
-            url.searchParams.append(key, String(item))
-          }
-          continue
-        }
-        url.searchParams.set(key, String(value))
-      }
-    }
+    const url = buildAPIURL(this.endpointURL, path, query)
 
     const response = await fetch(url, {
       method,

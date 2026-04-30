@@ -54,7 +54,7 @@ export interface NodeResource {
   subscriptionID?: string | null
 }
 
-export interface NodesConnection {
+export interface NodeCollection {
   totalCount: number
   items: NodeResource[]
 }
@@ -68,7 +68,7 @@ export interface SubscriptionResource {
   updatedAt: string
   cronExp: string
   cronEnable: boolean
-  nodes: NodesConnection
+  nodes: NodeCollection
 }
 
 export interface GroupSubscriptionResource {
@@ -172,7 +172,7 @@ export interface InterfaceResource {
   }>
 }
 
-export interface GeneralQuery {
+export interface GeneralStateView {
   general: {
     dae: {
       running: boolean
@@ -180,7 +180,6 @@ export interface GeneralQuery {
       version: string
     }
     interfaces: InterfaceResource[]
-    schema?: Record<string, unknown>
   }
 }
 
@@ -210,30 +209,30 @@ export interface NodeLatencyProbeResult {
   message?: string | null
 }
 
-export interface ConfigsQuery {
+export interface ConfigListView {
   configs: ConfigResource[]
 }
 
-export interface GroupsQuery {
+export interface GroupListView {
   groups: GroupResource[]
 }
 
-export interface NodesQuery {
-  nodes: NodesConnection
+export interface NodeListView {
+  nodes: NodeCollection
 }
 
-export interface SubscriptionsQuery {
+export interface SubscriptionListView {
   subscriptions: SubscriptionResource[]
 }
 
-export interface RoutingsQuery {
+export interface RoutingListView {
   routings: RoutingResource[]
 }
 
-export interface DNSsQuery {
+export interface DNSListView {
   dnss: DNSResource[]
 }
 
-export interface UserQuery {
+export interface CurrentUserView {
   user: UserResource
 }

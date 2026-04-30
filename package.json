@@ -25,6 +25,7 @@
     "live-audit:attached": "pnpm test:integration:attached",
     "lint": "eslint --fix .",
     "lint:emoji": "bash ./scripts/check_no_emoji.sh",
+    "lint:web-surface": "bash ./scripts/check_retired_frontend_markers.sh",
     "prepare": "husky",
     "screenshot": "pnpm build:mock && npx tsx scripts/screenshot.ts",
     "test": "turbo run test",
