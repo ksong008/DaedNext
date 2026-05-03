@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - main
+      - daed2.0
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
         description: 'Release tag name (e.g. v1.26.0)'
-        required: true
+        required: false
 
 concurrency:
   group: release-please
@@ -26,15 +27,17 @@ jobs:
   release-please:
     runs-on: macos-latest
     outputs:
+      release_branch: ${{ github.ref_name }}
       tag_name: ${{ steps.release.outputs['apps/web--tag_name'] || (github.ref_type == 'tag' && github.ref_name) || inputs.tag_name }}
-      release_created: ${{ steps.release.outputs['apps/web--release_created'] || (github.ref_type == 'tag' && 'true') || (github.event_name == 'workflow_dispatch' && 'true') || 'false' }}
-      publish_extras: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.release.outputs['apps/web--release_created'] == 'true') && 'true' || 'false' }}
+      release_created: ${{ steps.release.outputs['apps/web--release_created'] || (github.ref_type == 'tag' && 'true') || (github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && 'true') || 'false' }}
+      publish_extras: ${{ (steps.release.outputs['apps/web--release_created'] == 'true' && ((github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/daed2.0')) || (github.event_name == 'workflow_dispatch' && inputs.tag_name == ''))) && 'true' || 'false' }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/daed2.0')) || (github.event_name == 'workflow_dispatch' && inputs.tag_name == '') }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          target-branch: ${{ github.ref_name }}
 
   # Update screenshots when a new release is created
   update-screenshots:
@@ -80,7 +83,7 @@ jobs:
             | Setup | Orchestrate |
             |-------|-------------|
             | <img src="https://raw.githubusercontent.com/${{ github.repository }}/chore/update-screenshots/docs/screenshots/mobile/setup.png" width="300" /> | <img src="https://raw.githubusercontent.com/${{ github.repository }}/chore/update-screenshots/docs/screenshots/mobile/orchestrate.png" width="300" /> |
-          base: main
+          base: ${{ needs.release-please.outputs.release_branch }}
           branch: chore/update-screenshots
           delete-branch: true
           add-paths: docs/screenshots/
