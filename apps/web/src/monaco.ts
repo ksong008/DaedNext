@@ -1,4 +1,3 @@
-import type { RoutingACompletionItem } from '@daeuniverse/dae-editor'
 import type { Monaco } from '@monaco-editor/react'
 import type * as monacoEditor from 'monaco-editor'
 import {
@@ -13,6 +12,7 @@ import {
   setDynamicCompletionItems as setDynamicCompletionItemsBase,
   SHIKI_THEMES,
 } from '@daeuniverse/dae-editor'
+import { getDynamicCompletionItems, type RoutingCompletionItem } from '~/editor_completions'
 // Import the browser LSP server worker
 import DaeLspWorker from '@daeuniverse/dae-lsp/server/browser?worker'
 import { loader } from '@monaco-editor/react'
@@ -49,7 +49,7 @@ let lspClient: MonacoLspClient | null = null
 let lspInitialized = false
 
 // Cache for dynamic completion items (set before LSP client is initialized)
-let pendingDynamicCompletionItems: RoutingACompletionItem[] = []
+let pendingDynamicCompletionItems: RoutingCompletionItem[] = getDynamicCompletionItems()
 
 // Re-export from @daeuniverse/dae-editor
 export { formatRoutingA, GITHUB_THEMES, initShikiHighlighter, isShikiReady, SHIKI_THEMES }
@@ -104,15 +104,7 @@ async function initLspClient(monacoInstance: Monaco): Promise<void> {
 
     // Apply any pending dynamic completion items that were set before LSP was initialized
     if (pendingDynamicCompletionItems.length > 0) {
-      lspClient.setDynamicCompletionItems(
-        pendingDynamicCompletionItems.map((item) => ({
-          label: item.label,
-          kind: item.kind === 'variable' ? 6 : 14, // Variable or Keyword
-          detail: item.detail,
-          documentation: item.documentation,
-          insertText: item.insertText,
-        })),
-      )
+      applyDynamicCompletionItems(pendingDynamicCompletionItems)
     }
 
     // Set up diagnostics handling
@@ -208,11 +200,11 @@ export function syncModelWithLsp(model: monacoEditor.editor.ITextModel): monacoE
  * Set dynamic completion items for routingA language
  * Use this to add user-configured groups to autocomplete suggestions
  */
-export function setDynamicCompletionItems(items: RoutingACompletionItem[]): void {
+export function applyDynamicCompletionItems(items: RoutingCompletionItem[]): void {
   // Always cache the items for when LSP client is initialized later
   pendingDynamicCompletionItems = items
 
-  setDynamicCompletionItemsBase(items)
+  setDynamicCompletionItemsBase(items as any)
 
   // Also set for LSP client if available
   if (lspClient) {
@@ -226,19 +218,4 @@ export function setDynamicCompletionItems(items: RoutingACompletionItem[]): void
       })),
     )
   }
-}
-
-/**
- * Convert group names to routingA completion items
- * @param groupNames - Array of group names configured by user
- * @returns Completion items for group outbounds
- */
-export function createGroupCompletionItems(groupNames: string[]): RoutingACompletionItem[] {
-  return groupNames.map((name) => ({
-    label: name,
-    kind: 'variable',
-    detail: 'User group outbound',
-    documentation: `Route traffic to group: ${name}`,
-    insertText: name,
-  }))
 }

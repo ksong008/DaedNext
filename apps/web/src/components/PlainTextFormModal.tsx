@@ -146,6 +146,7 @@ export function PlainTextFormModal({
                 onChange={(value) => setValue('text', value)}
                 configType={configType}
                 height="100%"
+                active={opened}
               />
             </div>
 

@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 
 import { HeaderWithActions } from '~/components/Header'
@@ -12,11 +12,26 @@ export function MainLayout() {
   const token = useStore(tokenAtom)
   const endpointURL = useStore(endpointURLAtom)
   const initialize = useInitialize()
+  const initializedRuntimeKeyRef = useRef<string | null>(null)
 
   useEffect(() => {
-    initialize()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (isMockMode()) {
+      if (initializedRuntimeKeyRef.current === 'mock') return
+      initializedRuntimeKeyRef.current = 'mock'
+      void initialize()
+      return
+    }
+
+    if (!endpointURL || !token) {
+      initializedRuntimeKeyRef.current = null
+      return
+    }
+
+    const runtimeKey = `${endpointURL}::${token}`
+    if (initializedRuntimeKeyRef.current === runtimeKey) return
+    initializedRuntimeKeyRef.current = runtimeKey
+    void initialize()
+  }, [endpointURL, initialize, token])
 
   useEffect(() => {
     // Skip authentication check in mock mode

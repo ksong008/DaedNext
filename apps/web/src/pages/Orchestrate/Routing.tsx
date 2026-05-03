@@ -19,8 +19,8 @@ import { SimpleCard } from '~/components/SimpleCard'
 import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { DEFAULT_GROUP_NAME } from '~/constants/default'
+import { createGroupCompletionItems, setDynamicCompletionItems } from '~/editor_completions'
 import { useDisclosure } from '~/hooks'
-import { createGroupCompletionItems, setDynamicCompletionItems } from '~/monaco'
 import { defaultResourcesAtom } from '~/store'
 
 export function Routing() {

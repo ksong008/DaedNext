@@ -4,7 +4,7 @@ import type { GroupListView, NodeListView, SubscriptionListView } from '~/apis/t
 import { DragDropContext } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   useConfigsQuery,
   useGroupAddNodesMutation,
@@ -134,6 +134,8 @@ export function OrchestratePage() {
     () => configsQuery?.configs.find((config) => config.selected),
     [configsQuery?.configs],
   )
+  const [nodeLatenciesEnabled, setNodeLatenciesEnabled] = useState(false)
+  const startupDataReady = !!configsQuery && !!nodesQuery && !!groupsQuery && !!subscriptionsQuery
   const nodeLatencyRefetchIntervalMs = useMemo(() => {
     const configuredInterval = selectedConfig?.global.checkInterval
     if (!configuredInterval) return 30_000
@@ -141,7 +143,33 @@ export function OrchestratePage() {
     const ms = deriveTime(configuredInterval, 'ms')
     return Math.max(1_000, Number.isFinite(ms) ? ms : 30_000)
   }, [selectedConfig?.global.checkInterval])
-  const nodeLatenciesQuery = useNodeLatenciesQuery(nodeLatencyRefetchIntervalMs)
+  useEffect(() => {
+    if (!startupDataReady || nodeLatenciesEnabled) return
+
+    let cancelled = false
+    const activate = () => {
+      if (cancelled) return
+      startTransition(() => {
+        setNodeLatenciesEnabled(true)
+      })
+    }
+
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      const idleHandle = window.requestIdleCallback(activate, { timeout: 1500 })
+      return () => {
+        cancelled = true
+        window.cancelIdleCallback(idleHandle)
+      }
+    }
+
+    const timeoutId = globalThis.setTimeout(activate, 0)
+    return () => {
+      cancelled = true
+      globalThis.clearTimeout(timeoutId)
+    }
+  }, [nodeLatenciesEnabled, startupDataReady])
+
+  const nodeLatenciesQuery = useNodeLatenciesQuery(nodeLatencyRefetchIntervalMs, nodeLatenciesEnabled)
   const nodeLatencies = useMemo<Record<string, NodeLatencyProbeResult>>(() => {
     const baseResults = Object.fromEntries((nodeLatenciesQuery.data ?? []).map((result) => [result.id, result]))
     return {

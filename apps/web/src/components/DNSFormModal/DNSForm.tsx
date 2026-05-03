@@ -17,9 +17,10 @@ interface Props {
   initialName?: string
   initialConfig?: string
   bindGetValues: (fn: () => { name: string; text: string }) => void
+  opened?: boolean
 }
 
-export function DNSForm({ initialName = '', initialConfig = '', bindGetValues }: Props) {
+export function DNSForm({ initialName = '', initialConfig = '', bindGetValues, opened = true }: Props) {
   const { t } = useTranslation()
   const initialParsed = useMemo(() => {
     try {
@@ -122,6 +123,7 @@ export function DNSForm({ initialName = '', initialConfig = '', bindGetValues }:
               onChange={(value) => setConfigStr(value)}
               configType="dns"
               height="400px"
+              active={opened && mode === 'code'}
             />
           </div>
         </TabsContent>

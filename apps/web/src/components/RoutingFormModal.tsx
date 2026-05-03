@@ -414,6 +414,7 @@ export function RoutingFormModal({
                   onChange={(value) => setValue('text', value)}
                   configType={configType}
                   height="100%"
+                  active={opened && activeTab === 'advanced'}
                 />
               </div>
 

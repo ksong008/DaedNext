@@ -44,7 +44,20 @@ export function QueryProvider({ children, colorScheme, themeMode, setThemeMode }
   const endpointURL = useStore(endpointURLAtom)
   const token = useStore(tokenAtom)
 
-  const queryClient = useMemo(() => new QueryClient(), [])
+  const queryClient = useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 30_000,
+            gcTime: 5 * 60_000,
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      }),
+    [],
+  )
 
   useEffect(() => {
     const normalizedEndpointURL = normalizeEndpointURL(endpointURL)

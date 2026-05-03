@@ -56,6 +56,7 @@ export function DNSFormModal({ opened, onClose, title, initialValues, handleSubm
             key={`${initialValues?.name ?? 'new'}::${initialValues?.text ?? ''}`}
             initialName={initialValues?.name}
             initialConfig={initialValues?.text}
+            opened={opened}
             bindGetValues={(fn) => {
               getValuesRef.current = fn
             }}

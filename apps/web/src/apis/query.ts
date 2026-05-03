@@ -21,6 +21,7 @@ import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 
 import { buildAPIURL, normalizeEndpointURL, type APIClientInterface } from './client'
+import { adaptRuntimeOverview, mergeRuntimeOverviewDelta } from './runtime_overview'
 import type {
   ConfigGlobal,
   ConfigListView,
@@ -192,26 +193,6 @@ function trafficOverviewQueryKey(windowSec: number, maxPoints: number) {
   return [...QUERY_KEY_TRAFFIC, windowSec, maxPoints]
 }
 
-function adaptRuntimeOverview(data: RuntimeOverviewAPI): TrafficOverviewQueryData {
-  return {
-    updatedAt: data.updatedAt,
-    uploadRate: Number(data.uploadRate),
-    downloadRate: Number(data.downloadRate),
-    uploadTotal: data.uploadTotal,
-    downloadTotal: data.downloadTotal,
-    activeConnections: data.activeConnections,
-    udpSessions: data.udpSessions,
-    rssBytes: data.rssBytes || '0',
-    heapAllocBytes: data.heapAllocBytes || '0',
-    goroutines: data.goroutines ?? 0,
-    samples: data.samples.map((sample) => ({
-      timestamp: sample.timestamp,
-      uploadRate: Number(sample.uploadRate),
-      downloadRate: Number(sample.downloadRate),
-    })),
-  }
-}
-
 function buildRuntimeEventsURL(endpointURL: string, token: string, windowSec: number, maxPoints: number) {
   return buildAPIURL(normalizeEndpointURL(endpointURL), '/events/runtime', {
     windowSec,
@@ -327,20 +308,33 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
         setIsStreamLive(false)
       }
     }
+    const handleOverviewDelta = (event: MessageEvent) => {
+      try {
+        const payload = JSON.parse(event.data) as RuntimeOverviewAPI
+        queryClient.setQueryData<TrafficOverviewQueryData>(queryKey, (previousData) =>
+          mergeRuntimeOverviewDelta(previousData, payload, windowSec, maxPoints),
+        )
+        setIsStreamLive(true)
+      } catch {
+        setIsStreamLive(false)
+      }
+    }
     const handleStreamError = () => {
       setIsStreamLive(false)
     }
 
     eventSource.addEventListener('runtime.overview', handleOverview as EventListener)
+    eventSource.addEventListener('runtime.overview.delta', handleOverviewDelta as EventListener)
     eventSource.addEventListener('runtime.error', handleStreamError)
     eventSource.onerror = handleStreamError
 
     return () => {
       eventSource.removeEventListener('runtime.overview', handleOverview as EventListener)
+      eventSource.removeEventListener('runtime.overview.delta', handleOverviewDelta as EventListener)
       eventSource.removeEventListener('runtime.error', handleStreamError)
       eventSource.close()
     }
-  }, [queryClient, queryKey, streamURL])
+  }, [maxPoints, queryClient, queryKey, streamURL, windowSec])
 
   return useQuery({
     queryKey,
@@ -354,7 +348,7 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   })
 }
 
-export function useNodeLatenciesQuery(refetchIntervalMs: number) {
+export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true) {
   const apiClient = useAPIClient()
 
   return useQuery({
@@ -369,6 +363,7 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number) {
         message: item.message ?? null,
       }))
     },
+    enabled,
     placeholderData: (previousData) => previousData,
     refetchInterval: () => refetchIntervalMs,
     refetchIntervalInBackground: false,
