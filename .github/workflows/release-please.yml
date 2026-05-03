@@ -379,10 +379,15 @@ jobs:
               echo "$@" | tr ' ' '\n' | xargs -P 8 -I {} bash -c 'set -e; '"$func_name"' "$@"' _ {}
           }
 
-          cp release/*/*.deb ./
-          cp release/*/*.rpm ./
-          cp release/*/*.pkg.tar.zst ./
-          cp release/*/*.zip ./
+          mapfile -t release_files < <(find release -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.pkg.tar.zst" -o -name "*.zip" \))
+          if [ ${#release_files[@]} -eq 0 ]; then
+            echo "No release files found under release/."
+            find release -maxdepth 3 -type f | sort || true
+            exit 1
+          fi
+          for f in "${release_files[@]}"; do
+            cp "$f" ./
+          done
 
           # Create zip archives in parallel
           create_zip() {
