@@ -347,9 +347,10 @@ jobs:
           fi
           ls ./output_packages/ | grep -E ".deb|.rpm|.pkg.tar.zst"
 
-      - if: ${{ env.GOARCH != 'mips' && env.GOARCH != 'mipsle' && env.GOARCH != 'mips64' && env.GOARCH != 'mips64le' && needs.release-please.outputs.manual_release != 'true' }}
-        uses: nanoufo/action-upload-artifacts-and-release-assets@v2.0
+      - name: Upload artifact - packages
+        uses: actions/upload-artifact@v7
         with:
+          name: ${{ steps.get_filename.outputs.BUNDLE_NAME }}-packages
           path: |
             output_packages/*
 
