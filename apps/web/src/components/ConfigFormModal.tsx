@@ -149,7 +149,7 @@ function toFormValues(global: ConfigGlobal, name: string, logLevelSteps: ReturnT
 }
 
 function toGlobalInput(data: FormValues, logLevelSteps: ReturnType<typeof GET_LOG_LEVEL_STEPS>): GlobalInput {
-  const { logLevelNumber, checkIntervalSeconds, checkToleranceMS, sniffingTimeoutMS, ...globalFields } = data
+  const { name, logLevelNumber, checkIntervalSeconds, checkToleranceMS, sniffingTimeoutMS, ...globalFields } = data
   return {
     logLevel: logLevelSteps[logLevelNumber][1],
     checkInterval: `${checkIntervalSeconds}s`,
