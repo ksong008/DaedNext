@@ -32,7 +32,7 @@ import {
   useUpdateUsernameMutation,
   useUserQuery,
 } from '~/apis'
-import type { DAEBundle } from '~/apis/types'
+import type { DAEBundle, DAEConfigFileIssue } from '~/apis/types'
 import type { BundleDiffPreview } from '~/utils/bundle'
 import { Avatar } from '~/components/ui/avatar'
 import { Button } from '~/components/ui/button'
@@ -141,7 +141,7 @@ export function HeaderWithActions() {
   } | null>(null)
   const [bundleDiffPreview, setBundleDiffPreview] = useState<BundleDiffPreview | null>(null)
   const [bundleImportFileName, setBundleImportFileName] = useState('')
-  const [previewWarnings, setPreviewWarnings] = useState<string[]>([])
+  const [previewWarnings, setPreviewWarnings] = useState<DAEConfigFileIssue[]>([])
   const [previewKind, setPreviewKind] = useState<'bundle' | 'daeFile' | null>(null)
   const [formData, setFormData] = useState({ username: '', name: '' })
   const [formErrors, setFormErrors] = useState<{ username?: string; name?: string }>({})
