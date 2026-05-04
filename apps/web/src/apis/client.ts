@@ -13,8 +13,20 @@ export interface APIClientInterface {
   delete: <T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) => Promise<T>
 }
 
+const leadingSlashesRE = /^\/+/
+const trailingSlashesRE = /\/+$/
+const trailingSlashRE = /\/$/
+
+const httpMethod = {
+  get: 'GET',
+  post: 'POST',
+  put: 'PUT',
+  patch: 'PATCH',
+  delete: 'DELETE',
+} as const
+
 export function buildAPIURL(endpointURL: string, path: string, query?: Record<string, APIQueryValue>) {
-  const normalizedPath = path.replace(/^\/+/, '')
+  const normalizedPath = path.replace(leadingSlashesRE, '')
   const url = new URL(normalizedPath, `${endpointURL}/`)
 
   if (query) {
@@ -34,7 +46,7 @@ export function buildAPIURL(endpointURL: string, path: string, query?: Record<st
 }
 
 function canonicalizeEndpointPathname(pathname: string) {
-  const trimmedPath = pathname.replace(/\/+$/, '')
+  const trimmedPath = pathname.replace(trailingSlashesRE, '')
 
   if (trimmedPath === '' || trimmedPath === '/') {
     return '/api'
@@ -48,11 +60,6 @@ function canonicalizeEndpointPathname(pathname: string) {
     return `/${segments.join('/')}`
   }
 
-  if (lastSegment === 'graphql') {
-    segments[segments.length - 1] = 'api'
-    return `/${segments.join('/')}`
-  }
-
   return `/${[...segments, 'api'].join('/')}`
 }
 
@@ -61,7 +68,7 @@ export function normalizeEndpointURL(raw: string): string {
   url.pathname = canonicalizeEndpointPathname(url.pathname)
   url.search = ''
   url.hash = ''
-  return url.toString().replace(/\/$/, '')
+  return url.toString().replace(trailingSlashRE, '')
 }
 
 export class APIClient implements APIClientInterface {
@@ -129,14 +136,6 @@ export class APIClient implements APIClientInterface {
     return payload as T
   }
 }
-
-const httpMethod = {
-  get: 'GET',
-  post: 'POST',
-  put: 'PUT',
-  patch: 'PATCH',
-  delete: 'DELETE',
-} as const
 
 export function toID(value: string | number | null | undefined): string {
   if (value == null) return ''
