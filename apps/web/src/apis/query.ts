@@ -111,8 +111,10 @@ type NodeLatencyAPI = {
 type ConfigAPI = {
   id: number
   name: string
+  global: string
   selected: boolean
   parsedGlobal?: ConfigGlobal
+  parseError?: string | null
 }
 
 type RoutingAPI = {
@@ -424,6 +426,8 @@ export function useConfigsQuery() {
           id: String(config.id),
           name: config.name,
           selected: config.selected,
+          rawGlobal: config.global ?? '',
+          parseError: config.parseError ?? null,
           global: normalizeConfigGlobal(config.parsedGlobal),
         })),
       }

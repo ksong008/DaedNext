@@ -2,6 +2,7 @@ import type { ConfigListView } from '~/apis/types'
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  AlertTriangle,
   Check,
   Clock,
   Globe,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Badge } from '~/components/ui/badge'
 import { Card } from '~/components/ui/card'
 import { cn } from '~/lib/utils'
@@ -76,6 +78,21 @@ function SectionCard({ title, icon, children }: { title: string; icon: React.Rea
 
 export function ConfigDetailView({ config }: ConfigDetailViewProps) {
   const { t } = useTranslation()
+  if (config.parseError) {
+    return (
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>{t('configEditor.parseErrorTitle')}</AlertTitle>
+        <AlertDescription className="space-y-2">
+          <p>{config.parseError}</p>
+          <p>{t('configEditor.parseErrorDesc')}</p>
+          <pre className="max-h-40 overflow-auto rounded bg-muted px-3 py-2 text-xs text-foreground whitespace-pre-wrap">
+            {config.rawGlobal}
+          </pre>
+        </AlertDescription>
+      </Alert>
+    )
+  }
   const { global } = config
 
   return (

@@ -169,6 +169,7 @@ export class MockAPIClient implements APIClientInterface {
           items: mockConfigs.configs.map((config) => ({
             id: numericID(config.id),
             name: config.name,
+            global: 'global {}',
             selected: config.selected,
             parsedGlobal: config.global,
           })),
@@ -200,6 +201,120 @@ export class MockAPIClient implements APIClientInterface {
         defaultDNSID: mockStorage.get('defaultDNSID') || '',
         defaultGroupID: mockStorage.get('defaultGroupID') || '',
         mode: mockStorage.get('mode') || 'rule',
+      } as T
+    }
+
+    if (method === 'GET' && path === '/user/me/dae-bundle') {
+      return {
+        schemaVersion: 1,
+        exportedAt: new Date().toISOString(),
+        mode: mockStorage.get('mode') || 'rule',
+        defaults: {
+          configId: optionalNumericID(mockStorage.get('defaultConfigID')),
+          routingId: optionalNumericID(mockStorage.get('defaultRoutingID')),
+          dnsId: optionalNumericID(mockStorage.get('defaultDNSID')),
+          groupId: optionalNumericID(mockStorage.get('defaultGroupID')),
+        },
+        selected: {
+          configId: optionalNumericID(mockConfigs.configs.find((config) => config.selected)?.id),
+          routingId: optionalNumericID(mockRoutings.routings.find((routing) => routing.selected)?.id),
+          dnsId: optionalNumericID(mockDNSs.dnss.find((dns) => dns.selected)?.id),
+        },
+        configs: mockConfigs.configs.map((config) => ({
+          id: numericID(config.id),
+          name: config.name,
+          global: 'global {}',
+        })),
+        dnss: mockDNSs.dnss.map((dns) => ({
+          id: numericID(dns.id),
+          name: dns.name,
+          dns: dns.dns.string,
+        })),
+        routings: mockRoutings.routings.map((routing) => ({
+          id: numericID(routing.id),
+          name: routing.name,
+          routing: routing.routing.string,
+        })),
+        subscriptions: mockSubscriptions.subscriptions.map((subscription) => ({
+          id: numericID(subscription.id),
+          updatedAt: subscription.updatedAt,
+          link: subscription.link,
+          cronExp: subscription.cronExp,
+          cronEnable: subscription.cronEnable,
+          status: subscription.status,
+          info: subscription.info,
+          tag: subscription.tag ?? null,
+        })),
+        nodes: mockNodes.nodes.items.map((node) => ({
+          id: numericID(node.id),
+          link: node.link,
+          name: node.name,
+          address: node.address,
+          protocol: node.protocol,
+          tag: node.tag ?? null,
+          subscriptionId: optionalNumericID(node.subscriptionID),
+        })),
+        groups: mockGroups.groups.map((group) => ({
+          id: numericID(group.id),
+          name: group.name,
+          policy: group.policy,
+          policyParams: group.policyParams,
+          nodeIds: group.nodes.map((node) => numericID(node.id)),
+          subscriptionBindings: group.subscriptions.map((subscription) => ({
+            subscriptionId: numericID(subscription.subscription.id),
+            nameFilterRegex: subscription.nameFilterRegex ?? null,
+          })),
+        })),
+      } as T
+    }
+
+    if (method === 'GET' && path === '/user/me/dae-config-file') {
+      return {
+        filename: 'mock.dae',
+        content: `global {\n  log_level: "info"\n}\n\ndns {\n  upstream {\n    googledns: "udp://8.8.8.8:53"\n  }\n  routing {\n    request {\n      fallback: "googledns"\n    }\n  }\n}\n\nrouting {\n  fallback: "proxy"\n}\n`,
+        warnings: [],
+      } as T
+    }
+
+    if (method === 'POST' && path === '/user/me/dae-config-file/preview') {
+      const bundle = await this.handle<unknown>('GET', '/user/me/dae-bundle')
+      return {
+        bundle,
+        warnings: [
+          {
+            level: 'lossy',
+            code: 'group_filter_flattened',
+            message: 'Mock preview warning',
+          },
+        ],
+      } as T
+    }
+
+    if (method === 'POST' && path === '/configs/parsed') {
+      const payload = body as { global?: string; parsedGlobal?: unknown }
+      return {
+        global: payload.global || 'global {}',
+        parsedGlobal: payload.parsedGlobal || mockConfigs.configs[0]?.global || {},
+      } as T
+    }
+
+    if (method === 'PUT' && path === '/user/me/dae-bundle') {
+      const payload = body as {
+        mode?: string
+        defaults?: { configId?: number; routingId?: number; dnsId?: number; groupId?: number }
+      }
+      if (payload.defaults?.configId != null) mockStorage.set('defaultConfigID', String(payload.defaults.configId))
+      if (payload.defaults?.routingId != null) mockStorage.set('defaultRoutingID', String(payload.defaults.routingId))
+      if (payload.defaults?.dnsId != null) mockStorage.set('defaultDNSID', String(payload.defaults.dnsId))
+      if (payload.defaults?.groupId != null) mockStorage.set('defaultGroupID', String(payload.defaults.groupId))
+      if (payload.mode) mockStorage.set('mode', payload.mode)
+      return { imported: true } as T
+    }
+
+    if (method === 'PUT' && path === '/user/me/dae-config-file') {
+      return {
+        imported: true,
+        warnings: [],
       } as T
     }
 
@@ -280,6 +395,12 @@ function toQueryArray(value: APIQueryValue): string[] {
 function numericID(value: string | number): number {
   const match = String(value).match(/(\d+)/)
   return match ? Number.parseInt(match[1], 10) : 0
+}
+
+function optionalNumericID(value?: string | number | null): number | undefined {
+  if (value == null || value === '') return undefined
+  const parsed = numericID(value)
+  return parsed > 0 ? parsed : undefined
 }
 
 export { isMockMode, MOCK_DEFAULT_IDS }

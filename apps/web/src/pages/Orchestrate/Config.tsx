@@ -17,10 +17,8 @@ import { Section } from '~/components/Section'
 import { SimpleCard } from '~/components/SimpleCard'
 import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
-import { GET_LOG_LEVEL_STEPS } from '~/constants'
 import { useDisclosure } from '~/hooks'
 import { defaultResourcesAtom } from '~/store'
-import { deriveTime } from '~/utils'
 
 export function Config() {
   const { t } = useTranslation()
@@ -53,18 +51,11 @@ export function Config() {
                 onClick={() => {
                   updateConfigFormModalRef.current?.setEditingID(config.id)
 
-                  const { checkInterval, checkTolerance, sniffingTimeout, logLevel, ...global } = config.global
-
-                  const logLevelSteps = GET_LOG_LEVEL_STEPS(t)
-                  const logLevelNumber = logLevelSteps.findIndex(([, l]) => l === logLevel)
-
                   updateConfigFormModalRef.current?.initOrigins({
                     name: config.name,
-                    logLevelNumber,
-                    checkIntervalSeconds: deriveTime(checkInterval, 's'),
-                    checkToleranceMS: deriveTime(checkTolerance, 'ms'),
-                    sniffingTimeoutMS: deriveTime(sniffingTimeout, 'ms'),
-                    ...global,
+                    rawGlobal: config.rawGlobal,
+                    parsedGlobal: config.parseError ? null : config.global,
+                    parseError: config.parseError ?? null,
                   })
 
                   openUpdateConfigFormDrawer()
@@ -79,18 +70,17 @@ export function Config() {
           onRemove={config.id !== defaultConfigID ? () => removeConfigMutation.mutate(config.id) : undefined}
           onRename={(newName) => renameConfigMutation.mutate({ id: config.id, name: newName })}
           onDuplicate={async () => {
-            const { checkInterval, checkTolerance, sniffingTimeout, logLevel, ...global } = config.global
-
-            await createConfigMutation.mutateAsync({
-              name: `${config.name} (Copy)`,
-              global: {
-                logLevel,
-                checkInterval,
-                checkTolerance,
-                sniffingTimeout,
-                ...global,
-              },
-            })
+            await createConfigMutation.mutateAsync(
+              config.parseError
+                ? {
+                    name: `${config.name} (Copy)`,
+                    global: config.rawGlobal,
+                  }
+                : {
+                    name: `${config.name} (Copy)`,
+                    parsedGlobal: config.global,
+                  },
+            )
           }}
         >
           <ConfigDetailView config={config} />

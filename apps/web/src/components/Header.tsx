@@ -2,13 +2,14 @@ import { useStore } from '@nanostores/react'
 import {
   ChevronDown,
   CloudOff,
+  Download,
   Keyboard,
   KeyRound,
   Languages,
   LogOut,
   Menu,
   RefreshCw,
-  Terminal,
+  Upload,
   UserPen,
   Wifi,
 } from 'lucide-react'
@@ -18,7 +19,12 @@ import { Link } from 'react-router-dom'
 import { z } from 'zod'
 
 import {
+  usePreviewDAEConfigFileMutation,
+  useExportDAEConfigFileMutation,
+  useExportDAEBundleMutation,
   useGeneralQuery,
+  useImportDAEConfigFileMutation,
+  useImportDAEBundleMutation,
   useRunMutation,
   useUpdateAvatarMutation,
   useUpdateNameMutation,
@@ -26,6 +32,8 @@ import {
   useUpdateUsernameMutation,
   useUserQuery,
 } from '~/apis'
+import type { DAEBundle } from '~/apis/types'
+import type { BundleDiffPreview } from '~/utils/bundle'
 import { Avatar } from '~/components/ui/avatar'
 import { Button } from '~/components/ui/button'
 import { Code } from '~/components/ui/code'
@@ -49,12 +57,19 @@ import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { fileToBase64 } from '~/utils'
 import { normalizeEndpointURL } from '~/apis/client'
+import { toast } from 'sonner'
+import { createBundleDiffPreview } from '~/utils/bundle'
 
+import { BundleImportPreviewDialog } from './BundleImportPreviewDialog'
 import { CommandPalette, useCommandPaletteActions } from './CommandPalette'
 import { FormActions } from './FormActions'
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
 import { ProfileSwitcher } from './ProfileSwitcher'
 import { ThemePicker } from './ThemePicker'
+
+function joinWarningMessages(warnings?: Array<{ message: string }>) {
+  return warnings?.map((warning) => warning.message).join('\n') || ''
+}
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -84,7 +99,6 @@ export function HeaderWithActions() {
   const { t } = useTranslation()
   const endpointURL = useStore(endpointURLAtom)
   const normalizedEndpointURL = normalizeEndpointURL(endpointURL)
-  const openapiURL = `${normalizedEndpointURL.replace(/\/$/, '')}/openapi.json`
   const { themeMode, setThemeMode } = useColorScheme()
 
   const cycleThemeMode = () => {
@@ -102,6 +116,7 @@ export function HeaderWithActions() {
     useDisclosure(false)
   const [openedShortcutsModal, { open: openShortcutsModal, close: closeShortcutsModal }] = useDisclosure(false)
   const [openedCommandPalette, { open: openCommandPalette, close: closeCommandPalette }] = useDisclosure(false)
+  const [openedBundlePreview, { open: openBundlePreview, close: closeBundlePreview }] = useDisclosure(false)
   const { data: userQuery } = useUserQuery()
   const { data: generalQuery } = useGeneralQuery()
   const runMutation = useRunMutation()
@@ -109,8 +124,25 @@ export function HeaderWithActions() {
   const updatePasswordMutation = useUpdatePasswordMutation()
   const updateUsernameMutation = useUpdateUsernameMutation()
   const updateAvatarMutation = useUpdateAvatarMutation()
+  const exportBundleMutation = useExportDAEBundleMutation()
+  const importBundleMutation = useImportDAEBundleMutation()
+  const exportDAEConfigFileMutation = useExportDAEConfigFileMutation()
+  const importDAEConfigFileMutation = useImportDAEConfigFileMutation()
+  const previewDAEConfigFileMutation = usePreviewDAEConfigFileMutation()
   const [uploadingAvatarBase64, setUploadingAvatarBase64] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bundleInputRef = useRef<HTMLInputElement>(null)
+  const daeConfigFileInputRef = useRef<HTMLInputElement>(null)
+  const [pendingBundleImport, setPendingBundleImport] = useState<DAEBundle | null>(null)
+  const [pendingDAEConfigFileImport, setPendingDAEConfigFileImport] = useState<{
+    filename?: string
+    namePrefix?: string
+    content: string
+  } | null>(null)
+  const [bundleDiffPreview, setBundleDiffPreview] = useState<BundleDiffPreview | null>(null)
+  const [bundleImportFileName, setBundleImportFileName] = useState('')
+  const [previewWarnings, setPreviewWarnings] = useState<string[]>([])
+  const [previewKind, setPreviewKind] = useState<'bundle' | 'daeFile' | null>(null)
   const [formData, setFormData] = useState({ username: '', name: '' })
   const [formErrors, setFormErrors] = useState<{ username?: string; name?: string }>({})
   const [passwordFormData, setPasswordFormData] = useState({
@@ -247,6 +279,167 @@ export function HeaderWithActions() {
     }
   }
 
+  const handleExportBundle = useCallback(async () => {
+    try {
+      const bundle = await exportBundleMutation.mutateAsync()
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `daed-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+      toast.success(t('bundle.exportSuccess'))
+    } catch {
+      // API client already reports request errors.
+    }
+  }, [exportBundleMutation, t])
+
+  const handleImportBundle = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) {
+        return
+      }
+
+      try {
+        const bundle = JSON.parse(await file.text()) as DAEBundle
+        if (
+          !bundle ||
+          typeof bundle !== 'object' ||
+          !Array.isArray(bundle.configs) ||
+          !Array.isArray(bundle.dnss) ||
+          !Array.isArray(bundle.routings) ||
+          !Array.isArray(bundle.subscriptions) ||
+          !Array.isArray(bundle.nodes) ||
+          !Array.isArray(bundle.groups)
+        ) {
+          throw new Error(t('bundle.importInvalid'))
+        }
+
+        const currentBundle = await exportBundleMutation.mutateAsync()
+        setPendingBundleImport(bundle)
+        setPendingDAEConfigFileImport(null)
+        setBundleImportFileName(file.name)
+        setPreviewWarnings([])
+        setBundleDiffPreview(createBundleDiffPreview(currentBundle, bundle))
+        setPreviewKind('bundle')
+        openBundlePreview()
+      } catch (error) {
+        const message = error instanceof Error && error.message ? error.message : t('bundle.importInvalid')
+        toast.error(message)
+      } finally {
+        event.target.value = ''
+      }
+    },
+    [exportBundleMutation, openBundlePreview, t],
+  )
+
+  const closeBundlePreviewState = useCallback(() => {
+    setPendingBundleImport(null)
+    setPendingDAEConfigFileImport(null)
+    setBundleDiffPreview(null)
+    setBundleImportFileName('')
+    setPreviewWarnings([])
+    setPreviewKind(null)
+    closeBundlePreview()
+  }, [closeBundlePreview])
+
+  const confirmBundleImport = useCallback(async () => {
+    if (previewKind === 'bundle') {
+      if (!pendingBundleImport) {
+        return
+      }
+      try {
+        await importBundleMutation.mutateAsync(pendingBundleImport)
+        toast.success(t('bundle.importSuccess'))
+        closeBundlePreviewState()
+      } catch {
+        // API client already reports request errors.
+      }
+      return
+    }
+
+    if (!pendingDAEConfigFileImport) {
+      return
+    }
+    try {
+      const result = await importDAEConfigFileMutation.mutateAsync(pendingDAEConfigFileImport)
+      if (result.warnings?.length) {
+        toast.warning(joinWarningMessages(result.warnings))
+      } else {
+        toast.success(t('daeFile.importSuccess'))
+      }
+      closeBundlePreviewState()
+    } catch {
+      // API client already reports request errors.
+    }
+  }, [
+    closeBundlePreviewState,
+    importBundleMutation,
+    importDAEConfigFileMutation,
+    pendingBundleImport,
+    pendingDAEConfigFileImport,
+    previewKind,
+    t,
+  ])
+
+  const handleExportDAEConfigFile = useCallback(async () => {
+    try {
+      const exported = await exportDAEConfigFileMutation.mutateAsync()
+      const blob = new Blob([exported.content], { type: 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = exported.filename || `dae-${new Date().toISOString().replace(/[:.]/g, '-')}.dae`
+      link.click()
+      URL.revokeObjectURL(url)
+      if (exported.warnings?.length) {
+        toast.warning(joinWarningMessages(exported.warnings))
+      } else {
+        toast.success(t('daeFile.exportSuccess'))
+      }
+    } catch {
+      // API client already reports request errors.
+    }
+  }, [exportDAEConfigFileMutation, t])
+
+  const handleImportDAEConfigFile = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) {
+        return
+      }
+
+      try {
+        const content = await file.text()
+        const namePrefix = file.name.replace(/\.[^.]+$/, '')
+        const payload = {
+          filename: file.name,
+          namePrefix,
+          content,
+        }
+        const [currentBundle, preview] = await Promise.all([
+          exportBundleMutation.mutateAsync(),
+          previewDAEConfigFileMutation.mutateAsync(payload),
+        ])
+        setPendingDAEConfigFileImport(payload)
+        setPendingBundleImport(null)
+        setBundleImportFileName(file.name)
+        setPreviewWarnings(preview.warnings || [])
+        setBundleDiffPreview(createBundleDiffPreview(currentBundle, preview.bundle))
+        setPreviewKind('daeFile')
+        openBundlePreview()
+      } catch (error) {
+        const message = error instanceof Error && error.message ? error.message : t('daeFile.importInvalid')
+        toast.error(message)
+      } finally {
+        event.target.value = ''
+      }
+    },
+    [exportBundleMutation, openBundlePreview, previewDAEConfigFileMutation, t],
+  )
+
   const handlePasswordChangeSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -308,6 +501,8 @@ export function HeaderWithActions() {
         </div>
 
         <div className={cn('flex items-center', matchSmallScreen ? 'gap-1' : 'gap-2')}>
+          <input ref={bundleInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleImportBundle} />
+          <input ref={daeConfigFileInputRef} type="file" accept=".dae,text/plain" className="hidden" onChange={handleImportDAEConfigFile} />
           {!matchSmallScreen && <ProfileSwitcher />}
 
           <DropdownMenu open={userMenuOpened} onOpenChange={setUserMenuOpened}>
@@ -336,14 +531,23 @@ export function HeaderWithActions() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[200px]">
-              <DropdownMenuLabel>{t('debug')}</DropdownMenuLabel>
-              <DropdownMenuItem asChild>
-                <a href={openapiURL} target="_blank" rel="noopener noreferrer">
-                  OpenAPI
-                </a>
-              </DropdownMenuItem>
-
               <DropdownMenuLabel>{t('settings')}</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => void handleExportDAEConfigFile()}>
+                <Download className="mr-2 h-4 w-4" />
+                {t('daeFile.export')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => daeConfigFileInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                {t('daeFile.import')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleExportBundle()}>
+                <Download className="mr-2 h-4 w-4" />
+                {t('bundle.export')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => bundleInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                {t('bundle.import')}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
                   setFormData({
@@ -511,14 +715,41 @@ export function HeaderWithActions() {
             {/* Debug & Tools Section */}
             <div className="flex flex-col gap-0.5">
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
-                {t('debug')}
+                {t('shortcuts.categories.general')}
               </span>
-              <a href={openapiURL} target="_blank" rel="noopener noreferrer" onClick={closeBurger}>
-                <Button variant="ghost" className="w-full justify-start gap-2 h-9 px-2">
-                  <Terminal className="h-4 w-4" />
-                  <span className="text-sm">OpenAPI</span>
-                </Button>
-              </a>
+              <Button variant="ghost" className="w-full justify-start gap-2 h-9 px-2" onClick={() => void handleExportDAEConfigFile()}>
+                <Download className="h-4 w-4" />
+                <span className="text-sm">{t('daeFile.export')}</span>
+              </Button>
+
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2 h-9 px-2"
+                onClick={() => {
+                  daeConfigFileInputRef.current?.click()
+                  closeBurger()
+                }}
+              >
+                <Upload className="h-4 w-4" />
+                <span className="text-sm">{t('daeFile.import')}</span>
+              </Button>
+
+              <Button variant="ghost" className="w-full justify-start gap-2 h-9 px-2" onClick={() => void handleExportBundle()}>
+                <Download className="h-4 w-4" />
+                <span className="text-sm">{t('bundle.export')}</span>
+              </Button>
+
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2 h-9 px-2"
+                onClick={() => {
+                  bundleInputRef.current?.click()
+                  closeBurger()
+                }}
+              >
+                <Upload className="h-4 w-4" />
+                <span className="text-sm">{t('bundle.import')}</span>
+              </Button>
 
               <Button
                 variant="ghost"
@@ -670,6 +901,30 @@ export function HeaderWithActions() {
       </Dialog>
 
       <KeyboardShortcutsModal opened={openedShortcutsModal} onClose={closeShortcutsModal} />
+
+      <BundleImportPreviewDialog
+        open={openedBundlePreview}
+        fileName={bundleImportFileName}
+        preview={bundleDiffPreview}
+        warnings={previewWarnings}
+        loading={importBundleMutation.isPending || importDAEConfigFileMutation.isPending}
+        title={previewKind === 'daeFile' ? t('daeFile.previewTitle') : t('bundle.previewTitle')}
+        description={previewKind === 'daeFile' ? t('daeFile.previewDesc') : t('bundle.previewDesc')}
+        fileLabel={previewKind === 'daeFile' ? t('daeFile.previewFile') : t('bundle.previewFile')}
+        warningTitle={previewKind === 'daeFile' ? t('daeFile.previewWarningTitle') : t('bundle.previewWarningTitle')}
+        warningDescription={previewKind === 'daeFile' ? t('daeFile.importConfirm') : t('bundle.importConfirm')}
+        noChangesTitle={previewKind === 'daeFile' ? t('daeFile.previewNoChangesTitle') : t('bundle.previewNoChangesTitle')}
+        noChangesDescription={
+          previewKind === 'daeFile' ? t('daeFile.previewNoChangesDesc') : t('bundle.previewNoChangesDesc')
+        }
+        confirmLabel={previewKind === 'daeFile' ? t('daeFile.confirmImport') : t('bundle.confirmImport')}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeBundlePreviewState()
+          }
+        }}
+        onConfirm={() => void confirmBundleImport()}
+      />
 
       <CommandPalette
         open={openedCommandPalette}

@@ -16,7 +16,18 @@ import {
 import { useAPIClient } from '~/contexts'
 
 import { toID, toNumericID } from './client'
-import type { GlobalInput, ImportArgument, NodeLatencyProbeResult, Policy, PolicyParam } from './types'
+import type {
+  ConfigPreviewResult,
+  DAEBundle,
+  DAEConfigFileExportResult,
+  DAEConfigFileImportResult,
+  DAEConfigFilePreviewResult,
+  GlobalInput,
+  ImportArgument,
+  NodeLatencyProbeResult,
+  Policy,
+  PolicyParam,
+} from './types'
 
 type CountResponse = {
   updated?: number
@@ -143,8 +154,16 @@ export function useCreateConfigMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ name, global }: { name?: string; global?: GlobalInput }) => {
-      const resource = await apiClient.post<ResourceWithID>('/configs', { name, parsedGlobal: global })
+    mutationFn: async ({
+      name,
+      global,
+      parsedGlobal,
+    }: {
+      name?: string
+      global?: string
+      parsedGlobal?: GlobalInput
+    }) => {
+      const resource = await apiClient.post<ResourceWithID>('/configs', { name, global, parsedGlobal })
       return toID(resource.id)
     },
     onSuccess: () => {
@@ -158,13 +177,111 @@ export function useUpdateConfigMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, global }: { id: string; global: GlobalInput }) => {
-      const resource = await apiClient.put<ResourceWithID>(`/configs/${id}`, { parsedGlobal: global })
+    mutationFn: async ({
+      id,
+      global,
+      parsedGlobal,
+    }: {
+      id: string
+      global?: string
+      parsedGlobal?: GlobalInput
+    }) => {
+      const resource = await apiClient.put<ResourceWithID>(`/configs/${id}`, { global, parsedGlobal })
       return toID(resource.id)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    },
+  })
+}
+
+export function usePreviewConfigMutation() {
+  const apiClient = useAPIClient()
+
+  return useMutation({
+    mutationFn: async ({
+      global,
+      parsedGlobal,
+    }: {
+      global?: string
+      parsedGlobal?: GlobalInput
+    }): Promise<ConfigPreviewResult> => {
+      return apiClient.post<ConfigPreviewResult>('/configs/parsed', { global, parsedGlobal })
+    },
+  })
+}
+
+export function useExportDAEBundleMutation() {
+  const apiClient = useAPIClient()
+
+  return useMutation({
+    mutationFn: async (): Promise<DAEBundle> => {
+      return apiClient.get<DAEBundle>('/user/me/dae-bundle')
+    },
+  })
+}
+
+export function useImportDAEBundleMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (bundle: DAEBundle) => {
+      return apiClient.put<{ imported: boolean }>('/user/me/dae-bundle', bundle)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_STORAGE })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
+    },
+  })
+}
+
+export function useExportDAEConfigFileMutation() {
+  const apiClient = useAPIClient()
+
+  return useMutation({
+    mutationFn: async (): Promise<DAEConfigFileExportResult> => {
+      return apiClient.get<DAEConfigFileExportResult>('/user/me/dae-config-file')
+    },
+  })
+}
+
+export function useImportDAEConfigFileMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ filename, namePrefix, content }: { filename?: string; namePrefix?: string; content: string }) => {
+      return apiClient.put<DAEConfigFileImportResult>('/user/me/dae-config-file', { filename, namePrefix, content })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_STORAGE })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
+    },
+  })
+}
+
+export function usePreviewDAEConfigFileMutation() {
+  const apiClient = useAPIClient()
+
+  return useMutation({
+    mutationFn: async ({ filename, namePrefix, content }: { filename?: string; namePrefix?: string; content: string }) => {
+      return apiClient.post<DAEConfigFilePreviewResult>('/user/me/dae-config-file/preview', { filename, namePrefix, content })
     },
   })
 }

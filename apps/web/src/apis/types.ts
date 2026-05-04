@@ -126,6 +126,117 @@ export interface ConfigResource {
   name: string
   selected: boolean
   global: ConfigGlobal
+  rawGlobal: string
+  parseError?: string | null
+}
+
+export interface ConfigPreviewResult {
+  global: string
+  parsedGlobal: ConfigGlobal
+}
+
+export interface DAEBundleDefaults {
+  configId?: number
+  dnsId?: number
+  routingId?: number
+  groupId?: number
+}
+
+export interface DAEBundleSelected {
+  configId?: number
+  dnsId?: number
+  routingId?: number
+}
+
+export interface DAEBundleConfig {
+  id: number
+  name: string
+  global: string
+}
+
+export interface DAEBundleDNS {
+  id: number
+  name: string
+  dns: string
+}
+
+export interface DAEBundleRouting {
+  id: number
+  name: string
+  routing: string
+}
+
+export interface DAEBundleSubscription {
+  id: number
+  updatedAt: string
+  link: string
+  cronExp: string
+  cronEnable: boolean
+  status: string
+  info: string
+  tag?: string | null
+}
+
+export interface DAEBundleNode {
+  id: number
+  link: string
+  name: string
+  address: string
+  protocol: string
+  tag?: string | null
+  subscriptionId?: number | null
+}
+
+export interface DAEBundleGroupSubscription {
+  subscriptionId: number
+  nameFilterRegex?: string | null
+}
+
+export interface DAEBundleGroup {
+  id: number
+  name: string
+  policy: Policy
+  policyParams: PolicyParam[]
+  nodeIds: number[]
+  subscriptionBindings: DAEBundleGroupSubscription[]
+}
+
+export interface DAEBundle {
+  schemaVersion: number
+  exportedAt: string
+  mode: string
+  defaults: DAEBundleDefaults
+  selected: DAEBundleSelected
+  configs: DAEBundleConfig[]
+  dnss: DAEBundleDNS[]
+  routings: DAEBundleRouting[]
+  subscriptions: DAEBundleSubscription[]
+  nodes: DAEBundleNode[]
+  groups: DAEBundleGroup[]
+}
+
+export interface DAEConfigFileExportResult {
+  filename: string
+  content: string
+  warnings?: DAEConfigFileIssue[]
+}
+
+export interface DAEConfigFileImportResult {
+  imported: boolean
+  warnings?: DAEConfigFileIssue[]
+}
+
+export interface DAEConfigFilePreviewResult {
+  bundle: DAEBundle
+  warnings?: DAEConfigFileIssue[]
+}
+
+export type DAEConfigFileIssueLevel = 'info' | 'warn' | 'lossy'
+
+export interface DAEConfigFileIssue {
+  level: DAEConfigFileIssueLevel
+  code: string
+  message: string
 }
 
 export interface RoutingView {
