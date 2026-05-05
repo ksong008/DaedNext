@@ -1,3 +1,5 @@
+import type { DAEBundle, DAEConfigFileIssue } from '~/apis/types'
+import type { BundleDiffPreview } from '~/utils/bundle'
 import { useStore } from '@nanostores/react'
 import {
   ChevronDown,
@@ -15,25 +17,26 @@ import {
 } from 'lucide-react'
 import { Fragment, useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
-import { z } from 'zod'
 
+import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
+import { z } from 'zod'
 import {
-  usePreviewDAEConfigFileMutation,
-  useExportDAEConfigFileMutation,
   useExportDAEBundleMutation,
+  useExportDAEConfigFileMutation,
   useGeneralQuery,
-  useImportDAEConfigFileMutation,
   useImportDAEBundleMutation,
-  useRunMutation,
+  useImportDAEConfigFileMutation,
+  usePreviewDAEConfigFileMutation,
+  useReloadRuntimeMutation,
+  useStopRuntimeMutation,
   useUpdateAvatarMutation,
   useUpdateNameMutation,
   useUpdatePasswordMutation,
   useUpdateUsernameMutation,
   useUserQuery,
 } from '~/apis'
-import type { DAEBundle, DAEConfigFileIssue } from '~/apis/types'
-import type { BundleDiffPreview } from '~/utils/bundle'
+import { normalizeEndpointURL } from '~/apis/client'
 import { Avatar } from '~/components/ui/avatar'
 import { Button } from '~/components/ui/button'
 import { Code } from '~/components/ui/code'
@@ -56,8 +59,6 @@ import { i18n } from '~/i18n'
 import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { fileToBase64 } from '~/utils'
-import { normalizeEndpointURL } from '~/apis/client'
-import { toast } from 'sonner'
 import { createBundleDiffPreview } from '~/utils/bundle'
 
 import { BundleImportPreviewDialog } from './BundleImportPreviewDialog'
@@ -70,6 +71,8 @@ import { ThemePicker } from './ThemePicker'
 function joinWarningMessages(warnings?: Array<{ message: string }>) {
   return warnings?.map((warning) => warning.message).join('\n') || ''
 }
+
+const fileExtensionPattern = /\.[^.]+$/
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -119,7 +122,9 @@ export function HeaderWithActions() {
   const [openedBundlePreview, { open: openBundlePreview, close: closeBundlePreview }] = useDisclosure(false)
   const { data: userQuery } = useUserQuery()
   const { data: generalQuery } = useGeneralQuery()
-  const runMutation = useRunMutation()
+  const reloadRuntimeMutation = useReloadRuntimeMutation()
+  const stopRuntimeMutation = useStopRuntimeMutation()
+  const runtimeMutationPending = reloadRuntimeMutation.isPending || stopRuntimeMutation.isPending
   const updateNameMutation = useUpdateNameMutation()
   const updatePasswordMutation = useUpdatePasswordMutation()
   const updateUsernameMutation = useUpdateUsernameMutation()
@@ -168,18 +173,32 @@ export function HeaderWithActions() {
   }, [])
 
   // Toggle running state function
+  const setRuntimeRunning = useCallback(
+    (running: boolean) => {
+      if (runtimeMutationPending) {
+        return
+      }
+      if (running) {
+        reloadRuntimeMutation.mutate({ dry: false })
+      } else {
+        stopRuntimeMutation.mutate()
+      }
+    },
+    [reloadRuntimeMutation, runtimeMutationPending, stopRuntimeMutation],
+  )
+
   const toggleRunning = useCallback(() => {
-    if (!runMutation.isPending && generalQuery?.general.dae.running !== undefined) {
-      runMutation.mutate(!generalQuery.general.dae.running)
+    if (!runtimeMutationPending && generalQuery?.general.dae.running !== undefined) {
+      setRuntimeRunning(!generalQuery.general.dae.running)
     }
-  }, [generalQuery, runMutation])
+  }, [generalQuery, runtimeMutationPending, setRuntimeRunning])
 
   // Reload configuration function
   const reloadConfig = useCallback(() => {
-    if (!runMutation.isPending && generalQuery?.general.dae.modified) {
-      runMutation.mutate(false)
+    if (!runtimeMutationPending && generalQuery?.general.dae.modified) {
+      reloadRuntimeMutation.mutate({ dry: false })
     }
-  }, [generalQuery, runMutation])
+  }, [generalQuery, reloadRuntimeMutation, runtimeMutationPending])
 
   // Command palette actions
   const commandPaletteActions = useCommandPaletteActions({
@@ -413,7 +432,7 @@ export function HeaderWithActions() {
 
       try {
         const content = await file.text()
-        const namePrefix = file.name.replace(/\.[^.]+$/, '')
+        const namePrefix = file.name.replace(fileExtensionPattern, '')
         const payload = {
           filename: file.name,
           namePrefix,
@@ -501,8 +520,20 @@ export function HeaderWithActions() {
         </div>
 
         <div className={cn('flex items-center', matchSmallScreen ? 'gap-1' : 'gap-2')}>
-          <input ref={bundleInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleImportBundle} />
-          <input ref={daeConfigFileInputRef} type="file" accept=".dae,text/plain" className="hidden" onChange={handleImportDAEConfigFile} />
+          <input
+            ref={bundleInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleImportBundle}
+          />
+          <input
+            ref={daeConfigFileInputRef}
+            type="file"
+            accept=".dae,text/plain"
+            className="hidden"
+            onChange={handleImportDAEConfigFile}
+          />
           {!matchSmallScreen && <ProfileSwitcher />}
 
           <DropdownMenu open={userMenuOpened} onOpenChange={setUserMenuOpened}>
@@ -616,8 +647,8 @@ export function HeaderWithActions() {
                 variant="ghost"
                 size="icon"
                 className="rounded-full"
-                disabled={runMutation.isPending}
-                loading={runMutation.isPending}
+                disabled={runtimeMutationPending}
+                loading={reloadRuntimeMutation.isPending}
                 onClick={reloadConfig}
               >
                 <RefreshCw className="h-5 w-5" />
@@ -630,10 +661,10 @@ export function HeaderWithActions() {
               size={matchSmallScreen ? 'xs' : 'md'}
               onLabel={<Wifi className="h-3 w-3" />}
               offLabel={<CloudOff className="h-3 w-3" />}
-              disabled={runMutation.isPending}
+              disabled={runtimeMutationPending}
               checked={generalQuery?.general.dae.running ?? false}
               onCheckedChange={(checked) => {
-                if (!runMutation.isPending) runMutation.mutateAsync(!checked)
+                setRuntimeRunning(checked)
               }}
             />
           </SimpleTooltip>
@@ -717,7 +748,11 @@ export function HeaderWithActions() {
               <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
                 {t('shortcuts.categories.general')}
               </span>
-              <Button variant="ghost" className="w-full justify-start gap-2 h-9 px-2" onClick={() => void handleExportDAEConfigFile()}>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2 h-9 px-2"
+                onClick={() => void handleExportDAEConfigFile()}
+              >
                 <Download className="h-4 w-4" />
                 <span className="text-sm">{t('daeFile.export')}</span>
               </Button>
@@ -734,7 +769,11 @@ export function HeaderWithActions() {
                 <span className="text-sm">{t('daeFile.import')}</span>
               </Button>
 
-              <Button variant="ghost" className="w-full justify-start gap-2 h-9 px-2" onClick={() => void handleExportBundle()}>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-2 h-9 px-2"
+                onClick={() => void handleExportBundle()}
+              >
                 <Download className="h-4 w-4" />
                 <span className="text-sm">{t('bundle.export')}</span>
               </Button>
@@ -913,7 +952,9 @@ export function HeaderWithActions() {
         fileLabel={previewKind === 'daeFile' ? t('daeFile.previewFile') : t('bundle.previewFile')}
         warningTitle={previewKind === 'daeFile' ? t('daeFile.previewWarningTitle') : t('bundle.previewWarningTitle')}
         warningDescription={previewKind === 'daeFile' ? t('daeFile.importConfirm') : t('bundle.importConfirm')}
-        noChangesTitle={previewKind === 'daeFile' ? t('daeFile.previewNoChangesTitle') : t('bundle.previewNoChangesTitle')}
+        noChangesTitle={
+          previewKind === 'daeFile' ? t('daeFile.previewNoChangesTitle') : t('bundle.previewNoChangesTitle')
+        }
         noChangesDescription={
           previewKind === 'daeFile' ? t('daeFile.previewNoChangesDesc') : t('bundle.previewNoChangesDesc')
         }

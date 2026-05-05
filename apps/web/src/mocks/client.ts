@@ -15,6 +15,9 @@ import {
 
 type QueryRecord = Record<string, APIQueryValue>
 
+const absoluteOriginPattern = /^https?:\/\/[^/]+/
+const numericIDPattern = /(\d+)/
+
 const mockStorage = new Map<string, string>([
   ['mode', 'rule'],
   ['defaultConfigID', MOCK_DEFAULT_IDS.defaultConfigID],
@@ -49,7 +52,7 @@ export class MockAPIClient implements APIClientInterface {
   private async handle<T>(method: string, rawPath: string, body?: unknown, query?: QueryRecord): Promise<T> {
     await new Promise((resolve) => setTimeout(resolve, 20))
 
-    const path = rawPath.replace(this.endpoint, '').replace(/^https?:\/\/[^/]+/, '')
+    const path = rawPath.replace(this.endpoint, '').replace(absoluteOriginPattern, '')
 
     switch (`${method} ${path}`) {
       case 'GET /auth/status':
@@ -346,6 +349,10 @@ export class MockAPIClient implements APIClientInterface {
       return { applied: 1, dry: (body as { dry?: boolean })?.dry || false } as T
     }
 
+    if (method === 'POST' && path === '/runtime/stop') {
+      return { stopped: true } as T
+    }
+
     if (method === 'POST' && (path.endsWith('/select') || path.endsWith('/refresh'))) {
       return { applied: 1, selectedId: 1, id: 1 } as T
     }
@@ -393,7 +400,7 @@ function toQueryArray(value: APIQueryValue): string[] {
 }
 
 function numericID(value: string | number): number {
-  const match = String(value).match(/(\d+)/)
+  const match = String(value).match(numericIDPattern)
   return match ? Number.parseInt(match[1], 10) : 0
 }
 

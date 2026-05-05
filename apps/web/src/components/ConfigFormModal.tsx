@@ -7,8 +7,8 @@ import { useTranslation } from 'react-i18next'
 
 import { z } from 'zod'
 import { useCreateConfigMutation, useGeneralQuery, usePreviewConfigMutation, useUpdateConfigMutation } from '~/apis'
-import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion'
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
 import { Checkbox } from '~/components/ui/checkbox'
 import { Dialog, DialogTitle } from '~/components/ui/dialog'
@@ -59,6 +59,59 @@ import { deriveTime } from '~/utils'
 
 import { FormActions } from './FormActions'
 
+const decimalIntegerPattern = /^\d+$/
+const ipv6AddressLiteralPattern = /^[\d:.a-f]+$/i
+const fileExtensionPattern = /\.[^.]+$/
+const fallbackResolverError =
+  'Fallback resolver must be an IP address with port, for example 8.8.8.8:53 or [2001:4860:4860::8888]:53'
+
+function isValidPort(value: string): boolean {
+  if (!decimalIntegerPattern.test(value)) {
+    return false
+  }
+  const port = Number(value)
+  return Number.isInteger(port) && port > 0 && port <= 65535
+}
+
+function isIPv4Literal(value: string): boolean {
+  const parts = value.split('.')
+  return (
+    parts.length === 4 &&
+    parts.every((part) => {
+      if (!decimalIntegerPattern.test(part)) {
+        return false
+      }
+      const octet = Number(part)
+      return Number.isInteger(octet) && octet >= 0 && octet <= 255
+    })
+  )
+}
+
+function isBracketedIPv6AddrPort(value: string): boolean {
+  if (!value.startsWith('[')) {
+    return false
+  }
+  const bracketEnd = value.indexOf(']')
+  if (bracketEnd <= 1 || value[bracketEnd + 1] !== ':') {
+    return false
+  }
+  const host = value.slice(1, bracketEnd)
+  const port = value.slice(bracketEnd + 2)
+  return host.includes(':') && ipv6AddressLiteralPattern.test(host) && isValidPort(port)
+}
+
+function isValidFallbackResolver(value: string): boolean {
+  const trimmed = value.trim()
+  if (isBracketedIPv6AddrPort(trimmed)) {
+    return true
+  }
+  const separator = trimmed.lastIndexOf(':')
+  if (separator <= 0 || trimmed.slice(0, separator).includes(':')) {
+    return false
+  }
+  return isIPv4Literal(trimmed.slice(0, separator)) && isValidPort(trimmed.slice(separator + 1))
+}
+
 const schema = z.object({
   name: z.string().min(1, 'Name is required'),
   logLevelNumber: z.number().min(0).max(4),
@@ -83,7 +136,7 @@ const schema = z.object({
   enableLocalTcpFastRedirect: z.boolean(),
   bandwidthMaxTx: z.string(),
   bandwidthMaxRx: z.string(),
-  fallbackResolver: z.string(),
+  fallbackResolver: z.string().trim().min(1, 'Required').refine(isValidFallbackResolver, fallbackResolverError),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -131,7 +184,11 @@ interface ConfigFormOrigin {
   parseError?: string | null
 }
 
-function toFormValues(global: ConfigGlobal, name: string, logLevelSteps: ReturnType<typeof GET_LOG_LEVEL_STEPS>): FormValues {
+function toFormValues(
+  global: ConfigGlobal,
+  name: string,
+  logLevelSteps: ReturnType<typeof GET_LOG_LEVEL_STEPS>,
+): FormValues {
   const { checkInterval, checkTolerance, sniffingTimeout, logLevel, ...rest } = global
   const logLevelNumber = Math.max(
     logLevelSteps.findIndex(([, level]) => level === logLevel),
@@ -149,12 +206,21 @@ function toFormValues(global: ConfigGlobal, name: string, logLevelSteps: ReturnT
 }
 
 function toGlobalInput(data: FormValues, logLevelSteps: ReturnType<typeof GET_LOG_LEVEL_STEPS>): GlobalInput {
-  const { name, logLevelNumber, checkIntervalSeconds, checkToleranceMS, sniffingTimeoutMS, ...globalFields } = data
+  const {
+    name,
+    logLevelNumber,
+    checkIntervalSeconds,
+    checkToleranceMS,
+    sniffingTimeoutMS,
+    fallbackResolver,
+    ...globalFields
+  } = data
   return {
     logLevel: logLevelSteps[logLevelNumber][1],
     checkInterval: `${checkIntervalSeconds}s`,
     checkTolerance: `${checkToleranceMS}ms`,
     sniffingTimeout: `${sniffingTimeoutMS}ms`,
+    fallbackResolver: fallbackResolver.trim(),
     ...globalFields,
   }
 }
@@ -272,9 +338,9 @@ export function ConfigFormDrawer({
     const interfaces = generalQuery?.general.interfaces
 
     if (interfaces) {
-        return [
-          { label: t('autoDetect'), value: 'auto' },
-          ...interfaces
+      return [
+        { label: t('autoDetect'), value: 'auto' },
+        ...interfaces
           .filter(({ defaultRoutes }: { defaultRoutes?: unknown }) => !!defaultRoutes)
           .map(({ name, addresses }: { name: string; addresses?: string[] | null }) => ({
             label: name,
@@ -365,20 +431,23 @@ export function ConfigFormDrawer({
     [activeTab, formValues, logLevelSteps, previewConfigMutation, rawGlobal, reset, t],
   )
 
-  const handleImportConfig = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) {
-      return
-    }
-    const text = await file.text()
-    setRawGlobal(text)
-    setRawGlobalError(null)
-    setActiveTab('advanced')
-    if (!editingID && !(formValues.name ?? '').trim()) {
-      setValue('name', file.name.replace(/\.[^.]+$/, ''))
-    }
-    event.target.value = ''
-  }, [editingID, formValues.name, setValue])
+  const handleImportConfig = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) {
+        return
+      }
+      const text = await file.text()
+      setRawGlobal(text)
+      setRawGlobalError(null)
+      setActiveTab('advanced')
+      if (!editingID && !(formValues.name ?? '').trim()) {
+        setValue('name', file.name.replace(fileExtensionPattern, ''))
+      }
+      event.target.value = ''
+    },
+    [editingID, formValues.name, setValue],
+  )
 
   const handleExportConfig = useCallback(async () => {
     try {
@@ -564,6 +633,7 @@ export function ConfigFormDrawer({
                             description={t('descriptions.config.fallbackResolver')}
                             value={formValues.fallbackResolver}
                             onChange={(e) => setValue('fallbackResolver', e.target.value)}
+                            error={errors.fallbackResolver?.message}
                           />
 
                           <NumberInput
@@ -737,7 +807,9 @@ export function ConfigFormDrawer({
               isDirty={isDirty}
               isValid={isValid}
               errors={errors}
-              loading={createConfigMutation.isPending || updateConfigMutation.isPending || previewConfigMutation.isPending}
+              loading={
+                createConfigMutation.isPending || updateConfigMutation.isPending || previewConfigMutation.isPending
+              }
             />
           </ScrollableDialogFooter>
         </form>

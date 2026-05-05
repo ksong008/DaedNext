@@ -1,21 +1,3 @@
-import type { MODE } from '~/constants'
-
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-
-import {
-  QUERY_KEY_CONFIG,
-  QUERY_KEY_DNS,
-  QUERY_KEY_GENERAL,
-  QUERY_KEY_GROUP,
-  QUERY_KEY_NODE,
-  QUERY_KEY_ROUTING,
-  QUERY_KEY_STORAGE,
-  QUERY_KEY_SUBSCRIPTION,
-  QUERY_KEY_USER,
-} from '~/constants'
-import { useAPIClient } from '~/contexts'
-
-import { toID, toNumericID } from './client'
 import type {
   ConfigPreviewResult,
   DAEBundle,
@@ -29,20 +11,38 @@ import type {
   PolicyParam,
 } from './types'
 
-type CountResponse = {
+import type { MODE } from '~/constants'
+
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  QUERY_KEY_CONFIG,
+  QUERY_KEY_DNS,
+  QUERY_KEY_GENERAL,
+  QUERY_KEY_GROUP,
+  QUERY_KEY_NODE,
+  QUERY_KEY_ROUTING,
+  QUERY_KEY_STORAGE,
+  QUERY_KEY_SUBSCRIPTION,
+  QUERY_KEY_USER,
+} from '~/constants'
+
+import { useAPIClient } from '~/contexts'
+import { toID, toNumericID } from './client'
+
+interface CountResponse {
   updated?: number
   removed?: number
 }
 
-type ResourceWithID = {
+interface ResourceWithID {
   id: number
 }
 
-type TokenResponse = {
+interface TokenResponse {
   token: string
 }
 
-type SubscriptionImportResponse = {
+interface SubscriptionImportResponse {
   link: string
   nodeImportResult: Array<{
     link: string
@@ -54,7 +54,7 @@ type SubscriptionImportResponse = {
   }
 }
 
-type NodeImportListResponse = {
+interface NodeImportListResponse {
   items: Array<{
     link: string
     error?: string | null
@@ -177,15 +177,7 @@ export function useUpdateConfigMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({
-      id,
-      global,
-      parsedGlobal,
-    }: {
-      id: string
-      global?: string
-      parsedGlobal?: GlobalInput
-    }) => {
+    mutationFn: async ({ id, global, parsedGlobal }: { id: string; global?: string; parsedGlobal?: GlobalInput }) => {
       const resource = await apiClient.put<ResourceWithID>(`/configs/${id}`, { global, parsedGlobal })
       return toID(resource.id)
     },
@@ -259,7 +251,15 @@ export function useImportDAEConfigFileMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ filename, namePrefix, content }: { filename?: string; namePrefix?: string; content: string }) => {
+    mutationFn: async ({
+      filename,
+      namePrefix,
+      content,
+    }: {
+      filename?: string
+      namePrefix?: string
+      content: string
+    }) => {
       return apiClient.put<DAEConfigFileImportResult>('/user/me/dae-config-file', { filename, namePrefix, content })
     },
     onSuccess: () => {
@@ -280,8 +280,20 @@ export function usePreviewDAEConfigFileMutation() {
   const apiClient = useAPIClient()
 
   return useMutation({
-    mutationFn: async ({ filename, namePrefix, content }: { filename?: string; namePrefix?: string; content: string }) => {
-      return apiClient.post<DAEConfigFilePreviewResult>('/user/me/dae-config-file/preview', { filename, namePrefix, content })
+    mutationFn: async ({
+      filename,
+      namePrefix,
+      content,
+    }: {
+      filename?: string
+      namePrefix?: string
+      content: string
+    }) => {
+      return apiClient.post<DAEConfigFilePreviewResult>('/user/me/dae-config-file/preview', {
+        filename,
+        namePrefix,
+        content,
+      })
     },
   })
 }
@@ -484,7 +496,15 @@ export function useCreateGroupMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ name, policy, policyParams }: { name: string; policy: Policy; policyParams: PolicyParam[] }) => {
+    mutationFn: async ({
+      name,
+      policy,
+      policyParams,
+    }: {
+      name: string
+      policy: Policy
+      policyParams: PolicyParam[]
+    }) => {
       const resource = await apiClient.post<ResourceWithID>('/groups', { name, policy, policyParams })
       return toID(resource.id)
     },
@@ -654,9 +674,12 @@ export function useUpdateNodeMutation() {
 
   return useMutation({
     mutationFn: async ({ id, newLink }: { id: string; newLink: string }) => {
-      const node = await apiClient.put<{ id: number; name: string; tag?: string | null; link: string }>(`/nodes/${id}`, {
-        link: newLink,
-      })
+      const node = await apiClient.put<{ id: number; name: string; tag?: string | null; link: string }>(
+        `/nodes/${id}`,
+        {
+          link: newLink,
+        },
+      )
       return {
         id: toID(node.id),
         name: node.name,
@@ -762,14 +785,29 @@ export function useRemoveSubscriptionsMutation() {
   })
 }
 
-export function useRunMutation() {
+export function useReloadRuntimeMutation() {
   const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (dry: boolean) => {
+    mutationFn: async ({ dry = false }: { dry?: boolean } = {}) => {
       const result = await apiClient.post<{ applied: number }>('/runtime/reload', { dry })
       return result.applied
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    },
+  })
+}
+
+export function useStopRuntimeMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      const result = await apiClient.post<{ stopped: boolean }>('/runtime/stop', {})
+      return result.stopped
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
@@ -869,9 +907,12 @@ export function useUpdateSubscriptionLinkMutation() {
 
   return useMutation({
     mutationFn: async ({ id, link }: { id: string; link: string }) => {
-      const subscription = await apiClient.put<{ id: number; link: string; tag?: string | null }>(`/subscriptions/${id}`, {
-        link,
-      })
+      const subscription = await apiClient.put<{ id: number; link: string; tag?: string | null }>(
+        `/subscriptions/${id}`,
+        {
+          link,
+        },
+      )
       return {
         id: toID(subscription.id),
         link: subscription.link,
