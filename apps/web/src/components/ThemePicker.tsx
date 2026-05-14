@@ -7,11 +7,11 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '~/components/ui/popover'
-import { themes } from '~/constants'
+import { resolveStoredThemeId, THEME_STATE_MIGRATION_VERSION, themes } from '~/constants'
 import { useColorScheme } from '~/contexts'
 import { useMediaQuery } from '~/hooks'
 import { cn } from '~/lib/utils'
-import { appStateAtom } from '~/store'
+import { appStateAtom, themeMigrationVersionAtom } from '~/store'
 
 interface ThemePreviewCardProps {
   theme: ThemeDefinition
@@ -130,15 +130,17 @@ interface ThemePickerProps {
 export function ThemePicker({ variant = 'icon' }: ThemePickerProps) {
   const { t } = useTranslation()
   const appState = useStore(appStateAtom)
+  const themeMigrationVersion = useStore(themeMigrationVersionAtom)
   const { colorScheme } = useColorScheme()
   const [open, setOpen] = useState(false)
   const matchSmallScreen = useMediaQuery('(max-width: 640px)')
 
-  const currentThemeId = appState.colorTheme || 'amber'
+  const currentThemeId = resolveStoredThemeId(appState.colorTheme, themeMigrationVersion)
   const isDark = colorScheme === 'dark'
 
   const setColorTheme = useCallback((themeId: ThemeId) => {
     appStateAtom.setKey('colorTheme', themeId)
+    themeMigrationVersionAtom.set(THEME_STATE_MIGRATION_VERSION)
   }, [])
 
   const currentTheme = themes.find((t) => t.id === currentThemeId) || themes[0]

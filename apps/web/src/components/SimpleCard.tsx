@@ -22,6 +22,8 @@ export function SimpleCard({
   onRename,
   onDuplicate,
   actions,
+  inlineContent,
+  detailsContent,
   children,
 }: {
   name: string
@@ -31,6 +33,8 @@ export function SimpleCard({
   onRename?: (newName: string) => void
   onDuplicate?: () => void
   actions?: React.ReactNode
+  inlineContent?: React.ReactNode
+  detailsContent?: React.ReactNode
   children?: React.ReactNode
 }) {
   const { t } = useTranslation()
@@ -79,6 +83,9 @@ export function SimpleCard({
     }
   }
 
+  const renderedInlineContent = inlineContent ?? children
+  const renderedDetailsContent = detailsContent ?? renderedInlineContent
+
   return (
     <Fragment>
       <Card
@@ -86,99 +93,118 @@ export function SimpleCard({
         shadow="sm"
         padding="none"
         className={cn(
-          'transition-all duration-200',
-          selected && 'ring-2 ring-primary ring-offset-2 ring-offset-background border-primary',
+          'overflow-hidden rounded-[22px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/96 shadow-[0_10px_24px_rgba(15,23,42,0.055)] transition-[border-color,box-shadow,transform] duration-200 hover:border-primary/18 hover:shadow-[0_16px_32px_rgba(15,23,42,0.08)]',
+          selected &&
+            'border-primary/30 bg-[color-mix(in_oklab,var(--primary)_6%,var(--card))] ring-2 ring-primary/12 ring-offset-2 ring-offset-background',
         )}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 border-b border-[color:var(--shell-line)]/80 px-3.5 py-3">
           {isEditing ? (
-            <div className="flex-1 flex items-center gap-2 p-2">
+            <div className="flex flex-1 items-center gap-2">
               <Input
                 ref={inputRef}
                 value={editValue}
                 onChange={(e) => setEditValue(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onBlur={handleSaveEdit}
-                className="h-8 text-sm font-semibold"
+                className="h-9 rounded-xl border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/80 text-sm font-semibold"
               />
-              <SimpleTooltip label={t('actions.confirm')}>
-                <Button variant="ghost" size="xs" onClick={handleSaveEdit} className="shrink-0">
-                  <Check className="h-4 w-4 text-primary" />
-                </Button>
-              </SimpleTooltip>
-              <SimpleTooltip label={t('actions.cancel')}>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={handleCancelEdit}
-                  onMouseDown={(e) => e.preventDefault()}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </SimpleTooltip>
+              <div className="flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1">
+                <SimpleTooltip label={t('actions.confirm')}>
+                  <Button variant="ghost" size="xs" onClick={handleSaveEdit} className="rounded-full">
+                    <Check className="h-4 w-4 text-primary" />
+                  </Button>
+                </SimpleTooltip>
+                <SimpleTooltip label={t('actions.cancel')}>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={handleCancelEdit}
+                    onMouseDown={(e) => e.preventDefault()}
+                    className="rounded-full"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </SimpleTooltip>
+              </div>
             </div>
           ) : (
             <button
               type="button"
               className={cn(
-                'flex-1 p-3 text-left transition-colors rounded-l-xl',
-                selected ? 'bg-primary/10' : 'hover:bg-accent',
+                'flex flex-1 items-center gap-2.5 rounded-[18px] px-0.5 py-0.5 text-left transition-colors',
+                selected ? 'text-primary' : 'hover:text-foreground',
               )}
               onClick={onSelect}
             >
-              <div className="flex items-center gap-2">
-                {selected && (
-                  <div className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-primary-foreground shrink-0">
-                    <Check className="w-3 h-3" strokeWidth={3} />
-                  </div>
+              <div
+                className={cn(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border text-xs font-semibold transition-colors',
+                  selected
+                    ? 'border-primary/25 bg-primary/10 text-primary'
+                    : 'border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/80 text-[var(--shell-muted)]',
                 )}
-                <h4 className={cn('font-semibold', selected && 'text-primary')}>{name}</h4>
+              >
+                {selected ? <Check className="h-4 w-4" strokeWidth={3} /> : name.slice(0, 1).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <h4 className={cn('truncate text-sm font-semibold text-foreground', selected && 'text-primary')}>
+                  {name}
+                </h4>
               </div>
             </button>
           )}
 
-          <div className="flex items-center gap-2 p-3">
-            {!isEditing && onRename && (
-              <SimpleTooltip label={t('actions.rename')}>
-                <Button variant="ghost" size="xs" onClick={handleStartEdit}>
-                  <Type className="h-4 w-4" />
-                </Button>
-              </SimpleTooltip>
-            )}
+          {!isEditing && (
+            <div className="flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1">
+              {onRename && (
+                <SimpleTooltip label={t('actions.rename')}>
+                  <Button variant="ghost" size="xs" onClick={handleStartEdit} className="rounded-full">
+                    <Type className="h-4 w-4" />
+                  </Button>
+                </SimpleTooltip>
+              )}
 
-            {onDuplicate && (
-              <SimpleTooltip label={t('actions.duplicate')}>
-                <Button variant="ghost" size="xs" onClick={onDuplicate}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </SimpleTooltip>
-            )}
+              {onDuplicate && (
+                <SimpleTooltip label={t('actions.duplicate')}>
+                  <Button variant="ghost" size="xs" onClick={onDuplicate} className="rounded-full">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </SimpleTooltip>
+              )}
 
-            {actions}
+              {actions}
 
-            {children && (
-              <SimpleTooltip label={t('actions.viewDetails')}>
-                <Button variant="ghost" size="xs" onClick={() => setOpenedDetailsModal(true)}>
-                  <Eye className="h-4 w-4" />
-                </Button>
-              </SimpleTooltip>
-            )}
+              {renderedDetailsContent && (
+                <SimpleTooltip label={t('actions.viewDetails')}>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => setOpenedDetailsModal(true)}
+                    className="rounded-full"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                </SimpleTooltip>
+              )}
 
-            {!selected && onRemove && (
-              <SimpleTooltip label={t('actions.remove')}>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => setOpenedConfirmModal(true)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </SimpleTooltip>
-            )}
-          </div>
+              {!selected && onRemove && (
+                <SimpleTooltip label={t('actions.remove')}>
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    className="rounded-full text-destructive hover:text-destructive"
+                    onClick={() => setOpenedConfirmModal(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </SimpleTooltip>
+              )}
+            </div>
+          )}
         </div>
+
+        {renderedInlineContent && <div className="px-3.5 py-3.5">{renderedInlineContent}</div>}
       </Card>
 
       <Dialog open={openedDetailsModal} onOpenChange={setOpenedDetailsModal}>
@@ -186,7 +212,7 @@ export function SimpleCard({
           <ScrollableDialogHeader>
             <DialogTitle>{name}</DialogTitle>
           </ScrollableDialogHeader>
-          <ScrollableDialogBody>{children}</ScrollableDialogBody>
+          <ScrollableDialogBody>{renderedDetailsContent}</ScrollableDialogBody>
         </ScrollableDialogContent>
       </Dialog>
 

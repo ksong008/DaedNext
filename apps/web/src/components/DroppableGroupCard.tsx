@@ -79,91 +79,107 @@ export function DroppableGroupCard({
 
   return (
     <>
-      <Card withBorder shadow="sm" padding="sm">
-        <div className="border-b pb-2">
+      <Card
+        withBorder
+        shadow="sm"
+        padding="sm"
+        className="rounded-[22px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/96 shadow-[0_10px_24px_rgba(15,23,42,0.055)]"
+      >
+        <div className="border-b border-[color:var(--shell-line)]/80 pb-3">
           <div className="flex items-start justify-between gap-3">
             {isEditing ? (
-              <div className="flex-1 flex items-center gap-2 mr-2">
+              <div className="mr-2 flex flex-1 items-center gap-2">
                 <Input
                   ref={inputRef}
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onBlur={handleSaveEdit}
-                  className="h-7 text-sm font-semibold"
+                  className="h-9 rounded-xl border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/80 text-sm font-semibold"
                 />
-                <SimpleTooltip label={t('actions.confirm')}>
-                  <Button variant="ghost" size="xs" onClick={handleSaveEdit} className="shrink-0">
-                    <Check className="h-4 w-4 text-primary" />
-                  </Button>
-                </SimpleTooltip>
-                <SimpleTooltip label={t('actions.cancel')}>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={handleCancelEdit}
-                    onMouseDown={(e) => e.preventDefault()}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </SimpleTooltip>
+                <div className="flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1">
+                  <SimpleTooltip label={t('actions.confirm')}>
+                    <Button variant="ghost" size="xs" onClick={handleSaveEdit} className="rounded-full">
+                      <Check className="h-4 w-4 text-primary" />
+                    </Button>
+                  </SimpleTooltip>
+                  <SimpleTooltip label={t('actions.cancel')}>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={handleCancelEdit}
+                      onMouseDown={(e) => e.preventDefault()}
+                      className="rounded-full"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </SimpleTooltip>
+                </div>
               </div>
             ) : (
               <div className="min-w-0 flex-1">
-                <h5 className="truncate font-semibold">{name}</h5>
-                {summary && <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">{summary}</div>}
+                <h5 className="truncate text-base font-semibold text-foreground">{name}</h5>
+                {summary && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    {summary}
+                  </div>
+                )}
               </div>
             )}
 
-            <div className="flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
-              {!isEditing && dragHandleProps && (
-                <SimpleTooltip label={t('a11y.dragToReorder')}>
-                  <div
-                    className={cn(
-                      'flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors',
-                      'hover:bg-accent hover:text-foreground active:cursor-grabbing',
-                    )}
-                    {...dragHandleProps}
-                  >
-                    <GripVertical className="h-4 w-4" />
-                  </div>
-                </SimpleTooltip>
-              )}
-              {!isEditing && onRename && (
-                <SimpleTooltip label={t('actions.rename')}>
-                  <Button variant="ghost" size="xs" onClick={handleStartEdit}>
-                    <Type className="h-4 w-4" />
-                  </Button>
-                </SimpleTooltip>
-              )}
-              {actions}
-              {!isEditing && onToggleCollapsed && (
-                <SimpleTooltip label={collapsed ? t('actions.expand') : t('collapse')}>
-                  <Button variant="ghost" size="xs" onClick={onToggleCollapsed}>
-                    <ChevronDown className={cn('h-4 w-4 transition-transform', collapsed && '-rotate-90')} />
-                  </Button>
-                </SimpleTooltip>
-              )}
+            {!isEditing && (
+              <div
+                className="flex items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {dragHandleProps && (
+                  <SimpleTooltip label={t('a11y.dragToReorder')}>
+                    <div
+                      className={cn(
+                        'flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-full text-muted-foreground transition-colors',
+                        'hover:bg-accent/70 hover:text-foreground active:cursor-grabbing',
+                      )}
+                      {...dragHandleProps}
+                    >
+                      <GripVertical className="h-4 w-4" />
+                    </div>
+                  </SimpleTooltip>
+                )}
+                {onRename && (
+                  <SimpleTooltip label={t('actions.rename')}>
+                    <Button variant="ghost" size="xs" onClick={handleStartEdit} className="rounded-full">
+                      <Type className="h-4 w-4" />
+                    </Button>
+                  </SimpleTooltip>
+                )}
+                {actions}
+                {onToggleCollapsed && (
+                  <SimpleTooltip label={collapsed ? t('actions.expand') : t('collapse')}>
+                    <Button variant="ghost" size="xs" onClick={onToggleCollapsed} className="rounded-full">
+                      <ChevronDown className={cn('h-4 w-4 transition-transform', collapsed && '-rotate-90')} />
+                    </Button>
+                  </SimpleTooltip>
+                )}
 
-              {onRemove && (
-                <SimpleTooltip label={t('actions.remove')}>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    className="text-destructive hover:text-destructive"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => setConfirmOpen(true)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </SimpleTooltip>
-              )}
-            </div>
+                {onRemove && (
+                  <SimpleTooltip label={t('actions.remove')}>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="rounded-full text-destructive hover:text-destructive"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={() => setConfirmOpen(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </SimpleTooltip>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
-        {children && <div className="pt-2">{children}</div>}
+        {children && <div className="pt-3.5">{children}</div>}
       </Card>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>

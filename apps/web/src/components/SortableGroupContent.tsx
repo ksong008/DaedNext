@@ -71,11 +71,11 @@ function GroupDropZone({
   const compact = collapsed || !open
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2.5">
       {!collapsed && (
         <button
           type="button"
-          className="flex items-center justify-between gap-3 py-1 text-left text-xs font-medium transition-colors hover:text-foreground"
+          className="flex items-center justify-between gap-3 py-1 text-left text-xs font-semibold text-[var(--shell-muted-strong)] transition-colors hover:text-foreground"
           onClick={onToggle}
         >
           <span>
@@ -93,10 +93,10 @@ function GroupDropZone({
             role={compact ? 'button' : undefined}
             tabIndex={compact ? 0 : undefined}
             className={cn(
-              'rounded-lg border transition-colors outline-none',
+              'rounded-[18px] border transition-colors outline-none',
               compact
-                ? 'flex min-h-11 cursor-pointer items-center justify-between border-dashed px-3 py-2 hover:border-primary/30 hover:bg-accent/40 focus-visible:border-primary/40'
-                : 'flex min-h-[40px] flex-col gap-2 border-transparent',
+                ? 'flex min-h-12 cursor-pointer items-center justify-between border-dashed border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/70 px-3 py-2.5 hover:border-primary/30 hover:bg-[color:var(--shell-blue-soft)]/45 focus-visible:border-primary/40'
+                : 'flex min-h-[40px] flex-col gap-2.5 border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/62 p-3.5',
               snapshot.isDraggingOver && 'border-primary bg-primary/5',
             )}
             onClick={compact ? onOpen : undefined}
@@ -122,7 +122,13 @@ function GroupDropZone({
             ) : (
               <>
                 <div className="mb-1 flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="xs" onClick={onAdd}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="rounded-full border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/92"
+                    onClick={onAdd}
+                  >
                     <Plus className="h-3.5 w-3.5" />
                     {addButtonLabel}
                   </Button>

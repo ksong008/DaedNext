@@ -12,6 +12,12 @@ const displayVersion = version.replace(/\.0$/, '')
 export default defineConfig(() => {
   return {
     base: './',
+    server: {
+      host: true,
+    },
+    preview: {
+      host: true,
+    },
     resolve: {
       alias: {
         '~': path.resolve(__dirname, 'src'),

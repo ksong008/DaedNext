@@ -1,18 +1,96 @@
 import { useStore } from '@nanostores/react'
-import { useEffect, useRef } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import type { ComponentType } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 
+import {
+  useConfigsQuery,
+  useDNSsQuery,
+  useGroupsQuery,
+  useNodesQuery,
+  useRoutingsQuery,
+  useSubscriptionsQuery,
+} from '~/apis'
 import { HeaderWithActions } from '~/components/Header'
+import { cn } from '~/lib/utils'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+} from '~/components/ui/sidebar'
+import {
+  ORCHESTRATE_SECTION_IDS,
+  SHELL_MOBILE_PRIMARY_ITEMS,
+  SHELL_NAV_GROUPS,
+  SHELL_NAV_ITEMS,
+  type OrchestrateSectionKey,
+} from '~/constants'
 import { useInitialize } from '~/initialize'
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 
+function ShellNavButton({
+  active,
+  badge,
+  label,
+  icon: Icon,
+  onClick,
+}: {
+  active: boolean
+  badge?: string
+  label: string
+  icon: ComponentType<{ className?: string }>
+  onClick: () => void
+}) {
+  return (
+    <SidebarMenuButton
+      isActive={active}
+      onClick={onClick}
+      className={cn(
+        'h-10 rounded-xl border border-transparent px-2.5 text-[0.95rem] font-semibold text-[var(--shell-muted-strong)] transition-all',
+        'hover:border-[color:var(--shell-line)] hover:bg-[color:var(--shell-surface)] hover:text-foreground',
+        'data-[active=true]:border-[color:var(--shell-blue-soft)] data-[active=true]:bg-[color:var(--shell-blue-soft)] data-[active=true]:text-[color:var(--shell-blue-strong)]',
+      )}
+      tooltip={label}
+      type="button"
+    >
+      <span className="flex h-7 w-7 items-center justify-center rounded-[10px] bg-black/5 text-current">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="flex-1 truncate">{label}</span>
+      {badge && (
+        <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-bold text-[var(--shell-muted)]">
+          {badge}
+        </span>
+      )}
+    </SidebarMenuButton>
+  )
+}
+
 export function MainLayout() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const token = useStore(tokenAtom)
   const endpointURL = useStore(endpointURLAtom)
   const initialize = useInitialize()
   const initializedRuntimeKeyRef = useRef<string | null>(null)
+  const [activeSection, setActiveSection] = useState<OrchestrateSectionKey>('overview')
+  const { data: configsQuery } = useConfigsQuery()
+  const { data: dnssQuery } = useDNSsQuery()
+  const { data: routingsQuery } = useRoutingsQuery()
+  const { data: groupsQuery } = useGroupsQuery()
+  const { data: nodesQuery } = useNodesQuery()
+  const { data: subscriptionsQuery } = useSubscriptionsQuery()
 
   useEffect(() => {
     if (isMockMode()) {
@@ -34,7 +112,6 @@ export function MainLayout() {
   }, [endpointURL, initialize, token])
 
   useEffect(() => {
-    // Skip authentication check in mock mode
     if (isMockMode()) return
 
     if (!endpointURL || !token) {
@@ -42,27 +119,202 @@ export function MainLayout() {
     }
   }, [endpointURL, navigate, token])
 
+  const navCountBySection = useMemo(
+    () => ({
+      overview: t('shell.live'),
+      config: String(configsQuery?.configs.length ?? 0),
+      dns: String(dnssQuery?.dnss.length ?? 0),
+      routing: String(routingsQuery?.routings.length ?? 0),
+      group: String(groupsQuery?.groups.length ?? 0),
+      node: String(nodesQuery?.nodes.items.length ?? 0),
+      subscription: String(subscriptionsQuery?.subscriptions.length ?? 0),
+    }),
+    [
+      configsQuery?.configs.length,
+      dnssQuery?.dnss.length,
+      groupsQuery?.groups.length,
+      nodesQuery?.nodes.items.length,
+      routingsQuery?.routings.length,
+      subscriptionsQuery?.subscriptions.length,
+      t,
+    ],
+  )
+
+  const navItemByKey = useMemo(
+    () =>
+      Object.fromEntries(SHELL_NAV_ITEMS.map((item) => [item.key, item])) as Record<
+        OrchestrateSectionKey,
+        (typeof SHELL_NAV_ITEMS)[number]
+      >,
+    [],
+  )
+
+  const sectionKeyById = useMemo(
+    () =>
+      Object.fromEntries(SHELL_NAV_ITEMS.map((item) => [item.id, item.key])) as Record<string, OrchestrateSectionKey>,
+    [],
+  )
+
+  const activePanelSection = useMemo(() => {
+    const value = searchParams.get('panel')
+    if (!value || value === 'overview') return null
+    return SHELL_NAV_ITEMS.some((item) => item.key === value) ? (value as OrchestrateSectionKey) : null
+  }, [searchParams])
+
+  const scrollToSection = useCallback((sectionKey: OrchestrateSectionKey) => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+
+    if (sectionKey !== 'overview') {
+      nextSearchParams.set('panel', sectionKey)
+      setSearchParams(nextSearchParams, { replace: true })
+      setActiveSection(sectionKey)
+      return
+    }
+
+    nextSearchParams.delete('panel')
+    setSearchParams(nextSearchParams, { replace: true })
+
+    const sectionId = ORCHESTRATE_SECTION_IDS[sectionKey]
+    const element = document.getElementById(sectionId)
+    if (!element) return
+
+    const targetTop = element.getBoundingClientRect().top + window.scrollY - 116
+    setActiveSection(sectionKey)
+    window.scrollTo({
+      top: Math.max(targetTop, 0),
+      behavior: 'smooth',
+    })
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    if (activePanelSection) {
+      setActiveSection(activePanelSection)
+      return
+    }
+    setActiveSection('overview')
+  }, [activePanelSection])
+
+  useEffect(() => {
+    if (activePanelSection) return
+
+    const sectionIds = Object.values(ORCHESTRATE_SECTION_IDS)
+    const elements = sectionIds
+      .map((id) => document.getElementById(id))
+      .filter((element): element is HTMLElement => !!element)
+
+    if (elements.length === 0) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntries = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)
+
+        if (visibleEntries.length === 0) return
+
+        const nextKey = sectionKeyById[visibleEntries[0].target.id]
+        if (nextKey) {
+          setActiveSection(nextKey)
+        }
+      },
+      {
+        rootMargin: '-22% 0px -55% 0px',
+        threshold: [0.12, 0.3, 0.5, 0.75],
+      },
+    )
+
+    for (const element of elements) {
+      observer.observe(element)
+    }
+
+    return () => observer.disconnect()
+  }, [activePanelSection, sectionKeyById])
+
   return (
-    <div className="flex min-h-screen flex-col bg-pattern">
-      <HeaderWithActions />
-      <main className="flex-1">
-        <div className="container mx-auto max-w-7xl px-4 py-6 lg:px-8 lg:py-8">
-          <Outlet />
-        </div>
-      </main>
-      <footer className="h-14 border-t bg-card/50 backdrop-blur-sm flex items-center justify-center">
-        <p className="text-xs text-muted-foreground font-light tracking-wide">
-          Made with <span className="inline-block animate-pulse text-primary">●</span> by{' '}
-          <a
-            href="https://github.com/daeuniverse"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline underline-offset-4 transition-colors hover:text-primary/80"
-          >
-            @daeuniverse
-          </a>
-        </p>
-      </footer>
+    <div className="daed-shell min-h-screen">
+      <SidebarProvider defaultOpen>
+        <Sidebar
+          side="left"
+          collapsible="offcanvas"
+          className="border-r border-[color:var(--shell-line)] bg-[color:var(--shell-sidebar)]/88 backdrop-blur-[22px] supports-[backdrop-filter]:bg-[color:var(--shell-sidebar)]/84"
+        >
+          <SidebarHeader className="px-4 pb-3 pt-5">
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.webp"
+                alt="daed"
+                className="h-11 w-11 rounded-xl border border-white/80 object-cover shadow-[0_8px_18px_rgba(15,23,42,0.12)]"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-[1.65rem] font-semibold leading-none text-[var(--shell-text)]">daed</p>
+                <p className="mt-1 truncate text-sm font-semibold text-[var(--shell-muted)]">
+                  {import.meta.env.APP_VERSION}
+                </p>
+              </div>
+            </div>
+          </SidebarHeader>
+
+          <SidebarContent className="gap-3 px-3 pb-6">
+            {SHELL_NAV_GROUPS.map((group) => (
+              <SidebarGroup key={group.labelKey} className="p-0">
+                <SidebarGroupLabel className="px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--shell-muted)]/85">
+                  {t(group.labelKey)}
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    {group.items.map((sectionKey) => {
+                      const item = navItemByKey[sectionKey]
+                      return (
+                        <SidebarMenuItem key={item.key}>
+                          <ShellNavButton
+                            active={activeSection === item.key}
+                            badge={navCountBySection[item.key]}
+                            label={t(item.labelKey)}
+                            icon={item.icon}
+                            onClick={() => scrollToSection(item.key)}
+                          />
+                        </SidebarMenuItem>
+                      )
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
+          </SidebarContent>
+        </Sidebar>
+
+        <SidebarInset className="min-h-screen bg-transparent">
+          <HeaderWithActions />
+          <main className="flex-1">
+            <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 px-4 pb-24 pt-4 sm:px-5 lg:px-7 lg:pb-10">
+              <Outlet />
+            </div>
+          </main>
+
+          <nav className="shell-mobile-nav md:hidden" aria-label={t('shell.groups.monitor')}>
+            {SHELL_MOBILE_PRIMARY_ITEMS.map((sectionKey) => {
+              const item = navItemByKey[sectionKey]
+              const Icon = item.icon
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={cn(
+                    'flex min-h-11 flex-col items-center justify-center rounded-xl px-2 py-1.5 text-[11px] font-semibold transition-colors',
+                    activeSection === item.key
+                      ? 'bg-[color:var(--shell-blue-soft)] text-[color:var(--shell-blue-strong)]'
+                      : 'text-[var(--shell-muted)]',
+                  )}
+                  onClick={() => scrollToSection(item.key)}
+                >
+                  <Icon className="mb-1 h-4 w-4" />
+                  <span className="truncate">{t(item.labelKey)}</span>
+                </button>
+              )
+            })}
+          </nav>
+        </SidebarInset>
+      </SidebarProvider>
     </div>
   )
 }

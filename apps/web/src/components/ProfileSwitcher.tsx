@@ -225,17 +225,21 @@ export function ProfileSwitcher() {
             variant="outline"
             size="sm"
             className={cn(
-              'gap-2 min-w-[140px] justify-between',
+              'gap-2 rounded-xl border-border/75 bg-background/72 px-3 shadow-[0_4px_10px_rgba(15,23,42,0.03)]',
               isCurrentSettingsModified && 'border-amber-500/50 text-amber-500',
             )}
             disabled={isSwitching}
           >
-            <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4" />
-              <span className="truncate max-w-[100px]">{currentProfile?.name || t('profile.default')}</span>
-              {isCurrentSettingsModified && <span className="text-xs">*</span>}
-            </div>
-            {isSwitching ? <RefreshCw className="h-3 w-3 animate-spin" /> : <ChevronDown className="h-3 w-3" />}
+            <Layers className="h-4 w-4 shrink-0" />
+            <span className="max-w-[5.5rem] truncate text-sm font-medium">
+              {currentProfile?.name || t('profile.default')}
+            </span>
+            {isCurrentSettingsModified && <span className="text-xs">*</span>}
+            {isSwitching ? (
+              <RefreshCw className="h-3 w-3 animate-spin" />
+            ) : (
+              <ChevronDown className="h-3 w-3 shrink-0" />
+            )}
           </Button>
         </DropdownMenuTrigger>
 
