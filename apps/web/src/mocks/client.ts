@@ -1,6 +1,7 @@
 import type { APIClientInterface, APIQueryValue } from '~/apis/client'
 
 import {
+  getMockRuntimeOverview,
   isMockMode,
   MOCK_DEFAULT_IDS,
   mockConfigs,
@@ -8,13 +9,19 @@ import {
   mockGeneral,
   mockGroups,
   mockNodes,
-  getMockRuntimeOverview,
   mockRoutings,
   mockSubscriptions,
   mockUser,
 } from './data'
 
 type QueryRecord = Record<string, APIQueryValue>
+interface MockLatencyResult {
+  id: string
+  latencyMs: number
+  alive: boolean
+  testedAt: string
+  message?: string | null
+}
 
 const absoluteOriginPattern = /^https?:\/\/[^/]+/
 const numericIDPattern = /(\d+)/
@@ -26,6 +33,8 @@ const mockStorage = new Map<string, string>([
   ['defaultDNSID', MOCK_DEFAULT_IDS.defaultDNSID],
   ['defaultGroupID', MOCK_DEFAULT_IDS.defaultGroupID],
 ])
+
+const mockLatencyById = new Map<string, MockLatencyResult>()
 
 export class MockAPIClient implements APIClientInterface {
   constructor(private readonly endpoint: string) {}
@@ -80,8 +89,9 @@ export class MockAPIClient implements APIClientInterface {
       case 'GET /runtime/overview':
         return getMockRuntimeOverview(toQueryNumber(query?.windowSec, 60), toQueryNumber(query?.maxPoints, 240)) as T
       case 'GET /nodes/latencies':
+        return { items: Array.from(mockLatencyById.values()) } as T
       case 'POST /nodes/latencies':
-        return { items: [] } as T
+        return { items: updateMockLatencies(body) } as T
       case 'GET /nodes':
         return {
           items: mockNodes.nodes.items,
@@ -99,6 +109,14 @@ export class MockAPIClient implements APIClientInterface {
             cronExp: subscription.cronExp,
             cronEnable: subscription.cronEnable,
             nodeCount: subscription.nodes.items.length,
+            ...(toQueryArray(query?.expand).includes('nodes')
+              ? {
+                  nodes: {
+                    items: subscription.nodes.items,
+                    totalCount: subscription.nodes.items.length,
+                  },
+                }
+              : {}),
           })),
         } as T
       case 'GET /groups':
@@ -170,7 +188,9 @@ export class MockAPIClient implements APIClientInterface {
 
     if (method === 'GET' && path.startsWith('/subscriptions/') && path.endsWith('/nodes')) {
       const id = path.split('/')[2]
-      const subscription = mockSubscriptions.subscriptions.find((item) => item.id === id)
+      const subscription = mockSubscriptions.subscriptions.find(
+        (item) => item.id === id || String(numericID(item.id)) === id,
+      )
       return {
         items: subscription?.nodes.items || [],
         totalCount: subscription?.nodes.items.length || 0,
@@ -406,6 +426,93 @@ function optionalNumericID(value?: string | number | null): number | undefined {
   if (value == null || value === '') return undefined
   const parsed = numericID(value)
   return parsed > 0 ? parsed : undefined
+}
+
+function allMockLatencyNodeIds() {
+  const ids = new Set<string>()
+  const addID = (id: string | number) => {
+    ids.add(String(id))
+
+    const parsed = numericID(id)
+    if (parsed > 0) {
+      ids.add(String(parsed))
+    }
+  }
+
+  for (const node of mockNodes.nodes.items) {
+    addID(node.id)
+  }
+
+  for (const subscription of mockSubscriptions.subscriptions) {
+    for (const node of subscription.nodes.items) {
+      addID(node.id)
+    }
+  }
+
+  for (const group of mockGroups.groups) {
+    for (const node of group.nodes) {
+      addID(node.id)
+    }
+    for (const binding of group.subscriptions) {
+      for (const node of binding.matchedNodes) {
+        addID(node.id)
+      }
+    }
+  }
+
+  return Array.from(ids)
+}
+
+function requestedMockLatencyNodeIds(body: unknown) {
+  const ids = (body as { ids?: unknown })?.ids
+  if (!Array.isArray(ids)) return allMockLatencyNodeIds()
+
+  const allIds = allMockLatencyNodeIds()
+  const requestedIds = new Set<string>()
+
+  for (const rawId of ids) {
+    const id = String(rawId)
+    if (!id || id === 'NaN' || id === '0' || id === 'null' || id === 'undefined') {
+      continue
+    }
+
+    requestedIds.add(id)
+
+    const parsed = numericID(id)
+    if (parsed <= 0) {
+      continue
+    }
+
+    requestedIds.add(String(parsed))
+    for (const candidate of allIds) {
+      if (numericID(candidate) === parsed) {
+        requestedIds.add(candidate)
+      }
+    }
+  }
+
+  return requestedIds.size > 0 ? Array.from(requestedIds) : allIds
+}
+
+function updateMockLatencies(body: unknown) {
+  const testedAt = new Date().toISOString()
+
+  const results = requestedMockLatencyNodeIds(body).map((id): MockLatencyResult => {
+    const seed = Array.from(id).reduce((sum, char) => sum + char.charCodeAt(0), 0)
+    return {
+      id,
+      latencyMs: 28 + (seed % 86),
+      alive: true,
+      testedAt,
+      message: 'mock',
+    }
+  })
+
+  for (const result of results) {
+    mockLatencyById.set(result.id, result)
+  }
+
+  return results
 }
 
 export { isMockMode, MOCK_DEFAULT_IDS }

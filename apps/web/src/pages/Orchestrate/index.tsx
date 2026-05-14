@@ -1,6 +1,7 @@
 import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
-import type { DraggingResource } from '~/constants'
+import type { NodeLatencyProbeResult } from '~/apis'
 import type { GroupListView, NodeListView, SubscriptionListView } from '~/apis/types'
+import type { DraggingResource } from '~/constants'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -18,18 +19,17 @@ import {
   useSubscriptionsQuery,
   useTestNodeLatenciesMutation,
 } from '~/apis'
-import type { NodeLatencyProbeResult } from '~/apis'
-import { DraggableResourceType, ORCHESTRATE_SECTION_IDS, QUERY_KEY_NODE_LATENCY } from '~/constants'
-import { useMediaQuery } from '~/hooks'
-import { cn } from '~/lib/utils'
-import { appStateAtom, defaultResourcesAtom, groupSortOrdersAtom } from '~/store'
-import { deriveTime } from '~/utils'
 import { Dialog, DialogTitle } from '~/components/ui/dialog'
 import {
   ScrollableDialogBody,
   ScrollableDialogContent,
   ScrollableDialogHeader,
 } from '~/components/ui/scrollable-dialog'
+import { DraggableResourceType, ORCHESTRATE_SECTION_IDS, QUERY_KEY_NODE_LATENCY } from '~/constants'
+import { useMediaQuery } from '~/hooks'
+import { cn } from '~/lib/utils'
+import { appStateAtom, groupSortOrdersAtom } from '~/store'
+import { deriveTime } from '~/utils'
 import { Config } from './Config'
 import { DNS } from './DNS'
 import { GroupResource } from './Group'
@@ -58,6 +58,8 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 
 const MANUAL_LATENCY_PROBE_BATCH_SIZE = 12
 const MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS = 8_000
+const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
+const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   return new Promise<T>((resolve, reject) => {
@@ -110,7 +112,6 @@ export function OrchestratePage() {
 
   // Use persistent store for sort order
   const appState = useStore(appStateAtom)
-  const { defaultGroupID } = useStore(defaultResourcesAtom)
   const nodeSortOrder = appState.nodeSortableKeys as string[]
   const subscriptionSortOrder = appState.subscriptionSortableKeys as string[]
 
@@ -195,7 +196,7 @@ export function OrchestratePage() {
       .map((item) => item.testedAt)
       .filter(Boolean)
       .sort()
-    return testedAtList[testedAtList.length - 1] ?? null
+    return testedAtList.at(-1) ?? null
   }, [nodeLatencies])
 
   const mergeNodeLatencyResults = useCallback(
@@ -285,6 +286,60 @@ export function OrchestratePage() {
     return Array.from(nodeIDs)
   }, [sortedNodes, sortedSubscriptions])
 
+  const testAllNodeLatencies = useCallback(async () => {
+    if (manualLatencyProbeProgress) return
+
+    const nodeIDs = allLatencyProbeNodeIds
+    if (nodeIDs.length === 0) return
+
+    setManualLatencyProbeProgress({
+      completed: 0,
+      total: nodeIDs.length,
+    })
+
+    try {
+      let completed = 0
+      for (const nodeIDChunk of chunkArray(nodeIDs, MANUAL_LATENCY_PROBE_BATCH_SIZE)) {
+        let results: NodeLatencyProbeResult[]
+        try {
+          results = await withTimeout(
+            testNodeLatenciesMutation.mutateAsync(nodeIDChunk),
+            MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS,
+          )
+        } catch (error) {
+          console.error('Failed to test node latency batch', error)
+          const testedAt = new Date().toISOString()
+          results = nodeIDChunk.map((id) => ({
+            id,
+            alive: false,
+            testedAt,
+            message: 'timeout',
+          }))
+        }
+
+        mergeNodeLatencyResults(results)
+
+        completed += nodeIDChunk.length
+        setManualLatencyProbeProgress({
+          completed,
+          total: nodeIDs.length,
+        })
+      }
+
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+      void nodeLatenciesQuery.refetch()
+    } finally {
+      setManualLatencyProbeProgress(null)
+    }
+  }, [
+    allLatencyProbeNodeIds,
+    manualLatencyProbeProgress,
+    mergeNodeLatencyResults,
+    nodeLatenciesQuery,
+    queryClient,
+    testNodeLatenciesMutation,
+  ])
+
   useEffect(() => {
     const visibleNodeIdSet = new Set(allLatencyProbeNodeIds)
     const canonicalResultMap = new Map((nodeLatenciesQuery.data ?? []).map((result) => [result.id, result]))
@@ -334,14 +389,20 @@ export function OrchestratePage() {
     return result
   }, [groupSortOrder, groups])
 
+  const sortedGroups = useMemo(() => {
+    if (groups.length === 0) return []
+    const groupMap = new Map(groups.map((group: GroupListView['groups'][number]) => [group.id, group]))
+    return sortedGroupIds.map((id) => groupMap.get(id)).filter(Boolean) as typeof groups
+  }, [groups, sortedGroupIds])
+
   // Helper to parse group item IDs (format: groupId-node-nodeId or groupId-sub-subId)
   const parseGroupItemId = useCallback(
     (id: string): { groupId: string; type: 'node' | 'sub'; itemId: string } | null => {
-      const nodeMatch = id.match(/^(.+)-node-(.+)$/)
+      const nodeMatch = id.match(GROUP_NODE_ITEM_ID_PATTERN)
       if (nodeMatch) {
         return { groupId: nodeMatch[1], type: 'node', itemId: nodeMatch[2] }
       }
-      const subMatch = id.match(/^(.+)-sub-(.+)$/)
+      const subMatch = id.match(GROUP_SUBSCRIPTION_ITEM_ID_PATTERN)
       if (subMatch) {
         return { groupId: subMatch[1], type: 'sub', itemId: subMatch[2] }
       }
@@ -472,8 +533,11 @@ export function OrchestratePage() {
 
     // Determine the type based on droppableId
     if (droppableId === 'group-list') {
+      setDraggingResource(null)
       return
-    } else if (droppableId === 'node-list') {
+    }
+
+    if (droppableId === 'node-list') {
       const nodeId = draggableId.replace('node-', '')
       setDraggingResource({ type: DraggableResourceType.node, nodeID: nodeId })
     } else if (droppableId === 'subscription-list') {
@@ -551,7 +615,7 @@ export function OrchestratePage() {
           )
           if (
             targetGroup &&
-            !targetGroup.nodes.find((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
+            !targetGroup.nodes.some((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
           ) {
             groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [nodeId] })
             return
@@ -569,7 +633,7 @@ export function OrchestratePage() {
           )
           if (
             targetGroup &&
-            !targetGroup.nodes.find((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
+            !targetGroup.nodes.some((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
           ) {
             groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [nodeId] })
             return
@@ -585,9 +649,7 @@ export function OrchestratePage() {
             )
             if (
               targetGroup &&
-              !targetGroup.nodes.find(
-                (node: GroupListView['groups'][number]['nodes'][number]) => node.id === parsed.itemId,
-              )
+              !targetGroup.nodes.some((node: GroupListView['groups'][number]['nodes'][number]) => node.id === parsed.itemId)
             ) {
               groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [parsed.itemId] })
               return
@@ -648,7 +710,7 @@ export function OrchestratePage() {
 
       if (
         targetGroup &&
-        !targetGroup.nodes.find((n: GroupListView['groups'][number]['nodes'][number]) => n.id === nodeId)
+        !targetGroup.nodes.some((n: GroupListView['groups'][number]['nodes'][number]) => n.id === nodeId)
       ) {
         groupAddNodesMutation.mutate({ id: targetGroupId, nodeIDs: [nodeId] })
       }
@@ -677,7 +739,7 @@ export function OrchestratePage() {
           const targetGroup = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === destGroupId)
           if (
             targetGroup &&
-            !targetGroup.nodes.find((n: GroupListView['groups'][number]['nodes'][number]) => n.id === parsed.itemId)
+            !targetGroup.nodes.some((n: GroupListView['groups'][number]['nodes'][number]) => n.id === parsed.itemId)
           ) {
             groupAddNodesMutation.mutate({ id: destGroupId, nodeIDs: [parsed.itemId] })
           }
@@ -729,7 +791,7 @@ export function OrchestratePage() {
 
       if (
         targetGroup &&
-        !targetGroup.nodes.find((n: GroupListView['groups'][number]['nodes'][number]) => n.id === nodeId)
+        !targetGroup.nodes.some((n: GroupListView['groups'][number]['nodes'][number]) => n.id === nodeId)
       ) {
         groupAddNodesMutation.mutate({ id: targetGroupId, nodeIDs: [nodeId] })
       }
@@ -763,7 +825,14 @@ export function OrchestratePage() {
   const activeWorkspacePanel = useMemo(() => {
     const panel = searchParams.get('panel')
     if (!panel || panel === 'overview') return null
-    if (panel === 'config' || panel === 'dns' || panel === 'routing' || panel === 'group' || panel === 'node' || panel === 'subscription') {
+    if (
+      panel === 'config' ||
+      panel === 'dns' ||
+      panel === 'routing' ||
+      panel === 'group' ||
+      panel === 'node' ||
+      panel === 'subscription'
+    ) {
       return panel
     }
     return null
@@ -793,8 +862,7 @@ export function OrchestratePage() {
       <WorkspaceSummaryCards
         selectedConfig={selectedConfig}
         configs={configsQuery?.configs ?? []}
-        groups={groups}
-        defaultGroupID={defaultGroupID}
+        groups={sortedGroups}
         sortedNodes={sortedNodes}
         subscriptions={sortedSubscriptions}
         interfaces={generalQuery?.general.interfaces ?? []}
@@ -803,6 +871,9 @@ export function OrchestratePage() {
         onOpenGroup={() => openWorkspacePanel('group')}
         onOpenNodes={() => openWorkspacePanel('node')}
         onOpenSubscriptions={() => openWorkspacePanel('subscription')}
+        onTestAllNodeLatencies={testAllNodeLatencies}
+        testingLatencies={manualLatencyProbeProgress !== null}
+        testingLatencyProgress={manualLatencyProbeProgress}
       />
 
       <Dialog open={!!activeWorkspacePanel} onOpenChange={(open) => !open && closeWorkspacePanel()}>
@@ -859,52 +930,7 @@ export function OrchestratePage() {
                   testingLatencies={manualLatencyProbeProgress !== null}
                   testingLatencyProgress={manualLatencyProbeProgress}
                   lastLatencyProbeAt={lastLatencyProbeAt}
-                  onTestAllNodeLatencies={async () => {
-                    if (manualLatencyProbeProgress) return
-
-                    const nodeIDs = allLatencyProbeNodeIds
-                    if (nodeIDs.length === 0) return
-
-                    setManualLatencyProbeProgress({
-                      completed: 0,
-                      total: nodeIDs.length,
-                    })
-
-                    try {
-                      let completed = 0
-                      for (const nodeIDChunk of chunkArray(nodeIDs, MANUAL_LATENCY_PROBE_BATCH_SIZE)) {
-                        let results: NodeLatencyProbeResult[]
-                        try {
-                          results = await withTimeout(
-                            testNodeLatenciesMutation.mutateAsync(nodeIDChunk),
-                            MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS,
-                          )
-                        } catch (error) {
-                          console.error('Failed to test node latency batch', error)
-                          const testedAt = new Date().toISOString()
-                          results = nodeIDChunk.map((id) => ({
-                            id,
-                            alive: false,
-                            testedAt,
-                            message: 'timeout',
-                          }))
-                        }
-
-                        mergeNodeLatencyResults(results)
-
-                        completed += nodeIDChunk.length
-                        setManualLatencyProbeProgress({
-                          completed,
-                          total: nodeIDs.length,
-                        })
-                      }
-
-                      void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
-                      void nodeLatenciesQuery.refetch()
-                    } finally {
-                      setManualLatencyProbeProgress(null)
-                    }
-                  }}
+                  onTestAllNodeLatencies={testAllNodeLatencies}
                 />
               </DragDropContext>
             )}
