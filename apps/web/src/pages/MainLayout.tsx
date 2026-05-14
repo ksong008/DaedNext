@@ -1,5 +1,6 @@
-import { useStore } from '@nanostores/react'
 import type { ComponentType } from 'react'
+import type { OrchestrateSectionKey } from '~/constants'
+import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useNavigate, useSearchParams } from 'react-router-dom'
@@ -13,7 +14,6 @@ import {
   useSubscriptionsQuery,
 } from '~/apis'
 import { HeaderWithActions } from '~/components/Header'
-import { cn } from '~/lib/utils'
 import {
   Sidebar,
   SidebarContent,
@@ -27,14 +27,9 @@ import {
   SidebarMenuItem,
   SidebarProvider,
 } from '~/components/ui/sidebar'
-import {
-  ORCHESTRATE_SECTION_IDS,
-  SHELL_MOBILE_PRIMARY_ITEMS,
-  SHELL_NAV_GROUPS,
-  SHELL_NAV_ITEMS,
-  type OrchestrateSectionKey,
-} from '~/constants'
+import { ORCHESTRATE_SECTION_IDS, SHELL_MOBILE_PRIMARY_ITEMS, SHELL_NAV_GROUPS, SHELL_NAV_ITEMS } from '~/constants'
 import { useInitialize } from '~/initialize'
+import { cn } from '~/lib/utils'
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 
@@ -161,30 +156,33 @@ export function MainLayout() {
     return SHELL_NAV_ITEMS.some((item) => item.key === value) ? (value as OrchestrateSectionKey) : null
   }, [searchParams])
 
-  const scrollToSection = useCallback((sectionKey: OrchestrateSectionKey) => {
-    const nextSearchParams = new URLSearchParams(searchParams)
+  const scrollToSection = useCallback(
+    (sectionKey: OrchestrateSectionKey) => {
+      const nextSearchParams = new URLSearchParams(searchParams)
 
-    if (sectionKey !== 'overview') {
-      nextSearchParams.set('panel', sectionKey)
+      if (sectionKey !== 'overview') {
+        nextSearchParams.set('panel', sectionKey)
+        setSearchParams(nextSearchParams, { replace: true })
+        setActiveSection(sectionKey)
+        return
+      }
+
+      nextSearchParams.delete('panel')
       setSearchParams(nextSearchParams, { replace: true })
+
+      const sectionId = ORCHESTRATE_SECTION_IDS[sectionKey]
+      const element = document.getElementById(sectionId)
+      if (!element) return
+
+      const targetTop = element.getBoundingClientRect().top + window.scrollY - 116
       setActiveSection(sectionKey)
-      return
-    }
-
-    nextSearchParams.delete('panel')
-    setSearchParams(nextSearchParams, { replace: true })
-
-    const sectionId = ORCHESTRATE_SECTION_IDS[sectionKey]
-    const element = document.getElementById(sectionId)
-    if (!element) return
-
-    const targetTop = element.getBoundingClientRect().top + window.scrollY - 116
-    setActiveSection(sectionKey)
-    window.scrollTo({
-      top: Math.max(targetTop, 0),
-      behavior: 'smooth',
-    })
-  }, [searchParams, setSearchParams])
+      window.scrollTo({
+        top: Math.max(targetTop, 0),
+        behavior: 'smooth',
+      })
+    },
+    [searchParams, setSearchParams],
+  )
 
   useEffect(() => {
     if (activePanelSection) {
@@ -242,11 +240,11 @@ export function MainLayout() {
             <div className="flex items-center gap-3">
               <img
                 src="/logo.webp"
-                alt="daed"
+                alt="DAED"
                 className="h-11 w-11 rounded-xl border border-white/80 object-cover shadow-[0_8px_18px_rgba(15,23,42,0.12)]"
               />
               <div className="min-w-0">
-                <p className="truncate text-[1.65rem] font-semibold leading-none text-[var(--shell-text)]">daed</p>
+                <p className="truncate text-[1.65rem] font-semibold leading-none text-[var(--shell-text)]">DAED</p>
                 <p className="mt-1 truncate text-sm font-semibold text-[var(--shell-muted)]">
                   {import.meta.env.APP_VERSION}
                 </p>

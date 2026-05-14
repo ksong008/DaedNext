@@ -536,9 +536,11 @@ export function useGroupSetPolicyMutation() {
     mutationFn: async ({ id, policy, policyParams }: { id: string; policy: Policy; policyParams: PolicyParam[] }) => {
       await apiClient.put(`/groups/${id}`, { policy, policyParams })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
+      ])
     },
   })
 }
@@ -551,9 +553,11 @@ export function useRenameGroupMutation() {
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       await apiClient.put(`/groups/${id}`, { name })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
+      ])
     },
   })
 }
@@ -566,9 +570,11 @@ export function useGroupAddNodesMutation() {
     mutationFn: async ({ id, nodeIDs }: { id: string; nodeIDs: string[] }) => {
       await apiClient.post(`/groups/${id}/nodes`, { nodeIds: nodeIDs.map(toNumericID) })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
+      ])
     },
   })
 }
@@ -581,9 +587,11 @@ export function useGroupDelNodesMutation() {
     mutationFn: async ({ id, nodeIDs }: { id: string; nodeIDs: string[] }) => {
       await apiClient.delete(`/groups/${id}/nodes`, { nodeIds: nodeIDs.map(toNumericID) })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
+      ])
     },
   })
 }
@@ -607,9 +615,11 @@ export function useGroupAddSubscriptionsMutation() {
         nameFilterRegex: nameFilterRegex ?? null,
       })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
+      ])
     },
   })
 }
@@ -622,9 +632,11 @@ export function useGroupDelSubscriptionsMutation() {
     mutationFn: async ({ id, subscriptionIDs }: { id: string; subscriptionIDs: string[] }) => {
       await apiClient.delete(`/groups/${id}/subscriptions`, { subscriptionIds: subscriptionIDs.map(toNumericID) })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
+        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
+      ])
     },
   })
 }

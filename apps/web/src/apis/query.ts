@@ -1,8 +1,28 @@
-import { parseNodeUrl } from '@daeuniverse/dae-node-parser'
+import type { APIClientInterface } from './client'
+import type {
+  ConfigGlobal,
+  ConfigListView,
+  CurrentUserView,
+  DNSListView,
+  DNSView,
+  GeneralStateView,
+  GroupListView,
+  GroupResource,
+  InterfaceResource,
+  NodeCollection,
+  NodeLatencyProbeResult,
+  NodeListView,
+  NodeResource,
+  RoutingListView,
+  RoutingView,
+  SubscriptionListView,
+  SubscriptionResource,
+  TrafficOverviewQueryData,
+} from './types'
 import { useStore } from '@nanostores/react'
+
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-
 import {
   QUERY_KEY_CONFIG,
   QUERY_KEY_DNS,
@@ -17,43 +37,24 @@ import {
   QUERY_KEY_USER,
 } from '~/constants'
 import { useAPIClient } from '~/contexts'
+
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
-
-import { buildAPIURL, normalizeEndpointURL, type APIClientInterface } from './client'
+import { buildAPIURL, normalizeEndpointURL } from './client'
+import { deriveTransport } from './node_transport'
 import { adaptRuntimeOverview, mergeRuntimeOverviewDelta } from './runtime_overview'
-import type {
-  ConfigGlobal,
-  ConfigListView,
-  DNSListView,
-  DNSView,
-  GeneralStateView,
-  GroupResource,
-  GroupListView,
-  InterfaceResource,
-  NodeCollection,
-  NodeLatencyProbeResult,
-  NodeListView,
-  NodeResource,
-  RoutingListView,
-  RoutingView,
-  SubscriptionResource,
-  SubscriptionListView,
-  TrafficOverviewQueryData,
-  CurrentUserView,
-} from './types'
 
-type JSONStorageResponse = {
+interface JSONStorageResponse {
   values: string[]
 }
 
-type GeneralStateAPI = {
+interface GeneralStateAPI {
   running: boolean
   modified: boolean
   version: string
 }
 
-type InterfaceAPI = {
+interface InterfaceAPI {
   name: string
   index: number
   up: boolean
@@ -65,7 +66,7 @@ type InterfaceAPI = {
   }>
 }
 
-type RuntimeOverviewAPI = {
+interface RuntimeOverviewAPI {
   updatedAt: string
   uploadRate: string
   downloadRate: string
@@ -83,7 +84,7 @@ type RuntimeOverviewAPI = {
   }>
 }
 
-type NodeAPI = {
+interface NodeAPI {
   id: number
   link: string
   name: string
@@ -94,13 +95,13 @@ type NodeAPI = {
   subscriptionId?: number | null
 }
 
-type NodeListAPI = {
+interface NodeListAPI {
   items: NodeAPI[]
   totalCount: number
   nextAfterId?: number | null
 }
 
-type NodeLatencyAPI = {
+interface NodeLatencyAPI {
   id: number
   latencyMs?: number | null
   alive: boolean
@@ -108,7 +109,7 @@ type NodeLatencyAPI = {
   message?: string | null
 }
 
-type ConfigAPI = {
+interface ConfigAPI {
   id: number
   name: string
   global: string
@@ -117,21 +118,21 @@ type ConfigAPI = {
   parseError?: string | null
 }
 
-type RoutingAPI = {
+interface RoutingAPI {
   id: number
   name: string
   selected: boolean
   parsedRouting?: RoutingView
 }
 
-type DNSAPI = {
+interface DNSAPI {
   id: number
   name: string
   selected: boolean
   parsedDns?: DNSView
 }
 
-type GroupAPI = {
+interface GroupAPI {
   id: number
   name: string
   policy: string
@@ -150,7 +151,7 @@ type GroupAPI = {
   }>
 }
 
-type SubscriptionAPI = {
+interface SubscriptionAPI {
   id: number
   tag?: string | null
   status: string
@@ -392,10 +393,13 @@ export function useSubscriptionsQuery() {
   return useQuery({
     queryKey: QUERY_KEY_SUBSCRIPTION,
     queryFn: async (): Promise<SubscriptionListView> => {
-      const data = await apiClient.get<{ items: Array<SubscriptionAPI & { nodes?: NodeListAPI }> }>('/subscriptions', { expand: 'nodes' })
+      const data = await apiClient.get<{ items: Array<SubscriptionAPI & { nodes?: NodeListAPI }> }>('/subscriptions', {
+        expand: 'nodes',
+      })
       const subscriptions = await Promise.all(
         data.items.map(async (subscription): Promise<SubscriptionResource> => {
-          const nodes = subscription.nodes ?? (await apiClient.get<NodeListAPI>(`/subscriptions/${subscription.id}/nodes`))
+          const nodes =
+            subscription.nodes ?? (await apiClient.get<NodeListAPI>(`/subscriptions/${subscription.id}/nodes`))
           return {
             id: String(subscription.id),
             tag: subscription.tag ?? null,
@@ -556,25 +560,4 @@ function adaptInterface(iface: InterfaceAPI): InterfaceResource {
     addresses: Array.isArray(iface.addresses) ? iface.addresses : [],
     defaultRoutes: Array.isArray(iface.defaultRoutes) ? iface.defaultRoutes : [],
   }
-}
-
-function deriveTransport(link: string, protocol: string): string | null {
-  const parsed = parseNodeUrl(link)
-  if (parsed?.type === 'v2ray' && parsed.data && typeof parsed.data === 'object' && 'net' in parsed.data) {
-    const net = parsed.data.net
-    return typeof net === 'string' ? net : null
-  }
-  if (parsed?.type === 'trojan' && parsed.data && typeof parsed.data === 'object' && 'obfs' in parsed.data) {
-    return parsed.data.obfs === 'websocket' ? 'ws' : null
-  }
-  if (parsed?.type === 'ss' && parsed.data && typeof parsed.data === 'object' && 'plugin' in parsed.data) {
-    if (parsed.data.plugin === 'v2ray-plugin' && 'mode' in parsed.data && typeof parsed.data.mode === 'string') {
-      return parsed.data.mode
-    }
-    return typeof parsed.data.plugin === 'string' && parsed.data.plugin ? parsed.data.plugin : null
-  }
-  if (protocol === 'http' || protocol === 'https' || protocol === 'socks5') {
-    return protocol
-  }
-  return null
 }
