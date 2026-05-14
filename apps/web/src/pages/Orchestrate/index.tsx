@@ -8,6 +8,7 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import { useSearchParams } from 'react-router-dom'
 import {
   useConfigsQuery,
+  useGeneralQuery,
   useGroupAddNodesMutation,
   useGroupAddSubscriptionsMutation,
   useGroupDelNodesMutation,
@@ -80,6 +81,7 @@ export function OrchestratePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: configsQuery } = useConfigsQuery()
+  const { data: generalQuery } = useGeneralQuery()
   const { data: nodesQuery } = useNodesQuery()
   const { data: groupsQuery } = useGroupsQuery()
   const { data: subscriptionsQuery } = useSubscriptionsQuery()
@@ -795,6 +797,7 @@ export function OrchestratePage() {
         defaultGroupID={defaultGroupID}
         sortedNodes={sortedNodes}
         subscriptions={sortedSubscriptions}
+        interfaces={generalQuery?.general.interfaces ?? []}
         nodeLatencies={nodeLatencies}
         onOpenConfig={() => openWorkspacePanel('config')}
         onOpenGroup={() => openWorkspacePanel('group')}

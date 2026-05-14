@@ -404,6 +404,7 @@
     "currentGroup": "当前分组",
     "fromSubscription": "来自订阅",
     "manualNode": "手动节点",
+    "fallbackDns": "备用DNS",
     "subscriptionUpdated": "最近更新",
     "manualNodes": "手动节点",
     "healthy": "正常"

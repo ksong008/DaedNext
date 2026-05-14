@@ -1,6 +1,7 @@
 import type {
   ConfigResource,
   GroupListView,
+  InterfaceResource,
   NodeLatencyProbeResult,
   NodeResource,
   SubscriptionResource,
@@ -53,18 +54,25 @@ function SummaryHero({
   value,
   tag,
   note,
+  valueClassName,
 }: {
   label: string
   value: string
   tag?: string
   note?: string
+  valueClassName?: string
 }) {
   return (
     <div className="rounded-[18px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="text-xs font-semibold text-muted-foreground">{label}</span>
-          <strong className="mt-1 block truncate text-[1.95rem] font-extrabold leading-none tracking-tight text-foreground">
+          <strong
+            className={cn(
+              'mt-1 block truncate text-[1.95rem] font-extrabold leading-none tracking-tight text-foreground',
+              valueClassName,
+            )}
+          >
             {value}
           </strong>
         </div>
@@ -79,6 +87,32 @@ function SummaryHero({
   )
 }
 
+function InterfaceStat({
+  label,
+  items,
+}: {
+  label: string
+  items: Array<{ name: string; address?: string }>
+}) {
+  return (
+    <div className="flex min-h-[92px] flex-col justify-between rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 px-4 py-3">
+      <span className="truncate text-xs font-semibold text-muted-foreground">{label}</span>
+      <div className="mt-2 space-y-1.5">
+        {items.length > 0 ? (
+          items.map((item) => (
+            <div key={`${item.name}-${item.address || ''}`} className="min-w-0">
+              <strong className="block truncate text-sm font-semibold leading-none text-foreground">{item.name}</strong>
+              {item.address ? <span className="block truncate text-xs text-muted-foreground">{item.address}</span> : null}
+            </div>
+          ))
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function SummaryStat({
   label,
   value,
@@ -87,7 +121,7 @@ function SummaryStat({
   value: string
 }) {
   return (
-    <div className="rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 px-4 py-3">
+    <div className="flex min-h-[92px] flex-col justify-between rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 px-4 py-3">
       <span className="truncate text-xs font-semibold text-muted-foreground">{label}</span>
       <strong className="mt-1 block truncate text-lg font-extrabold leading-none text-foreground">{value}</strong>
     </div>
@@ -258,6 +292,7 @@ export function WorkspaceSummaryCards({
   defaultGroupID,
   sortedNodes,
   subscriptions,
+  interfaces,
   nodeLatencies,
   onOpenConfig,
   onOpenGroup,
@@ -270,6 +305,7 @@ export function WorkspaceSummaryCards({
   defaultGroupID?: string
   sortedNodes: NodeResource[]
   subscriptions: SubscriptionResource[]
+  interfaces: InterfaceResource[]
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
   onOpenConfig?: () => void
   onOpenGroup?: () => void
@@ -279,7 +315,6 @@ export function WorkspaceSummaryCards({
   const { t } = useTranslation()
 
   const activeConfig = selectedConfig ?? configs[0]
-  const backupConfig = configs.find((config) => config.id !== activeConfig?.id)
   const defaultGroup = groups.find((group) => group.id === defaultGroupID) ?? groups[0]
   const defaultGroupNode = defaultGroup?.nodes[0]
   const defaultGroupSubscriptionNode = defaultGroup?.subscriptions[0]?.matchedNodes[0]
@@ -288,8 +323,23 @@ export function WorkspaceSummaryCards({
   const topSubscriptions = subscriptions.slice(0, 2)
   const manualNodeCount = sortedNodes.filter((node) => !node.subscriptionID).length
 
-  const dnsLabel = activeConfig?.global.fallbackResolver || '—'
-  const pendingLabel = activeConfig ? t('selected') : 'default'
+  const wanInterfaceItems = (activeConfig?.global.wanInterface ?? []).flatMap((value) => {
+    if (value === 'auto') {
+      return interfaces
+        .filter((iface) => iface.defaultRoutes && iface.defaultRoutes.length > 0)
+        .map((iface) => ({
+          name: iface.name,
+          address: iface.addresses[0],
+        }))
+    }
+
+    const iface = interfaces.find((item) => item.name === value)
+    return iface ? [{ name: iface.name, address: iface.addresses[0] }] : [{ name: value }]
+  })
+  const lanInterfaceItems = (activeConfig?.global.lanInterface ?? []).map((value) => {
+    const iface = interfaces.find((item) => item.name === value)
+    return iface ? { name: iface.name, address: iface.addresses[0] } : { name: value }
+  })
 
   return (
     <section className="grid gap-5 lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.28fr)_minmax(0,0.98fr)]">
@@ -304,21 +354,17 @@ export function WorkspaceSummaryCards({
           label={t('workspaceSummary.currentConfig')}
           value={activeConfig?.name || 'default'}
           tag={t('workspaceSummary.applied')}
-          note={t('workspaceSummary.configNote')}
+          valueClassName="text-[1.55rem]"
         />
         <div className="grid gap-2 sm:grid-cols-2">
           <SummaryStat label={t('tproxyPort')} value={String(activeConfig?.global.tproxyPort ?? '—')} />
           <SummaryStat label={t('dialMode')} value={activeConfig?.global.dialMode || '—'} />
-          <SummaryStat label={t('checkInterval')} value={activeConfig?.global.checkInterval || '—'} />
-          <SummaryStat
-            label={t('autoConfigKernelParameter')}
-            value={String(activeConfig?.global.autoConfigKernelParameter ?? false)}
-          />
+          <InterfaceStat label={t('wanInterface')} items={wanInterfaceItems} />
+          <InterfaceStat label={t('lanInterface')} items={lanInterfaceItems} />
         </div>
         <SummaryThinList
           rows={[
-            { label: backupConfig?.name || t('workspaceSummary.noBackupConfig'), value: t('workspaceSummary.standby') },
-            { label: t('dns'), value: dnsLabel || pendingLabel },
+            { label: t('workspaceSummary.fallbackDns'), value: activeConfig?.global.fallbackResolver || '—' },
           ]}
         />
       </SummaryShell>
