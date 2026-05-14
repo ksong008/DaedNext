@@ -5,6 +5,7 @@ import { DragDropContext } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   useConfigsQuery,
   useGroupAddNodesMutation,
@@ -17,10 +18,17 @@ import {
   useTestNodeLatenciesMutation,
 } from '~/apis'
 import type { NodeLatencyProbeResult } from '~/apis'
-import { DraggableResourceType, QUERY_KEY_NODE_LATENCY } from '~/constants'
+import { DraggableResourceType, ORCHESTRATE_SECTION_IDS, QUERY_KEY_NODE_LATENCY } from '~/constants'
 import { useMediaQuery } from '~/hooks'
-import { appStateAtom, groupSortOrdersAtom } from '~/store'
+import { cn } from '~/lib/utils'
+import { appStateAtom, defaultResourcesAtom, groupSortOrdersAtom } from '~/store'
 import { deriveTime } from '~/utils'
+import { Dialog, DialogTitle } from '~/components/ui/dialog'
+import {
+  ScrollableDialogBody,
+  ScrollableDialogContent,
+  ScrollableDialogHeader,
+} from '~/components/ui/scrollable-dialog'
 import { Config } from './Config'
 import { DNS } from './DNS'
 import { GroupResource } from './Group'
@@ -28,6 +36,7 @@ import { NODE_DROPPABLE_ID, NodeResource } from './Node'
 import { Routing } from './Routing'
 import { SubscriptionResource } from './Subscription'
 import { TrafficOverview } from './TrafficOverview'
+import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
 
 function arrayMove<T>(array: T[], from: number, to: number): T[] {
   const newArray = [...array]
@@ -68,6 +77,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
 }
 
 export function OrchestratePage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: configsQuery } = useConfigsQuery()
   const { data: nodesQuery } = useNodesQuery()
@@ -82,7 +92,9 @@ export function OrchestratePage() {
     completed: number
     total: number
   } | null>(null)
-  const [manualLatencyProbeOverrides, setManualLatencyProbeOverrides] = useState<Record<string, NodeLatencyProbeResult>>({})
+  const [manualLatencyProbeOverrides, setManualLatencyProbeOverrides] = useState<
+    Record<string, NodeLatencyProbeResult>
+  >({})
 
   const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -96,6 +108,7 @@ export function OrchestratePage() {
 
   // Use persistent store for sort order
   const appState = useStore(appStateAtom)
+  const { defaultGroupID } = useStore(defaultResourcesAtom)
   const nodeSortOrder = appState.nodeSortableKeys as string[]
   const subscriptionSortOrder = appState.subscriptionSortableKeys as string[]
 
@@ -122,7 +135,8 @@ export function OrchestratePage() {
   const getGroupSubscriptionBinding = useCallback(
     (groupId: string, subscriptionId: string) =>
       getGroupById(groupId)?.subscriptions.find(
-        (binding: GroupListView['groups'][number]['subscriptions'][number]) => binding.subscription.id === subscriptionId,
+        (binding: GroupListView['groups'][number]['subscriptions'][number]) =>
+          binding.subscription.id === subscriptionId,
       ),
     [getGroupById],
   )
@@ -130,10 +144,7 @@ export function OrchestratePage() {
     (groupId: string, subscriptionId: string) => !!getGroupSubscriptionBinding(groupId, subscriptionId),
     [getGroupSubscriptionBinding],
   )
-  const selectedConfig = useMemo(
-    () => configsQuery?.configs.find((config) => config.selected),
-    [configsQuery?.configs],
-  )
+  const selectedConfig = useMemo(() => configsQuery?.configs.find((config) => config.selected), [configsQuery?.configs])
   const [nodeLatenciesEnabled, setNodeLatenciesEnabled] = useState(false)
   const startupDataReady = !!configsQuery && !!nodesQuery && !!groupsQuery && !!subscriptionsQuery
   const nodeLatencyRefetchIntervalMs = useMemo(() => {
@@ -185,23 +196,26 @@ export function OrchestratePage() {
     return testedAtList[testedAtList.length - 1] ?? null
   }, [nodeLatencies])
 
-  const mergeNodeLatencyResults = useCallback((results: NodeLatencyProbeResult[]) => {
-    setManualLatencyProbeOverrides((previousResults) => {
-      const nextResults = { ...previousResults }
-      for (const result of results) {
-        nextResults[result.id] = result
-      }
-      return nextResults
-    })
+  const mergeNodeLatencyResults = useCallback(
+    (results: NodeLatencyProbeResult[]) => {
+      setManualLatencyProbeOverrides((previousResults) => {
+        const nextResults = { ...previousResults }
+        for (const result of results) {
+          nextResults[result.id] = result
+        }
+        return nextResults
+      })
 
-    queryClient.setQueryData<NodeLatencyProbeResult[]>(QUERY_KEY_NODE_LATENCY, (previousResults = []) => {
-      const resultMap = new Map(previousResults.map((result) => [result.id, result]))
-      for (const result of results) {
-        resultMap.set(result.id, result)
-      }
-      return Array.from(resultMap.values())
-    })
-  }, [queryClient])
+      queryClient.setQueryData<NodeLatencyProbeResult[]>(QUERY_KEY_NODE_LATENCY, (previousResults = []) => {
+        const resultMap = new Map(previousResults.map((result) => [result.id, result]))
+        for (const result of results) {
+          resultMap.set(result.id, result)
+        }
+        return Array.from(resultMap.values())
+      })
+    },
+    [queryClient],
+  )
 
   // Get sorted node IDs
   const sortedNodeIds = useMemo(() => {
@@ -530,7 +544,9 @@ export function OrchestratePage() {
 
         if (sourceDroppableId === 'node-list') {
           const nodeId = draggableId.replace('node-', '')
-          const targetGroup = groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === fallbackGroupId)
+          const targetGroup = groupsQuery?.groups.find(
+            (group: GroupListView['groups'][number]) => group.id === fallbackGroupId,
+          )
           if (
             targetGroup &&
             !targetGroup.nodes.find((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
@@ -540,9 +556,15 @@ export function OrchestratePage() {
           }
         }
 
-        if (sourceDroppableId.startsWith('subscription-') && sourceDroppableId.endsWith('-nodes') && sourceDroppableId !== 'subscription-list') {
+        if (
+          sourceDroppableId.startsWith('subscription-') &&
+          sourceDroppableId.endsWith('-nodes') &&
+          sourceDroppableId !== 'subscription-list'
+        ) {
           const nodeId = draggableId.replace('subscription-node-', '')
-          const targetGroup = groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === fallbackGroupId)
+          const targetGroup = groupsQuery?.groups.find(
+            (group: GroupListView['groups'][number]) => group.id === fallbackGroupId,
+          )
           if (
             targetGroup &&
             !targetGroup.nodes.find((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
@@ -556,10 +578,14 @@ export function OrchestratePage() {
           const sourceGroupId = sourceDroppableId.replace('-nodes', '')
           const parsed = parseGroupItemId(draggableId)
           if (parsed && sourceGroupId !== fallbackGroupId) {
-            const targetGroup = groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === fallbackGroupId)
+            const targetGroup = groupsQuery?.groups.find(
+              (group: GroupListView['groups'][number]) => group.id === fallbackGroupId,
+            )
             if (
               targetGroup &&
-              !targetGroup.nodes.find((node: GroupListView['groups'][number]['nodes'][number]) => node.id === parsed.itemId)
+              !targetGroup.nodes.find(
+                (node: GroupListView['groups'][number]['nodes'][number]) => node.id === parsed.itemId,
+              )
             ) {
               groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [parsed.itemId] })
               return
@@ -732,85 +758,156 @@ export function OrchestratePage() {
 
   const matchSmallScreen = useMediaQuery('(max-width: 640px)')
 
+  const activeWorkspacePanel = useMemo(() => {
+    const panel = searchParams.get('panel')
+    if (!panel || panel === 'overview') return null
+    if (panel === 'config' || panel === 'dns' || panel === 'routing' || panel === 'group' || panel === 'node' || panel === 'subscription') {
+      return panel
+    }
+    return null
+  }, [searchParams])
+
+  const openWorkspacePanel = useCallback(
+    (panel: 'config' | 'dns' | 'routing' | 'group' | 'node' | 'subscription') => {
+      const nextSearchParams = new URLSearchParams(searchParams)
+      nextSearchParams.set('panel', panel)
+      setSearchParams(nextSearchParams, { replace: true })
+    },
+    [searchParams, setSearchParams],
+  )
+
+  const closeWorkspacePanel = useCallback(() => {
+    const nextSearchParams = new URLSearchParams(searchParams)
+    nextSearchParams.delete('panel')
+    setSearchParams(nextSearchParams, { replace: true })
+  }, [searchParams, setSearchParams])
+
   return (
-    <div className="flex flex-col gap-8">
-      <div className={`grid gap-5 ${matchSmallScreen ? 'grid-cols-1' : 'grid-cols-3'}`}>
-        <Config />
-        <DNS />
-        <Routing />
-      </div>
+    <div className="flex flex-col gap-6 lg:gap-7">
+      <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
+        <TrafficOverview />
+      </section>
 
-      <TrafficOverview />
+      <WorkspaceSummaryCards
+        selectedConfig={selectedConfig}
+        configs={configsQuery?.configs ?? []}
+        groups={groups}
+        defaultGroupID={defaultGroupID}
+        sortedNodes={sortedNodes}
+        subscriptions={sortedSubscriptions}
+        nodeLatencies={nodeLatencies}
+        onOpenConfig={() => openWorkspacePanel('config')}
+        onOpenGroup={() => openWorkspacePanel('group')}
+        onOpenNodes={() => openWorkspacePanel('node')}
+        onOpenSubscriptions={() => openWorkspacePanel('subscription')}
+      />
 
-      <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
-        <div className={`grid gap-5 ${matchSmallScreen ? 'grid-cols-1' : 'grid-cols-3'}`}>
-          <GroupResource
-            highlight={!!draggingResource}
-            draggingResource={draggingResource}
-            dragDestinationDroppableId={dragDestinationDroppableId}
-            hoveredGroupId={hoveredGroupId}
-            nodeLatencies={nodeLatencies}
-          />
-          <NodeResource
-            sortedNodes={sortedNodes}
-            highlight={draggingResource?.type === DraggableResourceType.groupNode}
-            nodeLatencies={nodeLatencies}
-          />
-          <SubscriptionResource
-            sortedSubscriptions={sortedSubscriptions}
-            nodeLatencies={nodeLatencies}
-            testingLatencies={manualLatencyProbeProgress !== null}
-            testingLatencyProgress={manualLatencyProbeProgress}
-            lastLatencyProbeAt={lastLatencyProbeAt}
-            onTestAllNodeLatencies={async () => {
-              if (manualLatencyProbeProgress) return
+      <Dialog open={!!activeWorkspacePanel} onOpenChange={(open) => !open && closeWorkspacePanel()}>
+        <ScrollableDialogContent
+          size="full"
+          className={cn(matchSmallScreen ? 'h-[96vh] w-[96vw]' : 'h-[92vh] w-[94vw] max-w-[1500px]')}
+        >
+          <ScrollableDialogHeader>
+            <DialogTitle>
+              {activeWorkspacePanel === 'config'
+                ? 'Config'
+                : activeWorkspacePanel === 'dns'
+                  ? 'DNS'
+                  : activeWorkspacePanel === 'routing'
+                    ? 'Routing'
+                    : activeWorkspacePanel === 'group'
+                      ? 'Group'
+                      : activeWorkspacePanel === 'node'
+                        ? 'Node'
+                        : activeWorkspacePanel === 'subscription'
+                          ? 'Subscription'
+                          : ''}
+            </DialogTitle>
+          </ScrollableDialogHeader>
+          <ScrollableDialogBody className="p-4 sm:p-5">
+            {activeWorkspacePanel === 'config' && <Config />}
+            {activeWorkspacePanel === 'dns' && <DNS />}
+            {activeWorkspacePanel === 'routing' && <Routing />}
+            {activeWorkspacePanel === 'group' && (
+              <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                <GroupResource
+                  highlight={!!draggingResource}
+                  draggingResource={draggingResource}
+                  dragDestinationDroppableId={dragDestinationDroppableId}
+                  hoveredGroupId={hoveredGroupId}
+                  nodeLatencies={nodeLatencies}
+                />
+              </DragDropContext>
+            )}
+            {activeWorkspacePanel === 'node' && (
+              <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                <NodeResource
+                  sortedNodes={sortedNodes}
+                  highlight={draggingResource?.type === DraggableResourceType.groupNode}
+                  nodeLatencies={nodeLatencies}
+                />
+              </DragDropContext>
+            )}
+            {activeWorkspacePanel === 'subscription' && (
+              <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                <SubscriptionResource
+                  sortedSubscriptions={sortedSubscriptions}
+                  nodeLatencies={nodeLatencies}
+                  testingLatencies={manualLatencyProbeProgress !== null}
+                  testingLatencyProgress={manualLatencyProbeProgress}
+                  lastLatencyProbeAt={lastLatencyProbeAt}
+                  onTestAllNodeLatencies={async () => {
+                    if (manualLatencyProbeProgress) return
 
-              const nodeIDs = allLatencyProbeNodeIds
-              if (nodeIDs.length === 0) return
+                    const nodeIDs = allLatencyProbeNodeIds
+                    if (nodeIDs.length === 0) return
 
-              setManualLatencyProbeProgress({
-                completed: 0,
-                total: nodeIDs.length,
-              })
+                    setManualLatencyProbeProgress({
+                      completed: 0,
+                      total: nodeIDs.length,
+                    })
 
-              try {
-                let completed = 0
-                for (const nodeIDChunk of chunkArray(nodeIDs, MANUAL_LATENCY_PROBE_BATCH_SIZE)) {
-                  let results: NodeLatencyProbeResult[]
-                  try {
-                    results = await withTimeout(
-                      testNodeLatenciesMutation.mutateAsync(nodeIDChunk),
-                      MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS,
-                    )
-                  } catch (error) {
-                    console.error('Failed to test node latency batch', error)
-                    const testedAt = new Date().toISOString()
-                    results = nodeIDChunk.map((id) => ({
-                      id,
-                      alive: false,
-                      testedAt,
-                      message: 'timeout',
-                    }))
-                  }
+                    try {
+                      let completed = 0
+                      for (const nodeIDChunk of chunkArray(nodeIDs, MANUAL_LATENCY_PROBE_BATCH_SIZE)) {
+                        let results: NodeLatencyProbeResult[]
+                        try {
+                          results = await withTimeout(
+                            testNodeLatenciesMutation.mutateAsync(nodeIDChunk),
+                            MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS,
+                          )
+                        } catch (error) {
+                          console.error('Failed to test node latency batch', error)
+                          const testedAt = new Date().toISOString()
+                          results = nodeIDChunk.map((id) => ({
+                            id,
+                            alive: false,
+                            testedAt,
+                            message: 'timeout',
+                          }))
+                        }
 
-                  mergeNodeLatencyResults(results)
+                        mergeNodeLatencyResults(results)
 
-                  completed += nodeIDChunk.length
-                  setManualLatencyProbeProgress({
-                    completed,
-                    total: nodeIDs.length,
-                  })
-                }
+                        completed += nodeIDChunk.length
+                        setManualLatencyProbeProgress({
+                          completed,
+                          total: nodeIDs.length,
+                        })
+                      }
 
-                void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
-                void nodeLatenciesQuery.refetch()
-              } finally {
-                setManualLatencyProbeProgress(null)
-              }
-            }}
-          />
-        </div>
-      </DragDropContext>
+                      void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+                      void nodeLatenciesQuery.refetch()
+                    } finally {
+                      setManualLatencyProbeProgress(null)
+                    }
+                  }}
+                />
+              </DragDropContext>
+            )}
+          </ScrollableDialogBody>
+        </ScrollableDialogContent>
+      </Dialog>
     </div>
   )
 }

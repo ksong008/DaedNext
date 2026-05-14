@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { Toaster } from '~/components/ui/sonner'
 import { TooltipProvider } from '~/components/ui/tooltip'
-import { getThemeById, themeColorsToCSSVars } from '~/constants'
+import { resolveStoredThemeId, THEME_STATE_MIGRATION_VERSION, getThemeById, themeColorsToCSSVars } from '~/constants'
 import { QueryProvider } from '~/contexts'
 import { Router } from '~/Router'
-import { appStateAtom, colorSchemeAtom } from '~/store'
+import { appStateAtom, colorSchemeAtom, themeMigrationVersionAtom } from '~/store'
 
 type ColorScheme = 'dark' | 'light'
 
@@ -33,9 +33,10 @@ function useSystemColorScheme(): ColorScheme {
 
 export function App() {
   const appState = useStore(appStateAtom)
+  const themeMigrationVersion = useStore(themeMigrationVersionAtom)
   const systemColorScheme = useSystemColorScheme()
   const themeMode = appState.themeMode || 'system'
-  const colorTheme = appState.colorTheme || 'amber'
+  const colorTheme = resolveStoredThemeId(appState.colorTheme, themeMigrationVersion)
 
   // Derive actual colorScheme from themeMode
   const colorScheme: ColorScheme = themeMode === 'system' ? systemColorScheme : themeMode
@@ -47,6 +48,15 @@ export function App() {
   useEffect(() => {
     colorSchemeAtom.set(colorScheme)
   }, [colorScheme])
+
+  useEffect(() => {
+    if (appState.colorTheme !== colorTheme) {
+      appStateAtom.setKey('colorTheme', colorTheme)
+    }
+    if (themeMigrationVersion !== THEME_STATE_MIGRATION_VERSION) {
+      themeMigrationVersionAtom.set(THEME_STATE_MIGRATION_VERSION)
+    }
+  }, [appState.colorTheme, colorTheme, themeMigrationVersion])
 
   // Apply dark mode class to document
   useEffect(() => {

@@ -2,6 +2,7 @@ import type { DAEBundle, DAEConfigFileIssue } from '~/apis/types'
 import type { BundleDiffPreview } from '~/utils/bundle'
 import { useStore } from '@nanostores/react'
 import {
+  ArrowLeftRight,
   ChevronDown,
   CloudOff,
   Download,
@@ -9,16 +10,15 @@ import {
   KeyRound,
   Languages,
   LogOut,
-  Menu,
   RefreshCw,
+  Search,
   Upload,
   UserPen,
   Wifi,
 } from 'lucide-react'
-import { Fragment, useCallback, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import {
@@ -39,7 +39,6 @@ import {
 import { normalizeEndpointURL } from '~/apis/client'
 import { Avatar } from '~/components/ui/avatar'
 import { Button } from '~/components/ui/button'
-import { Code } from '~/components/ui/code'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import {
   DropdownMenu,
@@ -49,8 +48,6 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
-import { Separator } from '~/components/ui/separator'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '~/components/ui/sheet'
 import { Switch } from '~/components/ui/switch'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { useColorScheme } from '~/contexts'
@@ -73,14 +70,6 @@ function joinWarningMessages(warnings?: Array<{ message: string }>) {
 }
 
 const fileExtensionPattern = /\.[^.]+$/
-
-function GithubIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-    </svg>
-  )
-}
 
 const accountSettingsSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -112,7 +101,6 @@ export function HeaderWithActions() {
   }
 
   const [userMenuOpened, setUserMenuOpened] = useState(false)
-  const [openedBurger, { toggle: toggleBurger, close: closeBurger }] = useDisclosure(false)
   const [openedAccountSettingsFormModal, { open: openAccountSettingsFormModal, close: closeAccountSettingsFormModal }] =
     useDisclosure(false)
   const [openedPasswordChangeModal, { open: openPasswordChangeModal, close: closePasswordChangeModal }] =
@@ -251,7 +239,6 @@ export function HeaderWithActions() {
           closeCommandPalette()
           closeAccountSettingsFormModal()
           closePasswordChangeModal()
-          closeBurger()
         },
         description: 'Close modals',
       },
@@ -495,31 +482,25 @@ export function HeaderWithActions() {
   }
 
   return (
-    <header className="sticky top-0 z-50 h-16 border-b header-blur flex items-center shadow-sm">
-      <div className="container mx-auto px-4 lg:px-8 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity group">
-            <div className="relative">
-              <img
-                src="/logo.webp"
-                alt="daed"
-                className="w-9 h-9 rounded-lg shadow-sm group-hover:shadow-md transition-shadow"
-              />
-              <div className="absolute inset-0 rounded-lg ring-1 ring-black/5 dark:ring-white/10" />
-            </div>
-            <h1 className={cn('font-semibold tracking-tight', matchSmallScreen ? 'text-lg' : 'text-xl')}>daed</h1>
-          </Link>
-
+    <header className="sticky top-0 z-40 border-b border-[color:var(--shell-line)] bg-[color:var(--shell-page)]/82 backdrop-blur-[24px] supports-[backdrop-filter]:bg-[color:var(--shell-page)]/78">
+      <div className="mx-auto grid min-h-[74px] w-full max-w-[1480px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-5 lg:px-7">
+        <div className="flex min-w-0 items-center">
           {!matchSmallScreen && (
-            <SimpleTooltip label={normalizedEndpointURL}>
-              <Code className="text-xs font-semibold px-2 py-1 rounded-md bg-secondary/80 hover:bg-secondary transition-colors">
-                {import.meta.env.APP_VERSION}
-              </Code>
-            </SimpleTooltip>
+            <button
+              type="button"
+              className="hidden w-full max-w-[560px] items-center gap-3 rounded-xl border border-border/75 bg-background/70 px-3 py-2 text-left text-sm font-medium text-muted-foreground shadow-[0_4px_10px_rgba(15,23,42,0.03)] transition-colors hover:border-border hover:bg-background md:flex"
+              onClick={openCommandPalette}
+            >
+              <Search className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{t('shell.searchPlaceholder')}</span>
+              <span className="rounded-md border border-border/70 px-1.5 py-0.5 text-[11px] font-semibold text-[var(--shell-muted)]">
+                ⌘P
+              </span>
+            </button>
           )}
         </div>
 
-        <div className={cn('flex items-center', matchSmallScreen ? 'gap-1' : 'gap-2')}>
+        <div className={cn('flex items-center justify-end', matchSmallScreen ? 'gap-1.5' : 'gap-2')}>
           <input
             ref={bundleInputRef}
             type="file"
@@ -534,35 +515,47 @@ export function HeaderWithActions() {
             className="hidden"
             onChange={handleImportDAEConfigFile}
           />
+
+          {matchSmallScreen ? (
+            <SimpleTooltip label={t('shortcuts.commandPalette')}>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="rounded-xl border-border/75 bg-background/72"
+                onClick={openCommandPalette}
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </SimpleTooltip>
+          ) : null}
+
           {!matchSmallScreen && <ProfileSwitcher />}
 
-          <DropdownMenu open={userMenuOpened} onOpenChange={setUserMenuOpened}>
+          <Button
+            variant="outline"
+            size={matchSmallScreen ? 'icon-sm' : 'sm'}
+            className="rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_rgba(15,23,42,0.03)]"
+            disabled={runtimeMutationPending || !generalQuery?.general.dae.modified}
+            loading={reloadRuntimeMutation.isPending}
+            onClick={reloadConfig}
+          >
+            <RefreshCw className="h-4 w-4" />
+            {!matchSmallScreen && <span>{t('actions.reload')}</span>}
+          </Button>
+
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  'flex items-center gap-2 rounded-lg px-2.5 py-2 transition-all hover:bg-accent/80',
-                  userMenuOpened && 'bg-accent',
-                )}
+              <Button
+                variant="outline"
+                size={matchSmallScreen ? 'icon-sm' : 'sm'}
+                className="rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_rgba(15,23,42,0.03)]"
               >
-                <Avatar
-                  src={userQuery?.user?.avatar || 'https://avatars.githubusercontent.com/u/126714249?s=200&v=4'}
-                  alt="avatar"
-                  size={22}
-                />
-                <span className="text-sm font-medium leading-none">
-                  {userQuery?.user?.name || userQuery?.user?.username || 'unknown'}
-                </span>
-                <ChevronDown
-                  className={cn(
-                    'h-3.5 w-3.5 text-muted-foreground transition-transform',
-                    userMenuOpened && 'rotate-180',
-                  )}
-                />
-              </button>
+                <ArrowLeftRight className="h-4 w-4" />
+                {!matchSmallScreen && <span>{t('shell.transfer')}</span>}
+              </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[200px]">
-              <DropdownMenuLabel>{t('settings')}</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-[220px]">
+              <DropdownMenuLabel>{t('shell.transfer')}</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => void handleExportDAEConfigFile()}>
                 <Download className="mr-2 h-4 w-4" />
                 {t('daeFile.export')}
@@ -579,6 +572,71 @@ export function HeaderWithActions() {
                 <Upload className="mr-2 h-4 w-4" />
                 {t('bundle.import')}
               </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <SimpleTooltip label={t('actions.switchLanguage')}>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="rounded-xl border-border/75 bg-background/72"
+              onClick={toggleLanguage}
+            >
+              <Languages className="h-4 w-4" />
+            </Button>
+          </SimpleTooltip>
+
+          <ThemePicker />
+
+          <SimpleTooltip label={t('actions.switchRunning')}>
+            <div className="rounded-xl border border-border/75 bg-background/72 px-2 py-1 shadow-[0_4px_10px_rgba(15,23,42,0.03)]">
+              <Switch
+                size={matchSmallScreen ? 'xs' : 'md'}
+                onLabel={<Wifi className="h-3 w-3" />}
+                offLabel={<CloudOff className="h-3 w-3" />}
+                disabled={runtimeMutationPending}
+                checked={generalQuery?.general.dae.running ?? false}
+                onCheckedChange={(checked) => {
+                  setRuntimeRunning(checked)
+                }}
+              />
+            </div>
+          </SimpleTooltip>
+
+          <DropdownMenu open={userMenuOpened} onOpenChange={setUserMenuOpened}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  'flex items-center gap-2 rounded-xl border border-border/75 bg-background/75 px-2.5 py-1.5 text-left shadow-[0_4px_10px_rgba(15,23,42,0.03)] transition-colors hover:bg-background',
+                  userMenuOpened && 'border-border bg-background',
+                )}
+              >
+                <Avatar
+                  src={userQuery?.user?.avatar || 'https://avatars.githubusercontent.com/u/126714249?s=200&v=4'}
+                  alt="avatar"
+                  size={24}
+                />
+                {!matchSmallScreen && (
+                  <span className="max-w-[7rem] truncate text-sm font-semibold leading-none">
+                    {userQuery?.user?.name || userQuery?.user?.username || 'unknown'}
+                  </span>
+                )}
+                <ChevronDown
+                  className={cn(
+                    'h-3.5 w-3.5 text-muted-foreground transition-transform',
+                    userMenuOpened && 'rotate-180',
+                  )}
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[220px]">
+              <DropdownMenuLabel>{userQuery?.user?.name || userQuery?.user?.username || 'unknown'}</DropdownMenuLabel>
+              {normalizedEndpointURL && (
+                <DropdownMenuLabel className="pt-0 text-[11px] font-medium text-muted-foreground">
+                  {normalizedEndpointURL}
+                </DropdownMenuLabel>
+              )}
               <DropdownMenuItem
                 onClick={() => {
                   setFormData({
@@ -592,7 +650,6 @@ export function HeaderWithActions() {
                 <UserPen className="mr-2 h-4 w-4" />
                 {t('account settings')}
               </DropdownMenuItem>
-
               <DropdownMenuItem
                 onClick={() => {
                   setPasswordFormData({ currentPassword: '', newPassword: '', confirmPassword: '' })
@@ -603,230 +660,18 @@ export function HeaderWithActions() {
                 <KeyRound className="mr-2 h-4 w-4" />
                 {t('password.change')}
               </DropdownMenuItem>
-
+              <DropdownMenuItem onClick={openShortcutsModal}>
+                <Keyboard className="mr-2 h-4 w-4" />
+                {t('shortcuts.title')}
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => tokenAtom.set('')}>
                 <LogOut className="mr-2 h-4 w-4" />
                 {t('actions.logout')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {matchSmallScreen ? (
-            <Button variant="ghost" size="icon" className="rounded-full" onClick={toggleBurger}>
-              <Menu className="h-5 w-5" />
-            </Button>
-          ) : (
-            <Fragment>
-              <SimpleTooltip label="GitHub">
-                <a href="https://github.com/daeuniverse/daed" target="_blank" rel="noopener noreferrer">
-                  <Button variant="ghost" size="icon" className="rounded-full">
-                    <GithubIcon className="h-5 w-5" />
-                  </Button>
-                </a>
-              </SimpleTooltip>
-
-              <SimpleTooltip label={t('shortcuts.title')}>
-                <Button variant="ghost" size="icon" className="rounded-full" onClick={openShortcutsModal}>
-                  <Keyboard className="h-5 w-5" />
-                </Button>
-              </SimpleTooltip>
-
-              <SimpleTooltip label={t('actions.switchLanguage')}>
-                <Button variant="ghost" size="icon" className="rounded-full" onClick={toggleLanguage}>
-                  <Languages className="h-5 w-5" />
-                </Button>
-              </SimpleTooltip>
-
-              <ThemePicker />
-            </Fragment>
-          )}
-
-          {generalQuery?.general.dae.modified && (
-            <SimpleTooltip label={t('actions.reload')}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                disabled={runtimeMutationPending}
-                loading={reloadRuntimeMutation.isPending}
-                onClick={reloadConfig}
-              >
-                <RefreshCw className="h-5 w-5" />
-              </Button>
-            </SimpleTooltip>
-          )}
-
-          <SimpleTooltip label={t('actions.switchRunning')}>
-            <Switch
-              size={matchSmallScreen ? 'xs' : 'md'}
-              onLabel={<Wifi className="h-3 w-3" />}
-              offLabel={<CloudOff className="h-3 w-3" />}
-              disabled={runtimeMutationPending}
-              checked={generalQuery?.general.dae.running ?? false}
-              onCheckedChange={(checked) => {
-                setRuntimeRunning(checked)
-              }}
-            />
-          </SimpleTooltip>
         </div>
       </div>
-
-      <Sheet open={openedBurger} onOpenChange={closeBurger}>
-        <SheetContent side="right" size="default">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Menu</SheetTitle>
-          </SheetHeader>
-          <div className="flex flex-col gap-1 px-2 mt-6">
-            {/* Profile Switcher */}
-            <div className="mb-1">
-              <ProfileSwitcher />
-            </div>
-
-            {/* User Settings Section */}
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
-                {t('settings')}
-              </span>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-9 px-2"
-                onClick={() => {
-                  setFormData({
-                    username: userQuery?.user?.username || '',
-                    name: userQuery?.user?.name || '',
-                  })
-                  setFormErrors({})
-                  openAccountSettingsFormModal()
-                  closeBurger()
-                }}
-              >
-                <UserPen className="h-4 w-4" />
-                <span className="text-sm">{t('account settings')}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-9 px-2"
-                onClick={() => {
-                  setPasswordFormData({ currentPassword: '', newPassword: '', confirmPassword: '' })
-                  setPasswordFormErrors({})
-                  openPasswordChangeModal()
-                  closeBurger()
-                }}
-              >
-                <KeyRound className="h-4 w-4" />
-                <span className="text-sm">{t('password.change')}</span>
-              </Button>
-            </div>
-
-            <Separator className="my-1" />
-
-            {/* Appearance Section */}
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
-                {t('theme.title')}
-              </span>
-              <ThemePicker variant="button" />
-
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-9 px-2"
-                onClick={() => {
-                  toggleLanguage()
-                  closeBurger()
-                }}
-              >
-                <Languages className="h-4 w-4" />
-                <span className="text-sm">{t('actions.switchLanguage')}</span>
-              </Button>
-            </div>
-
-            <Separator className="my-1" />
-
-            {/* Debug & Tools Section */}
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider px-2 py-1">
-                {t('shortcuts.categories.general')}
-              </span>
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-9 px-2"
-                onClick={() => void handleExportDAEConfigFile()}
-              >
-                <Download className="h-4 w-4" />
-                <span className="text-sm">{t('daeFile.export')}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-9 px-2"
-                onClick={() => {
-                  daeConfigFileInputRef.current?.click()
-                  closeBurger()
-                }}
-              >
-                <Upload className="h-4 w-4" />
-                <span className="text-sm">{t('daeFile.import')}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-9 px-2"
-                onClick={() => void handleExportBundle()}
-              >
-                <Download className="h-4 w-4" />
-                <span className="text-sm">{t('bundle.export')}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-9 px-2"
-                onClick={() => {
-                  bundleInputRef.current?.click()
-                  closeBurger()
-                }}
-              >
-                <Upload className="h-4 w-4" />
-                <span className="text-sm">{t('bundle.import')}</span>
-              </Button>
-
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2 h-9 px-2"
-                onClick={() => {
-                  openShortcutsModal()
-                  closeBurger()
-                }}
-              >
-                <Keyboard className="h-4 w-4" />
-                <span className="text-sm">{t('shortcuts.title')}</span>
-              </Button>
-
-              <a href="https://github.com/daeuniverse/daed" target="_blank" rel="noopener noreferrer">
-                <Button variant="ghost" className="w-full justify-start gap-2 h-9 px-2">
-                  <GithubIcon className="h-4 w-4" />
-                  <span className="text-sm">GitHub</span>
-                </Button>
-              </a>
-            </div>
-
-            <Separator className="my-1" />
-
-            {/* Logout */}
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-2 h-9 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={() => {
-                tokenAtom.set('')
-                closeBurger()
-              }}
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="text-sm">{t('actions.logout')}</span>
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       <Dialog open={openedAccountSettingsFormModal} onOpenChange={closeAccountSettingsFormModal}>
         <DialogContent>

@@ -1,31 +1,14 @@
 import type { ChartConfig } from '~/components/ui/chart'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 import dayjs from 'dayjs'
-import {
-  Activity,
-  ArrowDown,
-  ArrowUp,
-  Download,
-  Link2,
-  Radio,
-  Upload,
-} from 'lucide-react'
+import { Activity, Radio } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import { useTrafficOverviewQuery } from '~/apis'
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '~/components/ui/chart'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '~/components/ui/card'
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/ui/chart'
+import { Card, CardContent, CardTitle } from '~/components/ui/card'
 import { Button } from '~/components/ui/button'
 import { cn } from '~/lib/utils'
 
@@ -62,20 +45,6 @@ function formatAxisRate(value: number) {
   return `${(value / 1024 ** 2).toFixed(value < 10 * 1024 ** 2 ? 1 : 0)}M`
 }
 
-function splitFormattedRate(value: number) {
-  const formatted = formatRate(value)
-  const spaceIndex = formatted.indexOf(' ')
-
-  if (spaceIndex === -1) {
-    return { amount: formatted, unit: '' }
-  }
-
-  return {
-    amount: formatted.slice(0, spaceIndex),
-    unit: formatted.slice(spaceIndex + 1),
-  }
-}
-
 function createTintStyle(colorVar: string): CSSProperties {
   return {
     backgroundColor: `color-mix(in oklab, ${colorVar} 8%, var(--card))`,
@@ -83,45 +52,77 @@ function createTintStyle(colorVar: string): CSSProperties {
   }
 }
 
-function createIconTintStyle(colorVar: string): CSSProperties {
-  return {
-    color: colorVar,
-    backgroundColor: `color-mix(in oklab, ${colorVar} 14%, transparent)`,
+function computeDynamicRateDomain(
+  data: Array<{
+    uploadRate: number
+    downloadRate: number
+  }>,
+): [number, number] {
+  const values = data.flatMap((sample) => [sample.uploadRate, sample.downloadRate]).filter((value) => Number.isFinite(value))
+
+  if (values.length === 0) {
+    return [0, 1]
   }
+
+  const minValue = Math.min(...values)
+  const maxValue = Math.max(...values)
+
+  if (minValue === maxValue) {
+    const padding = Math.max(minValue * 0.18, 1)
+    return [Math.max(0, minValue - padding), maxValue + padding]
+  }
+
+  const padding = (maxValue - minValue) * 0.18
+  return [Math.max(0, minValue - padding), maxValue + padding]
 }
 
-function TrafficMetricCard({
+function formatClockTime(value: string | undefined) {
+  if (!value) return '--:--'
+  return dayjs(value).format('HH:mm')
+}
+
+function MemoryMetricCard({
   title,
   amount,
   unit,
-  icon,
   colorVar,
 }: {
   title: string
   amount: string
-  unit: string
-  icon: ReactNode
+  unit?: string
+  colorVar: string
+}) {
+  return (
+    <div className="rounded-2xl border px-3.5 py-2.5 shadow-sm" style={createTintStyle(colorVar)}>
+      <p className="truncate text-xs font-semibold text-muted-foreground">{title}</p>
+      <div className="mt-1.5 flex items-baseline gap-1.5">
+        <span className="text-[1.15rem] font-extrabold leading-none tracking-tight text-foreground">{amount}</span>
+        {unit ? <span className="text-xs text-muted-foreground">{unit}</span> : null}
+      </div>
+    </div>
+  )
+}
+
+function BannerMetricCard({
+  title,
+  amount,
+  unit,
+  colorVar,
+}: {
+  title: string
+  amount: string
+  unit?: string
   colorVar: string
 }) {
   return (
     <div
-      className="h-full rounded-2xl border bg-card px-4 py-2.5 shadow-sm transition-colors"
+      className="rounded-2xl border px-3.5 py-2.5 shadow-sm"
       style={createTintStyle(colorVar)}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-2xl transition-colors"
-          style={createIconTintStyle(colorVar)}
-        >
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <div className="mt-0.5 flex items-baseline gap-1.5">
-            <span className="text-[1.55rem] font-extrabold leading-none tracking-tight text-foreground">{amount}</span>
-            {unit && <span className="text-sm text-muted-foreground">{unit}</span>}
-          </div>
-        </div>
+      <p className="truncate text-xs font-semibold text-muted-foreground">{title}</p>
+      <div className="mt-1.5 flex items-baseline gap-1.5">
+        <span className="text-[1.15rem] font-extrabold leading-none tracking-tight text-foreground">{amount}</span>
+        {unit ? <span className="text-xs text-muted-foreground">{unit}</span> : null}
       </div>
     </div>
   )
@@ -132,21 +133,13 @@ function toNumber(value: string | number | undefined | null) {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function TrafficRangeButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: string
-}) {
+function TrafficRangeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
   return (
     <Button
       variant="outline"
       size="xs"
       className={cn(
-        'rounded-full px-3 transition-colors',
+        'shrink-0 rounded-full px-3 transition-colors',
         active && 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15',
       )}
       onClick={onClick}
@@ -200,132 +193,149 @@ export function TrafficOverview() {
     [runtimeOverview],
   )
 
-  const uploadChartData = useMemo(
+  const combinedChartData = useMemo(
     () =>
       (runtimeOverview?.samples ?? []).map((sample) => ({
         timestamp: dayjs(sample.timestamp).valueOf(),
-        value: sample.uploadRate,
+        uploadRate: sample.uploadRate,
+        downloadRate: sample.downloadRate,
       })),
     [runtimeOverview?.samples],
   )
-  const downloadChartData = useMemo(
-    () =>
-      (runtimeOverview?.samples ?? []).map((sample) => ({
-        timestamp: dayjs(sample.timestamp).valueOf(),
-        value: sample.downloadRate,
-      })),
-    [runtimeOverview?.samples],
-  )
-
-  const uploadRateDisplay = splitFormattedRate(latestSample.uploadRate)
-  const downloadRateDisplay = splitFormattedRate(latestSample.downloadRate)
+  const chartRateDomain = useMemo(() => computeDynamicRateDomain(combinedChartData), [combinedChartData])
 
   return (
-    <Card
-      withBorder
-      shadow="sm"
-      padding="none"
-      className="overflow-hidden border-border/80 bg-card/90 backdrop-blur-sm"
-    >
-      <CardHeader className="gap-3 border-b border-border/70 px-6 py-4 sm:px-7">
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 rounded-full border border-primary/15 bg-primary/8 p-2 text-primary">
-            <Activity className="h-5 w-5" />
-          </div>
-          <div>
-            <CardTitle className="text-lg text-primary">{t('trafficOverview.title')}</CardTitle>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {TIME_RANGE_OPTIONS.map((option) => (
-            <TrafficRangeButton
-              key={option.key}
-              active={selectedRange === option.key}
-              onClick={() => setSelectedRange(option.key)}
-            >
-              {t(`trafficOverview.ranges.${option.key}`)}
-            </TrafficRangeButton>
-          ))}
-        </div>
-      </CardHeader>
-
-      <CardContent className="px-4 py-4 sm:px-5 sm:py-4">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,1fr)]">
-          <div className="grid h-full gap-4 md:grid-cols-2">
-            <div className="flex h-full flex-col rounded-2xl border border-border/70 bg-background/70 p-3.5 shadow-sm">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{t('trafficOverview.uploadChart')}</p>
-                </div>
+    <div className="flex flex-col gap-4">
+      <Card
+        withBorder
+        shadow="sm"
+        padding="none"
+        className="overflow-hidden border-border/80 bg-card/90 backdrop-blur-sm"
+      >
+        <CardContent className="px-4 py-3.5 sm:px-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="flex items-center gap-3 xl:min-w-[250px] xl:basis-[250px]">
+              <div className="rounded-full border border-primary/15 bg-primary/8 p-2 text-primary">
+                <Radio className="h-5 w-5" />
               </div>
-              <ChartContainer
-                config={chartConfig}
-                className="mt-2 flex-1 aspect-auto min-h-[180px] w-full"
-              >
-                <AreaChart data={uploadChartData} margin={{ left: 4, right: 4, top: 4, bottom: 2 }}>
+              <div className="min-w-0">
+                <CardTitle className="truncate text-lg text-foreground">{t('trafficOverview.memoryMonitorTitle')}</CardTitle>
+              </div>
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                {t('shell.live')}
+              </span>
+            </div>
+
+            <div className="grid flex-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <MemoryMetricCard
+                title={t('trafficOverview.rss')}
+                amount={formatBytes(latestSample.rssBytes).split(' ')[0]}
+                unit={formatBytes(latestSample.rssBytes).split(' ')[1] ?? ''}
+                colorVar="var(--chart-4)"
+              />
+              <MemoryMetricCard
+                title={t('trafficOverview.heapAlloc')}
+                amount={formatBytes(latestSample.heapAllocBytes).split(' ')[0]}
+                unit={formatBytes(latestSample.heapAllocBytes).split(' ')[1] ?? ''}
+                colorVar="var(--chart-5)"
+              />
+              <MemoryMetricCard
+                title={t('trafficOverview.goroutines')}
+                amount={latestSample.goroutines.toString()}
+                colorVar="var(--chart-3)"
+              />
+              <MemoryMetricCard
+                title={t('trafficOverview.lastUpdated')}
+                amount={formatClockTime(runtimeOverview?.updatedAt)}
+                colorVar="var(--primary)"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card
+        withBorder
+        shadow="sm"
+        padding="none"
+        className="overflow-hidden border-border/80 bg-card/90 backdrop-blur-sm"
+      >
+        <CardContent className="border-b border-border/70 px-4 py-3.5 sm:px-5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="flex items-center gap-3 xl:min-w-[250px] xl:basis-[250px]">
+              <div className="rounded-full border border-primary/15 bg-primary/8 p-2 text-primary">
+                <Activity className="h-5 w-5" />
+              </div>
+              <CardTitle className="truncate text-lg text-foreground">{t('trafficOverview.title')}</CardTitle>
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                {t('shell.live')}
+              </span>
+            </div>
+            <div className="grid flex-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+              <BannerMetricCard
+                title={t('trafficOverview.totalUpload')}
+                amount={formatBytes(latestSample.uploadTotal).split(' ')[0]}
+                unit={formatBytes(latestSample.uploadTotal).split(' ')[1] ?? ''}
+                colorVar="var(--chart-1)"
+              />
+              <BannerMetricCard
+                title={t('trafficOverview.totalDownload')}
+                amount={formatBytes(latestSample.downloadTotal).split(' ')[0]}
+                unit={formatBytes(latestSample.downloadTotal).split(' ')[1] ?? ''}
+                colorVar="var(--chart-2)"
+              />
+              <BannerMetricCard
+                title={t('trafficOverview.activeConnections')}
+                amount={latestSample.activeConnections.toString()}
+                unit={t('trafficOverview.connectionsUnit')}
+                colorVar="var(--primary)"
+              />
+              <BannerMetricCard
+                title={t('trafficOverview.udpSessions')}
+                amount={latestSample.udpSessions.toString()}
+                unit={t('trafficOverview.sessionsUnit')}
+                colorVar="var(--chart-3)"
+              />
+            </div>
+          </div>
+        </CardContent>
+
+        <CardContent className="px-4 py-4 sm:px-5 sm:py-4">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-muted-foreground">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--chart-1)]" />
+                  {t('trafficOverview.uploadLegend')}
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--chart-2)]" />
+                  {t('trafficOverview.downloadLegend')}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
+                {TIME_RANGE_OPTIONS.map((option) => (
+                  <TrafficRangeButton
+                    key={option.key}
+                    active={selectedRange === option.key}
+                    onClick={() => setSelectedRange(option.key)}
+                  >
+                    {t(`trafficOverview.ranges.${option.key}`)}
+                  </TrafficRangeButton>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-border/70 bg-background/72 p-4 shadow-sm">
+              <ChartContainer config={chartConfig} className="h-[360px] w-full sm:h-[400px]">
+                <AreaChart data={combinedChartData} margin={{ left: 4, right: 4, top: 4, bottom: 8 }}>
                   <defs>
                     <linearGradient id="traffic-upload-fill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="var(--color-upload)" stopOpacity={0.22} />
                       <stop offset="100%" stopColor="var(--color-upload)" stopOpacity={0} />
                     </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    type="number"
-                    scale="time"
-                    dataKey="timestamp"
-                    axisLine={false}
-                    tickLine={false}
-                    minTickGap={24}
-                    tickMargin={18}
-                    height={34}
-                    domain={[chartWindowStart, chartWindowEnd]}
-                    allowDataOverflow
-                    tickFormatter={(value) => dayjs(value).format('HH:mm')}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={10}
-                    width={60}
-                    tickFormatter={(value) => formatAxisRate(Number(value))}
-                    domain={[0, (dataMax: number) => Math.max(16 * 1024, dataMax * 1.15)]}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        labelFormatter={(value) => dayjs(Number(value)).format('HH:mm:ss')}
-                        formatter={(value) => formatRate(Number(value))}
-                        indicator="line"
-                      />
-                    }
-                  />
-                  <Area
-                    dataKey="value"
-                    type="monotone"
-                    stroke="var(--color-upload)"
-                    strokeWidth={2.5}
-                    fill="url(#traffic-upload-fill)"
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ChartContainer>
-            </div>
-
-            <div className="flex h-full flex-col rounded-2xl border border-border/70 bg-background/70 p-3.5 shadow-sm">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{t('trafficOverview.downloadChart')}</p>
-                </div>
-              </div>
-              <ChartContainer
-                config={chartConfig}
-                className="mt-2 flex-1 aspect-auto min-h-[180px] w-full"
-              >
-                <AreaChart data={downloadChartData} margin={{ left: 4, right: 4, top: 4, bottom: 2 }}>
-                  <defs>
                     <linearGradient id="traffic-download-fill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--color-download)" stopOpacity={0.2} />
+                      <stop offset="0%" stopColor="var(--color-download)" stopOpacity={0.18} />
                       <stop offset="100%" stopColor="var(--color-download)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
@@ -348,20 +358,31 @@ export function TrafficOverview() {
                     tickLine={false}
                     tickMargin={10}
                     width={60}
+                    tickCount={5}
                     tickFormatter={(value) => formatAxisRate(Number(value))}
-                    domain={[0, (dataMax: number) => Math.max(32 * 1024, dataMax * 1.15)]}
+                    domain={chartRateDomain}
                   />
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
                         labelFormatter={(value) => dayjs(Number(value)).format('HH:mm:ss')}
-                        formatter={(value) => formatRate(Number(value))}
+                        formatter={(value, name) =>
+                          `${name === 'uploadRate' ? t('trafficOverview.uploadLegend') : t('trafficOverview.downloadLegend')}: ${formatRate(Number(value))}`
+                        }
                         indicator="line"
                       />
                     }
                   />
                   <Area
-                    dataKey="value"
+                    dataKey="uploadRate"
+                    type="monotone"
+                    stroke="var(--color-upload)"
+                    strokeWidth={2.5}
+                    fill="url(#traffic-upload-fill)"
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    dataKey="downloadRate"
                     type="monotone"
                     stroke="var(--color-download)"
                     strokeWidth={2.5}
@@ -372,82 +393,9 @@ export function TrafficOverview() {
               </ChartContainer>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="grid h-full auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-2">
-            <TrafficMetricCard
-              title={t('trafficOverview.uploadSpeed')}
-              amount={uploadRateDisplay.amount}
-              unit={uploadRateDisplay.unit}
-              icon={<ArrowUp className="h-5 w-5" />}
-              colorVar="var(--chart-1)"
-            />
-            <TrafficMetricCard
-              title={t('trafficOverview.downloadSpeed')}
-              amount={downloadRateDisplay.amount}
-              unit={downloadRateDisplay.unit}
-              icon={<ArrowDown className="h-5 w-5" />}
-              colorVar="var(--chart-2)"
-            />
-            <TrafficMetricCard
-              title={t('trafficOverview.activeConnections')}
-              amount={latestSample.activeConnections.toString()}
-              unit={t('trafficOverview.connectionsUnit')}
-              icon={<Link2 className="h-5 w-5" />}
-              colorVar="var(--primary)"
-            />
-            <TrafficMetricCard
-              title={t('trafficOverview.totalUpload')}
-              amount={formatBytes(latestSample.uploadTotal).split(' ')[0]}
-              unit={formatBytes(latestSample.uploadTotal).split(' ')[1] ?? ''}
-              icon={<Upload className="h-5 w-5" />}
-              colorVar="var(--chart-1)"
-            />
-            <TrafficMetricCard
-              title={t('trafficOverview.totalDownload')}
-              amount={formatBytes(latestSample.downloadTotal).split(' ')[0]}
-              unit={formatBytes(latestSample.downloadTotal).split(' ')[1] ?? ''}
-              icon={<Download className="h-5 w-5" />}
-              colorVar="var(--chart-2)"
-            />
-            <TrafficMetricCard
-              title={t('trafficOverview.udpSessions')}
-              amount={latestSample.udpSessions.toString()}
-              unit={t('trafficOverview.sessionsUnit')}
-              icon={<Radio className="h-5 w-5" />}
-              colorVar="var(--chart-3)"
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 border-t border-border/60 pt-4">
-          <div className="mb-3">
-            <p className="text-sm font-semibold text-foreground">{t('trafficOverview.memoryTitle')}</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <TrafficMetricCard
-              title={t('trafficOverview.rss')}
-              amount={formatBytes(latestSample.rssBytes).split(' ')[0]}
-              unit={formatBytes(latestSample.rssBytes).split(' ')[1] ?? ''}
-              icon={<span className="text-[11px] font-bold">RSS</span>}
-              colorVar="var(--chart-4)"
-            />
-            <TrafficMetricCard
-              title={t('trafficOverview.heapAlloc')}
-              amount={formatBytes(latestSample.heapAllocBytes).split(' ')[0]}
-              unit={formatBytes(latestSample.heapAllocBytes).split(' ')[1] ?? ''}
-              icon={<span className="text-[11px] font-bold">HEAP</span>}
-              colorVar="var(--chart-5)"
-            />
-            <TrafficMetricCard
-              title={t('trafficOverview.goroutines')}
-              amount={latestSample.goroutines.toString()}
-              unit=""
-              icon={<span className="text-[11px] font-bold">GO</span>}
-              colorVar="var(--chart-3)"
-            />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }

@@ -51,6 +51,77 @@ export interface ThemeDefinition {
   dark: ThemeColors
 }
 
+export const iosTheme: ThemeDefinition = {
+  id: 'ios',
+  name: 'iOS',
+  light: {
+    background: 'oklch(0.976 0.006 257)',
+    foreground: 'oklch(0.22 0.015 260)',
+    card: 'oklch(1 0 0)',
+    cardForeground: 'oklch(0.22 0.015 260)',
+    popover: 'oklch(1 0 0)',
+    popoverForeground: 'oklch(0.22 0.015 260)',
+    primary: 'oklch(0.63 0.204 257)',
+    primaryForeground: 'oklch(0.99 0.002 260)',
+    secondary: 'oklch(0.958 0.01 257)',
+    secondaryForeground: 'oklch(0.28 0.012 260)',
+    muted: 'oklch(0.952 0.01 257)',
+    mutedForeground: 'oklch(0.55 0.015 257)',
+    accent: 'oklch(0.938 0.015 245)',
+    accentForeground: 'oklch(0.24 0.015 257)',
+    destructive: 'oklch(0.64 0.227 25)',
+    border: 'oklch(0.9 0.01 257)',
+    input: 'oklch(0.9 0.01 257)',
+    ring: 'oklch(0.63 0.204 257)',
+    chart1: 'oklch(0.63 0.204 257)',
+    chart2: 'oklch(0.74 0.17 151)',
+    chart3: 'oklch(0.75 0.164 209)',
+    chart4: 'oklch(0.77 0.171 80)',
+    chart5: 'oklch(0.69 0.202 16)',
+    sidebar: 'oklch(0.992 0.004 255)',
+    sidebarForeground: 'oklch(0.24 0.015 257)',
+    sidebarPrimary: 'oklch(0.63 0.204 257)',
+    sidebarPrimaryForeground: 'oklch(0.99 0.002 260)',
+    sidebarAccent: 'oklch(0.95 0.012 245)',
+    sidebarAccentForeground: 'oklch(0.24 0.015 257)',
+    sidebarBorder: 'oklch(0.91 0.01 257)',
+    sidebarRing: 'oklch(0.63 0.204 257)',
+  },
+  dark: {
+    background: 'oklch(0.205 0.016 265)',
+    foreground: 'oklch(0.96 0.006 250)',
+    card: 'oklch(0.255 0.016 265)',
+    cardForeground: 'oklch(0.96 0.006 250)',
+    popover: 'oklch(0.255 0.016 265)',
+    popoverForeground: 'oklch(0.96 0.006 250)',
+    primary: 'oklch(0.72 0.169 255)',
+    primaryForeground: 'oklch(0.18 0.012 265)',
+    secondary: 'oklch(0.3 0.015 265)',
+    secondaryForeground: 'oklch(0.95 0.006 250)',
+    muted: 'oklch(0.29 0.015 265)',
+    mutedForeground: 'oklch(0.72 0.015 250)',
+    accent: 'oklch(0.33 0.017 255)',
+    accentForeground: 'oklch(0.96 0.006 250)',
+    destructive: 'oklch(0.62 0.208 25)',
+    border: 'oklch(0.34 0.014 265)',
+    input: 'oklch(0.34 0.014 265)',
+    ring: 'oklch(0.72 0.169 255)',
+    chart1: 'oklch(0.72 0.169 255)',
+    chart2: 'oklch(0.76 0.145 151)',
+    chart3: 'oklch(0.74 0.141 209)',
+    chart4: 'oklch(0.81 0.15 80)',
+    chart5: 'oklch(0.7 0.184 16)',
+    sidebar: 'oklch(0.23 0.014 265)',
+    sidebarForeground: 'oklch(0.96 0.006 250)',
+    sidebarPrimary: 'oklch(0.72 0.169 255)',
+    sidebarPrimaryForeground: 'oklch(0.18 0.012 265)',
+    sidebarAccent: 'oklch(0.31 0.017 255)',
+    sidebarAccentForeground: 'oklch(0.96 0.006 250)',
+    sidebarBorder: 'oklch(0.34 0.014 265)',
+    sidebarRing: 'oklch(0.72 0.169 255)',
+  },
+}
+
 // Amber/Gold theme (current default)
 export const amberTheme: ThemeDefinition = {
   id: 'amber',
@@ -629,6 +700,7 @@ export const tealTheme: ThemeDefinition = {
 
 // All available themes
 export const themes: ThemeDefinition[] = [
+  iosTheme,
   amberTheme,
   oceanTheme,
   roseTheme,
@@ -643,11 +715,21 @@ export const themeIds = themes.map((t) => t.id) as [string, ...string[]]
 
 export type ThemeId = (typeof themes)[number]['id']
 
-export const DEFAULT_THEME_ID: ThemeId = 'amber'
+export const LEGACY_DEFAULT_THEME_ID: ThemeId = 'amber'
+export const DEFAULT_THEME_ID: ThemeId = 'ios'
+export const THEME_STATE_MIGRATION_VERSION = 'ios-default-v1'
 
 // Helper function to get theme by ID
 export function getThemeById(id: string): ThemeDefinition | undefined {
   return themes.find((t) => t.id === id)
+}
+
+export function resolveStoredThemeId(themeId: string | undefined, migrationVersion?: string): ThemeId {
+  if (migrationVersion !== THEME_STATE_MIGRATION_VERSION && (!themeId || themeId === LEGACY_DEFAULT_THEME_ID)) {
+    return DEFAULT_THEME_ID
+  }
+
+  return (getThemeById(themeId || '')?.id as ThemeId | undefined) ?? DEFAULT_THEME_ID
 }
 
 // Helper function to convert theme colors to CSS variables

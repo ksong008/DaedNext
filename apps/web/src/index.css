@@ -200,6 +200,17 @@ form {
   --sidebar-accent-foreground: oklch(0.18 0.02 60);
   --sidebar-border: oklch(0.92 0.015 85);
   --sidebar-ring: oklch(0.75 0.18 85);
+  --shell-page: #f4f6fb;
+  --shell-sidebar: #fbfcff;
+  --shell-surface: #ffffff;
+  --shell-surface-soft: #f8faff;
+  --shell-surface-tint: #eef5ff;
+  --shell-line: #dfe4ee;
+  --shell-text: #161b26;
+  --shell-muted: #687184;
+  --shell-muted-strong: #4e596d;
+  --shell-blue-soft: rgba(10, 132, 255, 0.1);
+  --shell-blue-strong: #006bd6;
 }
 
 .dark {
@@ -234,6 +245,17 @@ form {
   --sidebar-accent-foreground: oklch(0.95 0.015 85);
   --sidebar-border: oklch(0.28 0.015 60);
   --sidebar-ring: oklch(0.82 0.165 85);
+  --shell-page: #161922;
+  --shell-sidebar: #1b202b;
+  --shell-surface: #202633;
+  --shell-surface-soft: #252d3a;
+  --shell-surface-tint: rgba(10, 132, 255, 0.16);
+  --shell-line: rgba(148, 163, 184, 0.18);
+  --shell-text: #edf2ff;
+  --shell-muted: #a6b0c2;
+  --shell-muted-strong: #d4dceb;
+  --shell-blue-soft: rgba(10, 132, 255, 0.18);
+  --shell-blue-strong: #7bc1ff;
 }
 
 @layer base {
@@ -248,6 +270,55 @@ form {
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
+
+.daed-shell {
+  min-height: 100vh;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(244, 246, 251, 0) 420px), var(--shell-page);
+}
+
+.dark .daed-shell {
+  background: linear-gradient(180deg, rgba(43, 51, 67, 0.58), rgba(22, 25, 34, 0) 360px), var(--shell-page);
+}
+
+.shell-mobile-tabs {
+  display: none;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: none;
+}
+
+.shell-mobile-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.shell-mobile-nav {
+  display: none;
+  position: fixed;
+  right: 0.875rem;
+  bottom: max(0.875rem, env(safe-area-inset-bottom));
+  left: 0.875rem;
+  z-index: 30;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.25rem;
+  padding: 0.45rem;
+  border: 1px solid var(--shell-line);
+  border-radius: 1rem;
+  background: color-mix(in oklab, var(--shell-surface) 88%, transparent);
+  box-shadow: 0 18px 38px rgba(22, 27, 38, 0.16);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+@media (max-width: 767px) {
+  .shell-mobile-tabs {
+    display: flex;
+  }
+
+  .shell-mobile-nav {
+    display: grid;
   }
 }
 

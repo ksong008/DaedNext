@@ -8,6 +8,7 @@ import {
   mockGeneral,
   mockGroups,
   mockNodes,
+  getMockRuntimeOverview,
   mockRoutings,
   mockSubscriptions,
   mockUser,
@@ -77,19 +78,7 @@ export class MockAPIClient implements APIClientInterface {
           })),
         } as T
       case 'GET /runtime/overview':
-        return {
-          updatedAt: new Date().toISOString(),
-          uploadRate: '0',
-          downloadRate: '0',
-          uploadTotal: '0',
-          downloadTotal: '0',
-          activeConnections: 0,
-          udpSessions: 0,
-          rssBytes: '0',
-          heapAllocBytes: '0',
-          goroutines: 0,
-          samples: [],
-        } as T
+        return getMockRuntimeOverview(toQueryNumber(query?.windowSec, 60), toQueryNumber(query?.maxPoints, 240)) as T
       case 'GET /nodes/latencies':
       case 'POST /nodes/latencies':
         return { items: [] } as T
@@ -397,6 +386,15 @@ function toQueryArray(value: APIQueryValue): string[] {
     return []
   }
   return [String(value)]
+}
+
+function toQueryNumber(value: APIQueryValue, fallback: number): number {
+  if (Array.isArray(value)) {
+    const parsed = Number(value[0])
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
 }
 
 function numericID(value: string | number): number {

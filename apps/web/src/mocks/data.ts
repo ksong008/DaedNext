@@ -64,6 +64,84 @@ export const mockGeneral: GeneralStateView = {
   },
 } as any
 
+interface MockRuntimeOverviewSample {
+  timestamp: string
+  uploadRate: string
+  downloadRate: string
+}
+
+interface MockRuntimeOverviewResponse {
+  updatedAt: string
+  uploadRate: string
+  downloadRate: string
+  uploadTotal: string
+  downloadTotal: string
+  activeConnections: number
+  udpSessions: number
+  rssBytes: string
+  heapAllocBytes: string
+  goroutines: number
+  samples: MockRuntimeOverviewSample[]
+}
+
+const MOCK_UPLOAD_TOTAL_BYTES = Math.round(18.6 * 1024 ** 3)
+const MOCK_DOWNLOAD_TOTAL_BYTES = Math.round(143.2 * 1024 ** 3)
+
+function clampToInt(value: number) {
+  return Math.max(0, Math.round(value))
+}
+
+function createMockRuntimeSamples(
+  windowSec: number,
+  pointCount: number,
+  endMs = Date.now(),
+): MockRuntimeOverviewSample[] {
+  const safePointCount = Math.max(2, pointCount)
+  const startMs = endMs - windowSec * 1000
+  const stepMs = (windowSec * 1000) / (safePointCount - 1)
+
+  return Array.from({ length: safePointCount }, (_, index) => {
+    const progress = index / (safePointCount - 1)
+    const timestamp = new Date(startMs + stepMs * index).toISOString()
+    const trend = 0.42 + progress * 0.58
+    const uploadWave = 0.18 * Math.sin(progress * Math.PI * 6)
+    const uploadPulse = 0.07 * Math.sin(progress * Math.PI * 18)
+    const downloadWave = 0.22 * Math.sin(progress * Math.PI * 6 + 0.75)
+    const downloadPulse = 0.08 * Math.cos(progress * Math.PI * 14)
+
+    const uploadRate = clampToInt((4.2 + 14.4 * trend + 5.6 * uploadWave + 2.2 * uploadPulse) * 1024 ** 2)
+    const downloadRate = clampToInt((6.1 + 15.9 * trend + 6.4 * downloadWave + 2.6 * downloadPulse) * 1024 ** 2)
+
+    return {
+      timestamp,
+      uploadRate: String(uploadRate),
+      downloadRate: String(downloadRate),
+    }
+  })
+}
+
+export function getMockRuntimeOverview(windowSec = 60, maxPoints = 240): MockRuntimeOverviewResponse {
+  const normalizedWindowSec = Math.max(60, windowSec)
+  const normalizedPointCount = Math.max(24, maxPoints)
+  const samples = createMockRuntimeSamples(normalizedWindowSec, normalizedPointCount)
+  const updatedAt = samples.at(-1)?.timestamp || new Date().toISOString()
+  const latestSample = samples.at(-1)
+
+  return {
+    updatedAt,
+    uploadRate: latestSample?.uploadRate || '0',
+    downloadRate: latestSample?.downloadRate || '0',
+    uploadTotal: String(MOCK_UPLOAD_TOTAL_BYTES),
+    downloadTotal: String(MOCK_DOWNLOAD_TOTAL_BYTES),
+    activeConnections: 284,
+    udpSessions: 37,
+    rssBytes: String(Math.round(96.2 * 1024 ** 2)),
+    heapAllocBytes: String(Math.round(31.4 * 1024 ** 2)),
+    goroutines: 42,
+    samples,
+  }
+}
+
 // Configs
 export const mockConfigs: ConfigListView = {
   configs: [

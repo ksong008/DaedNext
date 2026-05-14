@@ -49,6 +49,7 @@ export type AppState = {
 export const modeAtom = persistentAtom<MODE>('mode')
 export const tokenAtom = persistentAtom<string>('token')
 export const endpointURLAtom = persistentAtom<string>('endpointURL', DEFAULT_ENDPOINT_URL)
+export const themeMigrationVersionAtom = persistentAtom<string>('themeMigrationVersion', '')
 export const appStateAtom = persistentMap<AppState>(
   'APP_STATE',
   {

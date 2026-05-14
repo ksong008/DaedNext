@@ -1,5 +1,6 @@
 export * from './default'
 export * from './editor'
 export * from './misc'
+export * from './navigation'
 export * from './schema'
 export * from './themes'

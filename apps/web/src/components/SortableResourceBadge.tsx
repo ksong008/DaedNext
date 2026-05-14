@@ -33,42 +33,42 @@ export function SortableResourceBadge({
       {...provided.draggableProps}
       style={getInstantDropStyle(provided, snapshot)}
       className={cn(
-        'group relative flex min-h-11 items-center gap-2 overflow-hidden rounded-lg border bg-card px-3.5 py-2.5 select-none',
+        'group relative flex min-h-12 items-center gap-2.5 overflow-hidden rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/90 px-3.5 py-3 select-none',
         'transition-[shadow,border-color,opacity,background-color] duration-200',
-        'hover:shadow-sm hover:border-primary/30 hover:bg-accent/50',
-        snapshot.isDragging && 'opacity-90 z-10 shadow-lg ring-2 ring-primary/20',
+        'hover:border-primary/24 hover:bg-[color:var(--shell-surface-soft)]/92 hover:shadow-[0_10px_22px_rgba(15,23,42,0.06)]',
+        snapshot.isDragging && 'z-10 opacity-92 shadow-lg ring-2 ring-primary/20',
       )}
     >
-      {/* Drag handle */}
       <div
-        className="flex shrink-0 cursor-grab items-center justify-center rounded-md p-1.5 touch-none active:cursor-grabbing"
+        className="flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-[12px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/88 p-1.5 touch-none active:cursor-grabbing"
         {...provided.dragHandleProps}
       >
-        <GripVertical className="h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-muted-foreground/70" />
+        <GripVertical className="h-4 w-4 text-muted-foreground/45 transition-colors group-hover:text-muted-foreground/70" />
       </div>
 
-      {/* Protocol badge */}
       {protocol && (
-        <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-primary/10 text-primary">
+        <span className="shrink-0 rounded-full bg-[color:var(--shell-blue-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--shell-blue-strong)]">
           {protocol}
         </span>
       )}
 
-      {/* Main content */}
-      <div className="flex-1 min-w-0">
-        <span className="text-xs font-medium truncate block">{name}</span>
-        {subtitle && <span className="text-[10px] text-muted-foreground truncate block mt-0.5">{subtitle}</span>}
-        {address && <span className="text-[10px] text-muted-foreground truncate block mt-0.5">{address}</span>}
+      <div className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-semibold text-foreground">{name}</span>
+        {subtitle && <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{subtitle}</span>}
+        {address && <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">{address}</span>}
       </div>
 
-      {meta && <span className="shrink-0 text-[10px] font-medium text-primary">{meta}</span>}
+      {meta && (
+        <span className="shrink-0 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
+          {meta}
+        </span>
+      )}
 
-      {/* Remove button */}
       {onRemove && (
         <Button
           variant="ghost"
           size="xs"
-          className="h-5 w-5 p-0 rounded-full sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          className="h-7 w-7 shrink-0 rounded-full border border-transparent p-0 text-muted-foreground transition-opacity hover:border-destructive/10 hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
           onClick={(e) => {
             e.stopPropagation()
             onRemove()
