@@ -24,6 +24,12 @@ interface MockLatencyResult {
 }
 
 const absoluteOriginPattern = /^https?:\/\/[^/]+/
+const groupIDPattern = /^group-(\d+)$/
+const nodeIDPattern = /^node-(\d+)$/
+const subscriptionIDPattern = /^sub-(\d+)$/
+const subscriptionNodeIDPattern = /^sub(\d+)-node-(\d+)$/
+const groupNodesPathPattern = /^\/groups\/([^/]+)\/nodes$/
+const groupSubscriptionsPathPattern = /^\/groups\/([^/]+)\/subscriptions$/
 const numericIDPattern = /(\d+)/
 
 const mockStorage = new Map<string, string>([
@@ -94,7 +100,7 @@ export class MockAPIClient implements APIClientInterface {
         return { items: updateMockLatencies(body) } as T
       case 'GET /nodes':
         return {
-          items: mockNodes.nodes.items,
+          items: mockNodes.nodes.items.map((node) => toMockNodeAPI(node)),
           totalCount: mockNodes.nodes.items.length,
         } as T
       case 'GET /subscriptions':
@@ -112,7 +118,7 @@ export class MockAPIClient implements APIClientInterface {
             ...(toQueryArray(query?.expand).includes('nodes')
               ? {
                   nodes: {
-                    items: subscription.nodes.items,
+                    items: subscription.nodes.items.map((node) => toMockNodeAPI(node, subscription.id)),
                     totalCount: subscription.nodes.items.length,
                   },
                 }
@@ -126,28 +132,12 @@ export class MockAPIClient implements APIClientInterface {
             name: group.name,
             policy: group.policy,
             policyParams: group.policyParams,
-            nodes: group.nodes.map((node) => ({
-              id: numericID(node.id),
-              link: node.link,
-              name: node.name,
-              address: node.address,
-              protocol: node.protocol,
-              tag: node.tag,
-              subscriptionId: node.subscriptionID ? numericID(node.subscriptionID) : null,
-            })),
+            nodes: group.nodes.map((node) => toMockNodeAPI(node)),
             subscriptions: group.subscriptions.map((binding) => ({
               subscriptionId: numericID(binding.subscription.id),
               nameFilterRegex: binding.nameFilterRegex,
               matchedCount: binding.matchedCount,
-              matchedNodes: binding.matchedNodes.map((node) => ({
-                id: numericID(node.id),
-                link: node.link,
-                name: node.name,
-                address: node.address,
-                protocol: node.protocol,
-                tag: node.tag,
-                subscriptionId: node.subscriptionID ? numericID(node.subscriptionID) : null,
-              })),
+              matchedNodes: binding.matchedNodes.map((node) => toMockNodeAPI(node)),
               updatedAt: binding.subscription.updatedAt,
               status: binding.subscription.status,
               info: binding.subscription.info,
@@ -362,6 +352,30 @@ export class MockAPIClient implements APIClientInterface {
       return { stopped: true } as T
     }
 
+    const groupNodesMatch = path.match(groupNodesPathPattern)
+    if (groupNodesMatch && (method === 'POST' || method === 'DELETE')) {
+      const payload = body as { nodeIds?: number[] }
+      const updated =
+        method === 'POST'
+          ? addMockGroupNodes(groupNodesMatch[1], payload.nodeIds ?? [])
+          : deleteMockGroupNodes(groupNodesMatch[1], payload.nodeIds ?? [])
+      return { updated } as T
+    }
+
+    const groupSubscriptionsMatch = path.match(groupSubscriptionsPathPattern)
+    if (groupSubscriptionsMatch && (method === 'POST' || method === 'DELETE')) {
+      const payload = body as { subscriptionIds?: number[]; nameFilterRegex?: string | null }
+      const updated =
+        method === 'POST'
+          ? addMockGroupSubscriptions(
+              groupSubscriptionsMatch[1],
+              payload.subscriptionIds ?? [],
+              payload.nameFilterRegex ?? null,
+            )
+          : deleteMockGroupSubscriptions(groupSubscriptionsMatch[1], payload.subscriptionIds ?? [])
+      return { updated } as T
+    }
+
     if (method === 'POST' && (path.endsWith('/select') || path.endsWith('/refresh'))) {
       return { applied: 1, selectedId: 1, id: 1 } as T
     }
@@ -418,7 +432,18 @@ function toQueryNumber(value: APIQueryValue, fallback: number): number {
 }
 
 function numericID(value: string | number): number {
-  const match = String(value).match(numericIDPattern)
+  const text = String(value)
+  const groupMatch = text.match(groupIDPattern)
+  if (groupMatch) return Number.parseInt(groupMatch[1], 10)
+  const nodeMatch = text.match(nodeIDPattern)
+  if (nodeMatch) return Number.parseInt(nodeMatch[1], 10)
+  const subscriptionMatch = text.match(subscriptionIDPattern)
+  if (subscriptionMatch) return Number.parseInt(subscriptionMatch[1], 10)
+  const subscriptionNodeMatch = text.match(subscriptionNodeIDPattern)
+  if (subscriptionNodeMatch) {
+    return Number.parseInt(subscriptionNodeMatch[1], 10) * 100 + Number.parseInt(subscriptionNodeMatch[2], 10)
+  }
+  const match = text.match(numericIDPattern)
   return match ? Number.parseInt(match[1], 10) : 0
 }
 
@@ -461,6 +486,155 @@ function allMockLatencyNodeIds() {
   }
 
   return Array.from(ids)
+}
+
+function toMockNodeAPI(
+  node: {
+    id: string
+    link: string
+    name: string
+    address?: string | null
+    protocol?: string | null
+    tag?: string | null
+    subscriptionID?: string | null
+  },
+  fallbackSubscriptionID?: string | null,
+) {
+  const subscriptionID = node.subscriptionID ?? fallbackSubscriptionID ?? null
+  return {
+    id: numericID(node.id),
+    link: node.link,
+    name: node.name,
+    address: node.address ?? '',
+    protocol: node.protocol ?? '',
+    tag: node.tag ?? null,
+    subscriptionId: subscriptionID ? numericID(subscriptionID) : null,
+  }
+}
+
+function findMockGroup(groupID: string | number) {
+  const id = numericID(groupID)
+  return mockGroups.groups.find((group) => numericID(group.id) === id)
+}
+
+function findMockNode(nodeID: string | number) {
+  const id = numericID(nodeID)
+  const manualNode = mockNodes.nodes.items.find((node) => numericID(node.id) === id)
+  if (manualNode) {
+    return {
+      ...manualNode,
+      address: manualNode.address ?? '',
+      tag: manualNode.tag ?? null,
+      subscriptionID: null,
+    }
+  }
+
+  for (const subscription of mockSubscriptions.subscriptions) {
+    const subscriptionNode = subscription.nodes.items.find((node) => numericID(node.id) === id)
+    if (subscriptionNode) {
+      return {
+        ...subscriptionNode,
+        address: '',
+        tag: null,
+        subscriptionID: subscription.id,
+      }
+    }
+  }
+
+  return null
+}
+
+function addMockGroupNodes(groupID: string | number, nodeIDs: number[]) {
+  const group = findMockGroup(groupID)
+  if (!group) return 0
+
+  let updated = 0
+  const existingNodeIDs = new Set(group.nodes.map((node) => numericID(node.id)))
+  for (const nodeID of nodeIDs) {
+    if (existingNodeIDs.has(nodeID)) continue
+
+    const node = findMockNode(nodeID)
+    if (!node) continue
+
+    group.nodes.push(node)
+    existingNodeIDs.add(nodeID)
+    updated += 1
+  }
+
+  return updated
+}
+
+function deleteMockGroupNodes(groupID: string | number, nodeIDs: number[]) {
+  const group = findMockGroup(groupID)
+  if (!group) return 0
+
+  const deletedNodeIDs = new Set(nodeIDs)
+  const before = group.nodes.length
+  group.nodes = group.nodes.filter((node) => !deletedNodeIDs.has(numericID(node.id)))
+  return before - group.nodes.length
+}
+
+function addMockGroupSubscriptions(
+  groupID: string | number,
+  subscriptionIDs: number[],
+  nameFilterRegex: string | null,
+) {
+  const group = findMockGroup(groupID)
+  if (!group) return 0
+
+  let regex: RegExp | null = null
+  if (nameFilterRegex) {
+    regex = new RegExp(nameFilterRegex)
+  }
+
+  let updated = 0
+  const existingSubscriptionIDs = new Set(group.subscriptions.map((binding) => numericID(binding.subscription.id)))
+
+  for (const subscriptionID of subscriptionIDs) {
+    if (existingSubscriptionIDs.has(subscriptionID)) continue
+
+    const subscription = mockSubscriptions.subscriptions.find((item) => numericID(item.id) === subscriptionID)
+    if (!subscription) continue
+
+    const matchedNodes = subscription.nodes.items
+      .filter((node) => !regex || regex.test(node.name))
+      .map((node) => ({
+        ...node,
+        address: '',
+        tag: null,
+        subscriptionID: subscription.id,
+      }))
+
+    group.subscriptions.push({
+      matchedCount: matchedNodes.length,
+      nameFilterRegex,
+      subscription: {
+        id: subscription.id,
+        updatedAt: subscription.updatedAt,
+        tag: subscription.tag,
+        link: subscription.link,
+        status: subscription.status,
+        info: subscription.info,
+      },
+      matchedNodes,
+    })
+    existingSubscriptionIDs.add(subscriptionID)
+    updated += 1
+  }
+
+  return updated
+}
+
+function deleteMockGroupSubscriptions(groupID: string | number, subscriptionIDs: number[]) {
+  const group = findMockGroup(groupID)
+  if (!group) return 0
+
+  const deletedSubscriptionIDs = new Set(subscriptionIDs)
+  const before = group.subscriptions.length
+  group.subscriptions = group.subscriptions.filter(
+    (binding) => !deletedSubscriptionIDs.has(numericID(binding.subscription.id)),
+  )
+  return before - group.subscriptions.length
 }
 
 function requestedMockLatencyNodeIds(body: unknown) {

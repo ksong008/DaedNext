@@ -6,7 +6,7 @@ import type {
   NodeResource,
   SubscriptionResource,
 } from '~/apis/types'
-import { CloudCog, Map, Settings } from 'lucide-react'
+import { CloudCog, Map as MapIcon, Pencil, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '~/components/ui/badge'
@@ -149,6 +149,8 @@ function CurrentGroupPathCard({
   destination,
   latencyTitle,
   latencyLabel,
+  editGroupLabel,
+  onEditGroup,
 }: {
   groupName: string
   currentLabel: string
@@ -157,6 +159,8 @@ function CurrentGroupPathCard({
   destination?: { title: string; subtitle: string; tooltipNodes?: string[] }
   latencyTitle: string
   latencyLabel?: string
+  editGroupLabel?: string
+  onEditGroup?: () => void
 }) {
   const destinationContent = (
     <div className={cn('min-w-0', destination?.tooltipNodes?.length ? 'cursor-default' : '')}>
@@ -168,7 +172,24 @@ function CurrentGroupPathCard({
   )
 
   return (
-    <article className="rounded-[16px] border border-border bg-accent/35 px-3.5 py-3 shadow-sm">
+    <article
+      className={cn(
+        'relative rounded-[16px] border border-border bg-accent/35 py-3 pl-3.5 shadow-sm',
+        onEditGroup ? 'pr-11' : 'pr-3.5',
+      )}
+    >
+      {onEditGroup && editGroupLabel ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="absolute top-2.5 right-2.5 h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
+          aria-label={editGroupLabel}
+          onClick={onEditGroup}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      ) : null}
       <div className="grid grid-cols-[minmax(0,0.86fr)_auto_minmax(0,1.14fr)] items-center gap-3">
         <div className="min-w-0">
           <span className="block truncate text-xs font-semibold text-muted-foreground">{currentLabel}</span>
@@ -370,6 +391,7 @@ export function WorkspaceSummaryCards({
   nodeLatencies,
   onOpenConfig,
   onOpenGroup,
+  onEditGroupResources,
   onOpenNodes,
   onOpenSubscriptions,
   onTestAllNodeLatencies,
@@ -385,6 +407,7 @@ export function WorkspaceSummaryCards({
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
   onOpenConfig?: () => void
   onOpenGroup?: () => void
+  onEditGroupResources?: (groupId: string) => void
   onOpenNodes?: () => void
   onOpenSubscriptions?: () => void
   onTestAllNodeLatencies?: () => void | Promise<void>
@@ -394,14 +417,22 @@ export function WorkspaceSummaryCards({
   const { t } = useTranslation()
 
   const activeConfig = selectedConfig ?? configs[0]
+  const subscriptionNameById = new Map(
+    subscriptions.map((subscription) => [subscription.id, subscription.tag || subscription.link]),
+  )
   const groupPathCards = groups.map((group) => {
     const directNode = group.nodes[0]
+    const directNodeSubscriptionName = directNode?.subscriptionID
+      ? subscriptionNameById.get(directNode.subscriptionID)
+      : undefined
     const subscriptionBinding = group.subscriptions[0]
     const subscriptionNodes = subscriptionBinding?.matchedNodes ?? []
     const destination = directNode
       ? {
           title: getNodeDisplayName(directNode),
-          subtitle: t('workspaceSummary.manualNode'),
+          subtitle: directNode.subscriptionID
+            ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
+            : t('workspaceSummary.manualNode'),
         }
       : subscriptionBinding
         ? {
@@ -477,7 +508,7 @@ export function WorkspaceSummaryCards({
       <SummaryShell
         title={t('group')}
         subtitle={t('workspaceSummary.groupSubtitle')}
-        icon={<Map className="h-4.5 w-4.5" />}
+        icon={<MapIcon className="h-4.5 w-4.5" />}
         actionLabel={t('actions.viewDetails')}
         onAction={onOpenGroup}
       >
@@ -492,6 +523,8 @@ export function WorkspaceSummaryCards({
               destination={destination}
               latencyTitle={t('latency.label')}
               latencyLabel={latencyLabel}
+              editGroupLabel={t('groupPicker.editGroupResources')}
+              onEditGroup={onEditGroupResources ? () => onEditGroupResources(group.id) : undefined}
             />
           ))}
         </div>

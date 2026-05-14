@@ -1,13 +1,20 @@
-import type { GroupFormModalRef } from '~/components/GroupFormModal'
+import type { DraggableProvidedDragHandleProps, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import type { NodeLatencyProbeResult } from '~/apis'
+import type {
+  GroupListView,
+  GroupResource as GroupResourceView,
+  GroupSubscriptionResource,
+  NodeListView,
+  Policy,
+  SubscriptionListView,
+} from '~/apis/types'
+import type { GroupFormModalRef } from '~/components/GroupFormModal'
+import type { GroupPickerItem } from '~/components/GroupResourcePickerModal'
 import type { DraggingResource } from '~/constants'
-import type { GroupResource, GroupSubscriptionResource, GroupListView, NodeListView, Policy, SubscriptionListView } from '~/apis/types'
-import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
-import type { DraggableStateSnapshot } from '@hello-pangea/dnd'
 import { Draggable, Droppable } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
-import { Settings2, Table2 } from 'lucide-react'
 
+import { Settings2, Table2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -23,11 +30,7 @@ import {
 } from '~/apis'
 import { DroppableGroupCard } from '~/components/DroppableGroupCard'
 import { GroupFormModal } from '~/components/GroupFormModal'
-import {
-  GroupAddNodesModal,
-  GroupAddSubscriptionsModal,
-  type GroupPickerItem,
-} from '~/components/GroupResourcePickerModal'
+import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
 import { Section } from '~/components/Section'
 import { SortableGroupContent } from '~/components/SortableGroupContent'
 import { Button } from '~/components/ui/button'
@@ -35,10 +38,15 @@ import { SimpleTooltip } from '~/components/ui/tooltip'
 import { DraggableResourceType } from '~/constants'
 import { useDisclosure } from '~/hooks'
 import { cn } from '~/lib/utils'
-import { getInstantDropStyle } from '~/utils'
 import { appStateAtom, defaultResourcesAtom } from '~/store'
+import { getInstantDropStyle } from '~/utils'
 
 const GROUP_DROPPABLE_ID = 'group-list'
+
+interface NodePickerCandidate {
+  node: NodeListView['nodes']['items'][number]
+  sourceLabel: string
+}
 
 export function GroupResource({
   highlight,
@@ -92,9 +100,12 @@ export function GroupResource({
     return undefined
   }, [draggingResource])
 
-  const groups: GroupListView['groups'] = groupsQuery?.groups || []
-  const nodes: NodeListView['nodes']['items'] = nodesQuery?.nodes.items || []
-  const subscriptions: SubscriptionListView['subscriptions'] = subscriptionsQuery?.subscriptions || []
+  const groups = useMemo<GroupListView['groups']>(() => groupsQuery?.groups ?? [], [groupsQuery?.groups])
+  const nodes = useMemo<NodeListView['nodes']['items']>(() => nodesQuery?.nodes.items ?? [], [nodesQuery?.nodes.items])
+  const subscriptions = useMemo<SubscriptionListView['subscriptions']>(
+    () => subscriptionsQuery?.subscriptions ?? [],
+    [subscriptionsQuery?.subscriptions],
+  )
   const groupSortOrder = appState.groupSortableKeys as string[]
 
   const setGroupExpanded = useCallback((groupId: string, expanded: boolean) => {
@@ -138,65 +149,57 @@ export function GroupResource({
     [groups, addingSubscriptionsGroupId],
   )
 
+  const nodePickerCandidates = useMemo<NodePickerCandidate[]>(() => {
+    const candidates: NodePickerCandidate[] = []
+    const seenNodeIds = new Set<string>()
+    const pushNode = (node: NodeListView['nodes']['items'][number], sourceLabel: string) => {
+      if (seenNodeIds.has(node.id)) return
+      seenNodeIds.add(node.id)
+      candidates.push({ node, sourceLabel })
+    }
+
+    for (const node of nodes) {
+      pushNode(node, t('groupPicker.manualNode'))
+    }
+
+    for (const subscription of subscriptions) {
+      const subscriptionName = subscription.tag || subscription.link
+      const sourceLabel = t('groupPicker.fromSubscription', { name: subscriptionName })
+      for (const node of subscription.nodes.items) {
+        pushNode(node, sourceLabel)
+      }
+    }
+
+    return candidates
+  }, [nodes, subscriptions, t])
+
+  const toNodePickerItem = useCallback(
+    ({ node, sourceLabel }: NodePickerCandidate): GroupPickerItem => {
+      const title = node.tag || node.name || node.address || node.id
+      const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
+      const metaTone: GroupPickerItem['metaTone'] = nodeLatencies?.[node.id] ? 'primary' : 'default'
+
+      return {
+        id: node.id,
+        title,
+        description: description || undefined,
+        meta: [node.transport, sourceLabel, formatLatencyMeta(nodeLatencies?.[node.id])].filter(Boolean).join(' · '),
+        metaTone,
+        badge: node.protocol || undefined,
+        keywords: [node.name, node.tag, node.address, node.protocol, sourceLabel].filter(Boolean) as string[],
+      }
+    },
+    [nodeLatencies],
+  )
+
   const addableNodeItems = useMemo<GroupPickerItem[]>(() => {
     if (!addingNodesGroup) return []
 
-    const existingNodeIds = new Set(addingNodesGroup.nodes.map((node) => node.id))
-
-    const manualNodeItems = nodes
-      .filter((node) => !existingNodeIds.has(node.id))
-      .map((node) => {
-        const title = node.tag || node.name || node.address || node.id
-        const description = [node.name && node.name !== title ? node.name : '', node.address]
-          .filter(Boolean)
-          .join(' · ')
-        const metaTone: GroupPickerItem['metaTone'] = nodeLatencies?.[node.id] ? 'primary' : 'default'
-
-        return {
-          id: node.id,
-          title,
-          description: description || undefined,
-          meta: [node.transport, t('groupPicker.manualNode'), formatLatencyMeta(nodeLatencies?.[node.id])]
-            .filter(Boolean)
-            .join(' · '),
-          metaTone,
-          badge: node.protocol || undefined,
-          keywords: [node.name, node.tag, node.address, node.protocol].filter(Boolean) as string[],
-        }
-      })
-
-    const subscriptionNodeItems = subscriptions.flatMap((subscription) => {
-      const subscriptionName = subscription.tag || subscription.link
-
-      return subscription.nodes.items
-        .filter((node) => !existingNodeIds.has(node.id))
-        .map((node) => {
-          const title = node.tag || node.name || node.address || node.id
-          const description = [node.name && node.name !== title ? node.name : '', node.address]
-            .filter(Boolean)
-            .join(' · ')
-          const metaTone: GroupPickerItem['metaTone'] = nodeLatencies?.[node.id] ? 'primary' : 'default'
-
-          return {
-            id: node.id,
-            title,
-            description: description || undefined,
-            meta: [
-              node.transport,
-              t('groupPicker.fromSubscription', { name: subscriptionName }),
-              formatLatencyMeta(nodeLatencies?.[node.id]),
-            ]
-              .filter(Boolean)
-              .join(' · '),
-            metaTone,
-            badge: node.protocol || undefined,
-            keywords: [node.name, node.tag, node.address, node.protocol, subscriptionName].filter(Boolean) as string[],
-          }
-        })
-    })
-
-    return [...manualNodeItems, ...subscriptionNodeItems]
-  }, [addingNodesGroup, nodeLatencies, nodes, subscriptions, t])
+    const existingNodeKeys = new Set(addingNodesGroup.nodes.flatMap(getNodeIdentityKeys))
+    return nodePickerCandidates
+      .filter(({ node }) => !getNodeIdentityKeys(node).some((key) => existingNodeKeys.has(key)))
+      .map((candidate) => toNodePickerItem(candidate))
+  }, [addingNodesGroup, nodePickerCandidates, toNodePickerItem])
 
   const addableSubscriptionItems = useMemo<GroupPickerItem[]>(() => {
     if (!addingSubscriptionsGroup) return []
@@ -259,7 +262,7 @@ export function GroupResource({
     groupId: string
     name: string
     policy: Policy
-    groupNodes: GroupResource['nodes']
+    groupNodes: GroupResourceView['nodes']
     groupSubscriptions: GroupSubscriptionResource[]
     dragHandleProps?: DraggableProvidedDragHandleProps | null
     snapshot?: DraggableStateSnapshot
@@ -431,4 +434,20 @@ function formatLatencyMeta(result?: NodeLatencyProbeResult) {
     return result.message === 'no latency result' ? 'N/A' : 'Fail'
   }
   return 'N/A'
+}
+
+function getNodeIdentityKeys(node: {
+  id?: string | null
+  tag?: string | null
+  name?: string | null
+  link?: string | null
+  address?: string | null
+}) {
+  return [
+    node.id ? `id:${node.id}` : null,
+    node.tag ? `tag:${node.tag}` : null,
+    node.name ? `name:${node.name}` : null,
+    node.link ? `link:${node.link}` : null,
+    node.address ? `address:${node.address}` : null,
+  ].filter(Boolean) as string[]
 }

@@ -1,11 +1,14 @@
 import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
 import type { NodeLatencyProbeResult } from '~/apis'
 import type { GroupListView, NodeListView, SubscriptionListView } from '~/apis/types'
+import type { GroupPickerItem } from '~/components/GroupResourcePickerModal'
 import type { DraggingResource } from '~/constants'
 import { DragDropContext } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
+import { ListPlus, Network } from 'lucide-react'
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import {
   useConfigsQuery,
@@ -13,12 +16,14 @@ import {
   useGroupAddNodesMutation,
   useGroupAddSubscriptionsMutation,
   useGroupDelNodesMutation,
+  useGroupDelSubscriptionsMutation,
   useGroupsQuery,
   useNodeLatenciesQuery,
   useNodesQuery,
   useSubscriptionsQuery,
   useTestNodeLatenciesMutation,
 } from '~/apis'
+import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
 import { Dialog, DialogTitle } from '~/components/ui/dialog'
 import {
   ScrollableDialogBody,
@@ -61,6 +66,13 @@ const MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS = 8_000
 const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
 const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
 
+type SummaryGroupEditMode = 'actions' | 'nodes' | 'subscriptions'
+
+interface NodePickerCandidate {
+  node: NodeListView['nodes']['items'][number]
+  sourceLabel: string
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   return new Promise<T>((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
@@ -80,6 +92,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
 }
 
 export function OrchestratePage() {
+  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: configsQuery } = useConfigsQuery()
@@ -91,6 +104,7 @@ export function OrchestratePage() {
   const groupAddNodesMutation = useGroupAddNodesMutation()
   const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
   const groupDelNodesMutation = useGroupDelNodesMutation()
+  const groupDelSubscriptionsMutation = useGroupDelSubscriptionsMutation()
   const testNodeLatenciesMutation = useTestNodeLatenciesMutation()
   const [manualLatencyProbeProgress, setManualLatencyProbeProgress] = useState<{
     completed: number
@@ -104,6 +118,8 @@ export function OrchestratePage() {
   const [isDragging, setIsDragging] = useState(false)
   const [dragDestinationDroppableId, setDragDestinationDroppableId] = useState<string | null>(null)
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
+  const [summaryEditingGroupId, setSummaryEditingGroupId] = useState<string | null>(null)
+  const [summaryGroupEditMode, setSummaryGroupEditMode] = useState<SummaryGroupEditMode | null>(null)
   const autoScrollFrameRef = useRef<number | null>(null)
   const draggingActiveRef = useRef(false)
   const edgeAutoScrollEnabledRef = useRef(false)
@@ -395,6 +411,106 @@ export function OrchestratePage() {
     return sortedGroupIds.map((id) => groupMap.get(id)).filter(Boolean) as typeof groups
   }, [groups, sortedGroupIds])
 
+  const summaryEditingGroup = useMemo(
+    () => sortedGroups.find((group) => group.id === summaryEditingGroupId) ?? null,
+    [sortedGroups, summaryEditingGroupId],
+  )
+
+  const summaryNodePickerCandidates = useMemo<NodePickerCandidate[]>(() => {
+    const candidates: NodePickerCandidate[] = []
+    const seenNodeIds = new Set<string>()
+    const subscriptionNameById = new Map(
+      sortedSubscriptions.map((subscription) => [subscription.id, subscription.tag || subscription.link]),
+    )
+    const pushNode = (node: NodeListView['nodes']['items'][number], sourceLabel: string) => {
+      if (seenNodeIds.has(node.id)) return
+      seenNodeIds.add(node.id)
+      candidates.push({ node, sourceLabel })
+    }
+
+    for (const node of sortedNodes) {
+      const subscriptionName = node.subscriptionID ? subscriptionNameById.get(node.subscriptionID) : undefined
+      pushNode(
+        node,
+        node.subscriptionID
+          ? t('groupPicker.fromSubscription', { name: subscriptionName ?? node.subscriptionID })
+          : t('groupPicker.manualNode'),
+      )
+    }
+
+    for (const subscription of sortedSubscriptions) {
+      const subscriptionName = subscription.tag || subscription.link
+      const sourceLabel = t('groupPicker.fromSubscription', { name: subscriptionName })
+      for (const node of subscription.nodes.items) {
+        pushNode(node, sourceLabel)
+      }
+    }
+
+    return candidates
+  }, [sortedNodes, sortedSubscriptions, t])
+
+  const toSummaryNodePickerItem = useCallback(
+    ({ node, sourceLabel }: NodePickerCandidate): GroupPickerItem => {
+      const title = node.tag || node.name || node.address || node.id
+      const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
+      const metaTone: GroupPickerItem['metaTone'] = nodeLatencies[node.id] ? 'primary' : 'default'
+
+      return {
+        id: node.id,
+        title,
+        description: description || undefined,
+        meta: [node.transport, sourceLabel, formatLatencyMeta(nodeLatencies[node.id])].filter(Boolean).join(' · '),
+        metaTone,
+        badge: node.protocol || undefined,
+        keywords: [node.name, node.tag, node.address, node.protocol, sourceLabel].filter(Boolean) as string[],
+      }
+    },
+    [nodeLatencies],
+  )
+
+  const summaryEditableNodeItems = useMemo<GroupPickerItem[]>(
+    () => summaryNodePickerCandidates.map((candidate) => toSummaryNodePickerItem(candidate)),
+    [summaryNodePickerCandidates, toSummaryNodePickerItem],
+  )
+
+  const summarySelectedNodeItemIds = useMemo(() => {
+    if (!summaryEditingGroup) return []
+
+    return summaryEditingGroup.nodes
+      .map((node) => findNodePickerId(node, summaryNodePickerCandidates))
+      .filter(Boolean) as string[]
+  }, [summaryEditingGroup, summaryNodePickerCandidates])
+
+  const summaryEditableSubscriptionItems = useMemo<GroupPickerItem[]>(
+    () =>
+      sortedSubscriptions.map((subscription) => {
+        const title = subscription.tag || subscription.link
+        const description = subscription.tag && subscription.tag !== subscription.link ? subscription.link : undefined
+
+        return {
+          id: subscription.id,
+          title,
+          description,
+          meta: `${subscription.nodes.items.length} ${t('node')}`,
+          previewNodes: subscription.nodes.items.map((node) => ({
+            id: node.id,
+            title: node.name,
+            protocol: node.protocol || undefined,
+            transport: node.transport || undefined,
+          })),
+          keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(
+            Boolean,
+          ) as string[],
+        }
+      }),
+    [sortedSubscriptions, t],
+  )
+
+  const summarySelectedSubscriptionItemIds = useMemo(
+    () => summaryEditingGroup?.subscriptions.map((binding) => binding.subscription.id) ?? [],
+    [summaryEditingGroup],
+  )
+
   // Helper to parse group item IDs (format: groupId-node-nodeId or groupId-sub-subId)
   const parseGroupItemId = useCallback(
     (id: string): { groupId: string; type: 'node' | 'sub'; itemId: string } | null => {
@@ -649,7 +765,9 @@ export function OrchestratePage() {
             )
             if (
               targetGroup &&
-              !targetGroup.nodes.some((node: GroupListView['groups'][number]['nodes'][number]) => node.id === parsed.itemId)
+              !targetGroup.nodes.some(
+                (node: GroupListView['groups'][number]['nodes'][number]) => node.id === parsed.itemId,
+              )
             ) {
               groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [parsed.itemId] })
               return
@@ -847,6 +965,16 @@ export function OrchestratePage() {
     [searchParams, setSearchParams],
   )
 
+  const openSummaryGroupEdit = useCallback((groupId: string) => {
+    setSummaryEditingGroupId(groupId)
+    setSummaryGroupEditMode('actions')
+  }, [])
+
+  const closeSummaryGroupEdit = useCallback(() => {
+    setSummaryGroupEditMode(null)
+    setSummaryEditingGroupId(null)
+  }, [])
+
   const closeWorkspacePanel = useCallback(() => {
     const nextSearchParams = new URLSearchParams(searchParams)
     nextSearchParams.delete('panel')
@@ -869,11 +997,147 @@ export function OrchestratePage() {
         nodeLatencies={nodeLatencies}
         onOpenConfig={() => openWorkspacePanel('config')}
         onOpenGroup={() => openWorkspacePanel('group')}
+        onEditGroupResources={openSummaryGroupEdit}
         onOpenNodes={() => openWorkspacePanel('node')}
         onOpenSubscriptions={() => openWorkspacePanel('subscription')}
         onTestAllNodeLatencies={testAllNodeLatencies}
         testingLatencies={manualLatencyProbeProgress !== null}
         testingLatencyProgress={manualLatencyProbeProgress}
+      />
+
+      <Dialog open={summaryGroupEditMode === 'actions'} onOpenChange={(open) => !open && closeSummaryGroupEdit()}>
+        <ScrollableDialogContent size="md">
+          <ScrollableDialogHeader>
+            <DialogTitle>
+              {t('groupPicker.editGroupResourcesTitle', { name: summaryEditingGroup?.name || t('group') })}
+            </DialogTitle>
+          </ScrollableDialogHeader>
+          <ScrollableDialogBody className="grid gap-3 p-4 sm:p-5">
+            <button
+              type="button"
+              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-card/80 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/45 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+              disabled={!summaryEditingGroup}
+              onClick={() => setSummaryGroupEditMode('nodes')}
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                <ListPlus className="h-4.5 w-4.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-foreground">
+                  {t('groupPicker.editNodePicker')}
+                </span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">
+                  {t('groupPicker.nodesCount', { count: summaryEditingGroup?.nodes.length ?? 0 })}
+                </span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-card/80 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/45 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+              disabled={!summaryEditingGroup}
+              onClick={() => setSummaryGroupEditMode('subscriptions')}
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
+                <Network className="h-4.5 w-4.5" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-foreground">
+                  {t('groupPicker.editSubscriptionPicker')}
+                </span>
+                <span className="mt-1 block truncate text-xs text-muted-foreground">
+                  {t('groupPicker.subscriptionGroupsCount', {
+                    count: summaryEditingGroup?.subscriptions.length ?? 0,
+                  })}
+                </span>
+              </span>
+            </button>
+          </ScrollableDialogBody>
+        </ScrollableDialogContent>
+      </Dialog>
+
+      <GroupAddNodesModal
+        opened={summaryGroupEditMode === 'nodes'}
+        onClose={closeSummaryGroupEdit}
+        groupName={summaryEditingGroup?.name || t('group')}
+        title={t('groupPicker.editNodesTitle', { name: summaryEditingGroup?.name || t('group') })}
+        submitLabel={t('groupPicker.saveNodeSelection')}
+        items={summaryEditableNodeItems}
+        initialSelectedIds={summarySelectedNodeItemIds}
+        allowEmptySubmit
+        loading={groupAddNodesMutation.isPending || groupDelNodesMutation.isPending}
+        resetKey={summaryEditingGroupId || ''}
+        onSubmit={async (nodeIDs) => {
+          if (!summaryEditingGroupId || !summaryEditingGroup) return
+
+          const selectedNodeIds = new Set(nodeIDs)
+          const existingNodeItemIds = new Set(summarySelectedNodeItemIds)
+          const nodeIDsToAdd = nodeIDs.filter((nodeID) => !existingNodeItemIds.has(nodeID))
+          const nodeIDsToDelete = summaryEditingGroup.nodes
+            .filter((node) => {
+              const pickerId = findNodePickerId(node, summaryNodePickerCandidates)
+              return pickerId ? !selectedNodeIds.has(pickerId) : false
+            })
+            .map((node) => node.id)
+
+          await Promise.all([
+            nodeIDsToAdd.length
+              ? groupAddNodesMutation.mutateAsync({
+                  id: summaryEditingGroupId,
+                  nodeIDs: nodeIDsToAdd,
+                })
+              : Promise.resolve(),
+            nodeIDsToDelete.length
+              ? groupDelNodesMutation.mutateAsync({
+                  id: summaryEditingGroupId,
+                  nodeIDs: nodeIDsToDelete,
+                })
+              : Promise.resolve(),
+          ])
+        }}
+      />
+
+      <GroupAddSubscriptionsModal
+        opened={summaryGroupEditMode === 'subscriptions'}
+        onClose={closeSummaryGroupEdit}
+        groupName={summaryEditingGroup?.name || t('group')}
+        title={t('groupPicker.editSubscriptionsTitle', { name: summaryEditingGroup?.name || t('group') })}
+        submitLabel={t('groupPicker.saveSubscriptionSelection')}
+        items={summaryEditableSubscriptionItems}
+        initialSelectedIds={summarySelectedSubscriptionItemIds}
+        allowEmptySubmit
+        loading={groupAddSubscriptionsMutation.isPending || groupDelSubscriptionsMutation.isPending}
+        resetKey={summaryEditingGroupId || ''}
+        onSubmit={async ({ ids: subscriptionIDs, nameFilterRegex }) => {
+          if (!summaryEditingGroupId || !summaryEditingGroup) return
+
+          const selectedSubscriptionIds = new Set(subscriptionIDs)
+          const existingSubscriptionIds = new Set(
+            summaryEditingGroup.subscriptions.map((binding) => binding.subscription.id),
+          )
+          const subscriptionIDsToAdd = subscriptionIDs.filter(
+            (subscriptionID) => !existingSubscriptionIds.has(subscriptionID),
+          )
+          const subscriptionIDsToDelete = summaryEditingGroup.subscriptions
+            .filter((binding) => !selectedSubscriptionIds.has(binding.subscription.id))
+            .map((binding) => binding.subscription.id)
+
+          await Promise.all([
+            subscriptionIDsToAdd.length
+              ? groupAddSubscriptionsMutation.mutateAsync({
+                  id: summaryEditingGroupId,
+                  subscriptionIDs: subscriptionIDsToAdd,
+                  nameFilterRegex,
+                })
+              : Promise.resolve(),
+            subscriptionIDsToDelete.length
+              ? groupDelSubscriptionsMutation.mutateAsync({
+                  id: summaryEditingGroupId,
+                  subscriptionIDs: subscriptionIDsToDelete,
+                })
+              : Promise.resolve(),
+          ])
+        }}
       />
 
       <Dialog open={!!activeWorkspacePanel} onOpenChange={(open) => !open && closeWorkspacePanel()}>
@@ -939,4 +1203,48 @@ export function OrchestratePage() {
       </Dialog>
     </div>
   )
+}
+
+function formatLatencyMeta(result?: NodeLatencyProbeResult) {
+  if (!result) {
+    return undefined
+  }
+  if (typeof result.latencyMs === 'number') {
+    return result.message ? `${result.latencyMs}ms · ${result.message}` : `${result.latencyMs}ms`
+  }
+  if (result.message) {
+    return result.message === 'no latency result' ? 'N/A' : 'Fail'
+  }
+  return 'N/A'
+}
+
+function getNodeIdentityKeys(node: {
+  id?: string | null
+  tag?: string | null
+  name?: string | null
+  link?: string | null
+  address?: string | null
+}) {
+  return [
+    node.id ? `id:${node.id}` : null,
+    node.tag ? `tag:${node.tag}` : null,
+    node.name ? `name:${node.name}` : null,
+    node.link ? `link:${node.link}` : null,
+    node.address ? `address:${node.address}` : null,
+  ].filter(Boolean) as string[]
+}
+
+function findNodePickerId(
+  node: {
+    id?: string | null
+    tag?: string | null
+    name?: string | null
+    link?: string | null
+    address?: string | null
+  },
+  candidates: NodePickerCandidate[],
+) {
+  const nodeKeys = new Set(getNodeIdentityKeys(node))
+  return candidates.find(({ node: candidate }) => getNodeIdentityKeys(candidate).some((key) => nodeKeys.has(key)))?.node
+    .id
 }

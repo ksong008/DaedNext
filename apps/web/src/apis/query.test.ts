@@ -1,7 +1,19 @@
-import { describe, expect, it } from 'vitest'
-
 import type { TrafficOverviewQueryData } from './types'
+
+import { describe, expect, it } from 'vitest'
+import { deriveTransport } from './node_transport'
 import { mergeRuntimeOverviewDelta } from './runtime_overview'
+
+describe('deriveTransport', () => {
+  it('marks SS2022 shadowsocks links as ss2022 transport', () => {
+    expect(
+      deriveTransport(
+        'ss://2022-blake3-aes-128-gcm:MTIzNDU2Nzg5MDEyMzQ1Ng==@example.com:443#ss2022-node',
+        'shadowsocks',
+      ),
+    ).toBe('ss2022')
+  })
+})
 
 describe('mergeRuntimeOverviewDelta', () => {
   it('appends new delta samples and updates scalar fields', () => {

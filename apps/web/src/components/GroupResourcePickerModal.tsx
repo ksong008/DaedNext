@@ -44,6 +44,8 @@ interface SelectionDialogProps {
   submitLabel: string
   loading?: boolean
   items: GroupPickerItem[]
+  initialSelectedIds?: string[]
+  allowEmptySubmit?: boolean
   resetKey: string
   layout: SelectionDialogLayout
   onSubmit: (ids: string[]) => Promise<void>
@@ -59,6 +61,8 @@ function SelectionDialog({
   submitLabel,
   loading,
   items,
+  initialSelectedIds = [],
+  allowEmptySubmit = false,
   resetKey,
   layout,
   onSubmit,
@@ -66,11 +70,12 @@ function SelectionDialog({
   const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const initialSelectedKey = initialSelectedIds.join('\u0000')
 
   useEffect(() => {
     setQuery('')
-    setSelectedIds([])
-  }, [opened, resetKey])
+    setSelectedIds(initialSelectedKey ? initialSelectedKey.split('\u0000') : [])
+  }, [initialSelectedKey, opened, resetKey])
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -98,7 +103,7 @@ function SelectionDialog({
   }
 
   const handleSubmit = async () => {
-    if (selectedCount === 0) return
+    if (!allowEmptySubmit && selectedCount === 0) return
 
     await onSubmit(selectedIds)
     handleClose()
@@ -110,7 +115,9 @@ function SelectionDialog({
         <ScrollableDialogHeader>
           <div className="pr-8">
             <DialogTitle>{title}</DialogTitle>
-            <p className="mt-2 text-sm text-muted-foreground">{t('groupPicker.selectedCount', { count: selectedCount })}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {t('groupPicker.selectedCount', { count: selectedCount })}
+            </p>
           </div>
         </ScrollableDialogHeader>
 
@@ -151,7 +158,9 @@ function SelectionDialog({
                       }
                     }}
                   >
-                    <div className={cn('flex min-w-0 gap-3', isSubscriptionChipLayout ? 'items-center' : 'items-start')}>
+                    <div
+                      className={cn('flex min-w-0 gap-3', isSubscriptionChipLayout ? 'items-center' : 'items-start')}
+                    >
                       <Checkbox
                         checked={checked}
                         className={cn('shrink-0', !isSubscriptionChipLayout && 'mt-0.5')}
@@ -187,7 +196,9 @@ function SelectionDialog({
                             )}
                           </div>
 
-                          {item.description && <p className="mt-1 truncate text-xs text-muted-foreground">{item.description}</p>}
+                          {item.description && (
+                            <p className="mt-1 truncate text-xs text-muted-foreground">{item.description}</p>
+                          )}
                           {item.meta && (
                             <p
                               className={cn(
@@ -216,7 +227,11 @@ function SelectionDialog({
           <Button variant="ghost" onClick={handleClose} disabled={loading}>
             {t('actions.cancel')}
           </Button>
-          <Button onClick={handleSubmit} loading={loading} disabled={selectedCount === 0 || loading}>
+          <Button
+            onClick={handleSubmit}
+            loading={loading}
+            disabled={(!allowEmptySubmit && selectedCount === 0) || loading}
+          >
             {submitLabel}
           </Button>
         </ScrollableDialogFooter>
@@ -230,6 +245,10 @@ export function GroupAddNodesModal({
   onClose,
   groupName,
   items,
+  title,
+  submitLabel,
+  initialSelectedIds = [],
+  allowEmptySubmit,
   loading,
   resetKey,
   onSubmit,
@@ -238,6 +257,10 @@ export function GroupAddNodesModal({
   onClose: () => void
   groupName: string
   items: GroupPickerItem[]
+  title?: string
+  submitLabel?: string
+  initialSelectedIds?: string[]
+  allowEmptySubmit?: boolean
   loading?: boolean
   resetKey: string
   onSubmit: (ids: string[]) => Promise<void>
@@ -248,12 +271,14 @@ export function GroupAddNodesModal({
     <SelectionDialog
       opened={opened}
       onClose={onClose}
-      title={t('groupPicker.addNodesTitle', { name: groupName })}
+      title={title ?? t('groupPicker.addNodesTitle', { name: groupName })}
       searchPlaceholder={t('groupPicker.searchNodesPlaceholder')}
       emptyLabel={t('groupPicker.noAvailableNodes')}
       noResultsLabel={t('groupPicker.noSearchResults')}
-      submitLabel={t('groupPicker.addSelectedNodes')}
+      submitLabel={submitLabel ?? t('groupPicker.addSelectedNodes')}
       items={items}
+      initialSelectedIds={initialSelectedIds}
+      allowEmptySubmit={allowEmptySubmit}
       loading={loading}
       resetKey={resetKey}
       layout="node-card"
@@ -267,6 +292,10 @@ export function GroupAddSubscriptionsModal({
   onClose,
   groupName,
   items,
+  title,
+  submitLabel,
+  initialSelectedIds = [],
+  allowEmptySubmit,
   loading,
   resetKey,
   onSubmit,
@@ -275,6 +304,10 @@ export function GroupAddSubscriptionsModal({
   onClose: () => void
   groupName: string
   items: GroupPickerItem[]
+  title?: string
+  submitLabel?: string
+  initialSelectedIds?: string[]
+  allowEmptySubmit?: boolean
   loading?: boolean
   resetKey: string
   onSubmit: (values: { ids: string[]; nameFilterRegex?: string | null }) => Promise<void>
@@ -284,13 +317,14 @@ export function GroupAddSubscriptionsModal({
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [nameFilterRegex, setNameFilterRegex] = useState('')
   const [serverRegexError, setServerRegexError] = useState<string | null>(null)
+  const initialSelectedKey = initialSelectedIds.join('\u0000')
 
   useEffect(() => {
     setQuery('')
-    setSelectedIds([])
+    setSelectedIds(initialSelectedKey ? initialSelectedKey.split('\u0000') : [])
     setNameFilterRegex('')
     setServerRegexError(null)
-  }, [opened, resetKey])
+  }, [initialSelectedKey, opened, resetKey])
 
   const filteredItems = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
@@ -303,10 +337,7 @@ export function GroupAddSubscriptionsModal({
     )
   }, [items, query])
 
-  const selectedItems = useMemo(
-    () => items.filter((item) => selectedIds.includes(item.id)),
-    [items, selectedIds],
-  )
+  const selectedItems = useMemo(() => items.filter((item) => selectedIds.includes(item.id)), [items, selectedIds])
 
   const trimmedRegex = nameFilterRegex.trim()
 
@@ -314,7 +345,8 @@ export function GroupAddSubscriptionsModal({
     if (!trimmedRegex) return null
     try {
       // Validate user input before sending it to the backend.
-      new RegExp(trimmedRegex)
+      const regex = new RegExp(trimmedRegex)
+      regex.test('')
       return null
     } catch (error) {
       return error instanceof Error ? error.message : t('groupPicker.invalidRegex')
@@ -353,7 +385,10 @@ export function GroupAddSubscriptionsModal({
   }
 
   const submitDisabled =
-    selectedIds.length === 0 || !!regexError || !!loading || (trimmedRegex.length > 0 && totalMatchedNodes === 0)
+    (!allowEmptySubmit && selectedIds.length === 0) ||
+    !!regexError ||
+    !!loading ||
+    (selectedIds.length > 0 && trimmedRegex.length > 0 && totalMatchedNodes === 0)
 
   const handleSubmit = async () => {
     if (submitDisabled) return
@@ -379,7 +414,7 @@ export function GroupAddSubscriptionsModal({
       <ScrollableDialogContent size="xl">
         <ScrollableDialogHeader>
           <div className="pr-8">
-            <DialogTitle>{t('groupPicker.addSubscriptionsTitle', { name: groupName })}</DialogTitle>
+            <DialogTitle>{title ?? t('groupPicker.addSubscriptionsTitle', { name: groupName })}</DialogTitle>
             <p className="mt-2 text-sm text-muted-foreground">
               {t('groupPicker.selectedCount', { count: selectedIds.length })}
             </p>
@@ -434,7 +469,9 @@ export function GroupAddSubscriptionsModal({
                         <span
                           className={cn(
                             'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
-                            item.metaTone === 'primary' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                            item.metaTone === 'primary'
+                              ? 'bg-primary/10 text-primary'
+                              : 'bg-muted text-muted-foreground',
                           )}
                         >
                           {item.meta}
@@ -481,7 +518,9 @@ export function GroupAddSubscriptionsModal({
               <p className="mt-4 text-sm text-muted-foreground">{t('groupPicker.subscriptionPreviewSelectFirst')}</p>
             ) : previewGroups.every((group) => group.matchedNodes.length === 0) ? (
               <p className="mt-4 text-sm text-muted-foreground">
-                {trimmedRegex ? t('groupPicker.subscriptionPreviewEmpty') : t('groupPicker.subscriptionPreviewUnfiltered')}
+                {trimmedRegex
+                  ? t('groupPicker.subscriptionPreviewEmpty')
+                  : t('groupPicker.subscriptionPreviewUnfiltered')}
               </p>
             ) : (
               <div className="mt-4 flex flex-col gap-3">
@@ -507,12 +546,16 @@ export function GroupAddSubscriptionsModal({
                               </span>
                             )}
                             <span className="max-w-[16rem] truncate">{node.title}</span>
-                            {node.transport && <span className="text-[10px] font-medium text-muted-foreground">{node.transport}</span>}
+                            {node.transport && (
+                              <span className="text-[10px] font-medium text-muted-foreground">{node.transport}</span>
+                            )}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="mt-3 text-xs text-muted-foreground">{t('groupPicker.subscriptionPreviewNoMatchForItem')}</p>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {t('groupPicker.subscriptionPreviewNoMatchForItem')}
+                      </p>
                     )}
                   </div>
                 ))}
@@ -526,7 +569,7 @@ export function GroupAddSubscriptionsModal({
             {t('actions.cancel')}
           </Button>
           <Button onClick={handleSubmit} loading={loading} disabled={submitDisabled}>
-            {t('groupPicker.addSelectedSubscriptions')}
+            {submitLabel ?? t('groupPicker.addSelectedSubscriptions')}
           </Button>
         </ScrollableDialogFooter>
       </ScrollableDialogContent>
