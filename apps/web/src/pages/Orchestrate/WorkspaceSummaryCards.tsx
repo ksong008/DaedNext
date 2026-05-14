@@ -11,7 +11,14 @@ import { useTranslation } from 'react-i18next'
 
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
 import { cn } from '~/lib/utils'
+
+const summaryShellStyle = {
+  background: 'color-mix(in oklab, var(--card) 94%, var(--primary) 6%)',
+  borderColor: 'color-mix(in oklab, var(--border) 78%, var(--primary) 22%)',
+  boxShadow: '0 10px 24px color-mix(in oklab, var(--foreground) 7%, transparent)',
+}
 
 function SummaryShell({
   title,
@@ -19,20 +26,22 @@ function SummaryShell({
   icon,
   actionLabel,
   onAction,
+  actionDisabled,
   children,
 }: {
   title: string
   subtitle: string
   icon: React.ReactNode
   actionLabel: string
-  onAction?: () => void
+  onAction?: () => void | Promise<void>
+  actionDisabled?: boolean
   children: React.ReactNode
 }) {
   return (
-    <section className="overflow-hidden rounded-[20px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/96 shadow-[0_10px_24px_rgba(15,23,42,0.055)]">
-      <div className="flex items-start justify-between gap-3 border-b border-[color:var(--shell-line)]/80 px-4 py-3.5">
+    <section className="overflow-hidden rounded-[20px] border" style={summaryShellStyle}>
+      <div className="flex items-start justify-between gap-3 border-b border-border/80 px-4 py-3.5">
         <div className="flex min-w-0 items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 text-primary">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
             {icon}
           </div>
           <div className="min-w-0">
@@ -40,7 +49,7 @@ function SummaryShell({
             <p className="mt-1 truncate text-sm text-muted-foreground">{subtitle}</p>
           </div>
         </div>
-        <Button variant="outline" size="xs" className="rounded-full" onClick={onAction}>
+        <Button variant="outline" size="xs" className="rounded-full" disabled={actionDisabled} onClick={onAction}>
           {actionLabel}
         </Button>
       </div>
@@ -63,7 +72,7 @@ function SummaryHero({
   valueClassName?: string
 }) {
   return (
-    <div className="rounded-[18px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 p-4">
+    <div className="rounded-[18px] border border-border bg-accent/45 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span className="text-xs font-semibold text-muted-foreground">{label}</span>
@@ -77,9 +86,7 @@ function SummaryHero({
           </strong>
         </div>
         {tag ? (
-          <Badge className="rounded-full bg-emerald-500/12 px-2.5 py-1 text-emerald-700 hover:bg-emerald-500/12 dark:text-emerald-300">
-            {tag}
-          </Badge>
+          <Badge className="rounded-full bg-primary/10 px-2.5 py-1 text-primary hover:bg-primary/10">{tag}</Badge>
         ) : null}
       </div>
       {note ? <p className="mt-3 text-sm leading-6 text-muted-foreground">{note}</p> : null}
@@ -87,22 +94,18 @@ function SummaryHero({
   )
 }
 
-function InterfaceStat({
-  label,
-  items,
-}: {
-  label: string
-  items: Array<{ name: string; address?: string }>
-}) {
+function InterfaceStat({ label, items }: { label: string; items: Array<{ name: string; address?: string }> }) {
   return (
-    <div className="flex min-h-[92px] flex-col justify-between rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 px-4 py-3">
+    <div className="flex min-h-[92px] flex-col justify-between rounded-[16px] border border-border bg-accent/40 px-4 py-3">
       <span className="truncate text-xs font-semibold text-muted-foreground">{label}</span>
       <div className="mt-2 space-y-1.5">
         {items.length > 0 ? (
           items.map((item) => (
             <div key={`${item.name}-${item.address || ''}`} className="min-w-0">
               <strong className="block truncate text-sm font-semibold leading-none text-foreground">{item.name}</strong>
-              {item.address ? <span className="block truncate text-xs text-muted-foreground">{item.address}</span> : null}
+              {item.address ? (
+                <span className="block truncate text-xs text-muted-foreground">{item.address}</span>
+              ) : null}
             </div>
           ))
         ) : (
@@ -113,32 +116,22 @@ function InterfaceStat({
   )
 }
 
-function SummaryStat({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
+function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex min-h-[92px] flex-col justify-between rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 px-4 py-3">
+    <div className="flex min-h-[92px] flex-col justify-between rounded-[16px] border border-border bg-accent/40 px-4 py-3">
       <span className="truncate text-xs font-semibold text-muted-foreground">{label}</span>
       <strong className="mt-1 block truncate text-lg font-extrabold leading-none text-foreground">{value}</strong>
     </div>
   )
 }
 
-function SummaryThinList({
-  rows,
-}: {
-  rows: Array<{ label: string; value: string }>
-}) {
+function SummaryThinList({ rows }: { rows: Array<{ label: string; value: string }> }) {
   return (
     <div className="space-y-2">
       {rows.map((row) => (
         <div
           key={`${row.label}-${row.value}`}
-          className="flex items-center justify-between gap-3 rounded-[14px] border border-[color:var(--shell-line)]/80 bg-[color:var(--shell-surface)]/88 px-3.5 py-2.5"
+          className="flex items-center justify-between gap-3 rounded-[14px] border border-border/80 bg-card/80 px-3.5 py-2.5"
         >
           <strong className="truncate text-sm font-semibold text-foreground">{row.label}</strong>
           <span className="truncate text-sm text-muted-foreground">{row.value}</span>
@@ -148,34 +141,81 @@ function SummaryThinList({
   )
 }
 
-function PathPreview({
-  source,
+function CurrentGroupPathCard({
+  groupName,
+  currentLabel,
+  policy,
+  policyLabel,
   destination,
+  latencyTitle,
   latencyLabel,
 }: {
-  source: { title: string; subtitle: string }
-  destination: { title: string; subtitle: string }
+  groupName: string
+  currentLabel: string
+  policy?: string
+  policyLabel: string
+  destination?: { title: string; subtitle: string; tooltipNodes?: string[] }
+  latencyTitle: string
   latencyLabel?: string
 }) {
-  return (
-    <div className="rounded-[18px] border border-[color:var(--shell-line)] bg-[color:var(--shell-blue-soft)]/44 p-4">
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] sm:items-center">
-        <div className="min-w-0">
-          <strong className="block truncate text-base font-semibold text-foreground">{source.title}</strong>
-          <span className="block truncate text-sm text-muted-foreground">{source.subtitle}</span>
-        </div>
-        <div className="text-sm font-semibold text-muted-foreground">→</div>
-        <div className="min-w-0">
-          <strong className="block truncate text-base font-semibold text-foreground">{destination.title}</strong>
-          <span className="block truncate text-sm text-muted-foreground">{destination.subtitle}</span>
-        </div>
-        {latencyLabel ? (
-          <Badge className="rounded-full bg-[color:var(--shell-blue-soft)] px-2.5 py-1 text-[color:var(--shell-blue-strong)] hover:bg-[color:var(--shell-blue-soft)]">
-            {latencyLabel}
-          </Badge>
-        ) : null}
-      </div>
+  const destinationContent = (
+    <div className={cn('min-w-0', destination?.tooltipNodes?.length ? 'cursor-default' : '')}>
+      <span className="block truncate text-xs font-semibold text-muted-foreground">{destination?.subtitle || '—'}</span>
+      <strong className="mt-1 block truncate text-[1.08rem] font-extrabold leading-none text-foreground">
+        {destination?.title || '—'}
+      </strong>
     </div>
+  )
+
+  return (
+    <article className="rounded-[16px] border border-border bg-accent/35 px-3.5 py-3 shadow-sm">
+      <div className="grid grid-cols-[minmax(0,0.86fr)_auto_minmax(0,1.14fr)] items-center gap-3">
+        <div className="min-w-0">
+          <span className="block truncate text-xs font-semibold text-muted-foreground">{currentLabel}</span>
+          <strong className="mt-1 block truncate text-[1.08rem] font-extrabold leading-none text-foreground">
+            {groupName}
+          </strong>
+        </div>
+
+        <div className="grid h-7 w-7 place-items-center rounded-full border border-border bg-card text-sm font-semibold text-muted-foreground">
+          →
+        </div>
+
+        {destination?.tooltipNodes?.length ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{destinationContent}</TooltipTrigger>
+            <TooltipContent side="top" align="end" className="max-h-72 w-80 overflow-y-auto p-2 text-xs">
+              <div className="mb-2 border-b border-border/70 px-1 pb-1.5 font-semibold text-muted-foreground">
+                {destination.subtitle}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {destination.tooltipNodes.map((nodeName, index) => (
+                  <div
+                    key={`${nodeName}-${index}`}
+                    className="max-w-full truncate rounded-md border border-border/60 bg-background/70 px-2 py-1 text-foreground"
+                  >
+                    {nodeName}
+                  </div>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          destinationContent
+        )}
+      </div>
+
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-border/70 pt-2.5">
+        <Badge className="min-w-0 max-w-[12rem] justify-self-start rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary hover:bg-primary/10">
+          <span className="mr-1 shrink-0 text-primary/70">{policyLabel}</span>
+          <span className="truncate">{policy || '—'}</span>
+        </Badge>
+        <Badge className="shrink-0 justify-self-end rounded-full bg-accent px-2.5 py-1 text-xs text-accent-foreground hover:bg-accent">
+          <span className="mr-1 opacity-70">{latencyTitle}</span>
+          <span>{latencyLabel || '—'}</span>
+        </Badge>
+      </div>
+    </article>
   )
 }
 
@@ -185,54 +225,46 @@ function NodeRow({
   subtitle,
   latencyLabel,
   warn,
+  muted,
 }: {
   rank: number
   title: string
   subtitle: string
-  latencyLabel?: string
+  latencyLabel: string
   warn?: boolean
+  muted?: boolean
 }) {
   return (
-    <div className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/88 px-3 py-2.5">
-      <span className="grid h-8 w-8 place-items-center rounded-[12px] bg-emerald-500/12 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+    <div className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-border bg-card/80 px-3 py-2.5">
+      <span className="grid h-8 w-8 place-items-center rounded-[12px] bg-primary/10 text-xs font-extrabold text-primary">
         {rank}
       </span>
       <div className="min-w-0">
         <strong className="block truncate text-sm font-semibold text-foreground">{title}</strong>
         <span className="block truncate text-sm text-muted-foreground">{subtitle}</span>
       </div>
-      {latencyLabel ? (
-        <Badge
-          className={cn(
-            'rounded-full px-2.5 py-1 text-xs',
-            warn
-              ? 'bg-orange-500/12 text-orange-700 hover:bg-orange-500/12 dark:text-orange-300'
-              : 'bg-emerald-500/12 text-emerald-700 hover:bg-emerald-500/12 dark:text-emerald-300',
-          )}
-        >
-          {latencyLabel}
-        </Badge>
-      ) : null}
+      <Badge
+        className={cn(
+          'rounded-full px-2.5 py-1 text-xs',
+          muted
+            ? 'bg-muted text-muted-foreground hover:bg-muted'
+            : warn
+              ? 'bg-destructive/10 text-destructive hover:bg-destructive/10'
+              : 'bg-primary/10 text-primary hover:bg-primary/10',
+        )}
+      >
+        {latencyLabel}
+      </Badge>
     </div>
   )
 }
 
-function StatusRow({
-  title,
-  subtitle,
-  badge,
-}: {
-  title: string
-  subtitle: string
-  badge: string
-}) {
+function StatusRow({ title, subtitle, badge }: { title: string; subtitle: string; badge: string }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/88 px-3 py-2.5">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-border bg-card/80 px-3 py-2.5">
       <strong className="truncate text-sm font-semibold text-foreground">{title}</strong>
       <span className="truncate text-sm text-muted-foreground">{subtitle}</span>
-      <Badge className="rounded-full bg-emerald-500/12 px-2.5 py-1 text-emerald-700 hover:bg-emerald-500/12 dark:text-emerald-300">
-        {badge}
-      </Badge>
+      <Badge className="rounded-full bg-primary/10 px-2.5 py-1 text-primary hover:bg-primary/10">{badge}</Badge>
     </div>
   )
 }
@@ -252,7 +284,7 @@ function SummarySplitActions({
     <div className="grid gap-2 sm:grid-cols-2">
       <button
         type="button"
-        className="flex items-center justify-between rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 px-3.5 py-3 text-sm font-semibold text-foreground"
+        className="flex items-center justify-between rounded-[16px] border border-border bg-accent/40 px-3.5 py-3 text-sm font-semibold text-foreground"
         onClick={onLeft}
       >
         <span>{leftLabel}</span>
@@ -260,7 +292,7 @@ function SummarySplitActions({
       </button>
       <button
         type="button"
-        className="flex items-center justify-between rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/82 px-3.5 py-3 text-sm font-semibold text-foreground"
+        className="flex items-center justify-between rounded-[16px] border border-border bg-accent/40 px-3.5 py-3 text-sm font-semibold text-foreground"
         onClick={onRight}
       >
         <span>{rightLabel}</span>
@@ -275,21 +307,63 @@ function formatLatencyLabel(result?: NodeLatencyProbeResult) {
   return `${result.latencyMs} ms`
 }
 
-function getTopNodes(nodes: NodeResource[], nodeLatencies?: Record<string, NodeLatencyProbeResult>) {
-  return [...nodes]
-    .map((node) => ({
+function formatBestLatencyLabel(nodes: NodeResource[], nodeLatencies?: Record<string, NodeLatencyProbeResult>) {
+  const latencies = nodes
+    .map((node) => nodeLatencies?.[node.id]?.latencyMs)
+    .filter((latency): latency is number => typeof latency === 'number')
+
+  if (latencies.length === 0) return undefined
+
+  return `${Math.min(...latencies)} ms`
+}
+
+function getNodeDisplayName(node: NodeResource) {
+  return node.tag || node.name || node.address || '—'
+}
+
+interface RankedNode {
+  node: NodeResource
+  latency: number
+  source: { type: 'manual' } | { type: 'subscription'; name: string }
+}
+
+function getTopNodes(
+  nodes: NodeResource[],
+  subscriptions: SubscriptionResource[],
+  nodeLatencies?: Record<string, NodeLatencyProbeResult>,
+): RankedNode[] {
+  const rankedNodes: RankedNode[] = []
+  const seenNodeIds = new Set<string>()
+
+  for (const node of nodes) {
+    rankedNodes.push({
       node,
       latency: nodeLatencies?.[node.id]?.latencyMs ?? Number.POSITIVE_INFINITY,
-    }))
-    .sort((left, right) => left.latency - right.latency)
-    .slice(0, 3)
+      source: { type: 'manual' },
+    })
+    seenNodeIds.add(node.id)
+  }
+
+  for (const subscription of subscriptions) {
+    for (const node of subscription.nodes.items) {
+      if (seenNodeIds.has(node.id)) continue
+
+      rankedNodes.push({
+        node,
+        latency: nodeLatencies?.[node.id]?.latencyMs ?? Number.POSITIVE_INFINITY,
+        source: { type: 'subscription', name: subscription.tag || subscription.link },
+      })
+      seenNodeIds.add(node.id)
+    }
+  }
+
+  return rankedNodes.sort((left, right) => left.latency - right.latency).slice(0, 3)
 }
 
 export function WorkspaceSummaryCards({
   selectedConfig,
   configs,
   groups,
-  defaultGroupID,
   sortedNodes,
   subscriptions,
   interfaces,
@@ -298,11 +372,13 @@ export function WorkspaceSummaryCards({
   onOpenGroup,
   onOpenNodes,
   onOpenSubscriptions,
+  onTestAllNodeLatencies,
+  testingLatencies,
+  testingLatencyProgress,
 }: {
   selectedConfig?: ConfigResource
   configs: ConfigResource[]
   groups: GroupListView['groups']
-  defaultGroupID?: string
   sortedNodes: NodeResource[]
   subscriptions: SubscriptionResource[]
   interfaces: InterfaceResource[]
@@ -311,17 +387,48 @@ export function WorkspaceSummaryCards({
   onOpenGroup?: () => void
   onOpenNodes?: () => void
   onOpenSubscriptions?: () => void
+  onTestAllNodeLatencies?: () => void | Promise<void>
+  testingLatencies?: boolean
+  testingLatencyProgress?: { completed: number; total: number } | null
 }) {
   const { t } = useTranslation()
 
   const activeConfig = selectedConfig ?? configs[0]
-  const defaultGroup = groups.find((group) => group.id === defaultGroupID) ?? groups[0]
-  const defaultGroupNode = defaultGroup?.nodes[0]
-  const defaultGroupSubscriptionNode = defaultGroup?.subscriptions[0]?.matchedNodes[0]
-  const pathDestination = defaultGroupNode ?? defaultGroupSubscriptionNode
-  const topNodes = getTopNodes(sortedNodes, nodeLatencies)
+  const groupPathCards = groups.map((group) => {
+    const directNode = group.nodes[0]
+    const subscriptionBinding = group.subscriptions[0]
+    const subscriptionNodes = subscriptionBinding?.matchedNodes ?? []
+    const destination = directNode
+      ? {
+          title: getNodeDisplayName(directNode),
+          subtitle: t('workspaceSummary.manualNode'),
+        }
+      : subscriptionBinding
+        ? {
+            title: subscriptionBinding.subscription.tag || subscriptionBinding.subscription.link || '—',
+            subtitle: `${t('workspaceSummary.fromSubscription')} · ${t('groupPicker.subscriptionPreviewMatchedCount', {
+              count: subscriptionBinding.matchedCount,
+            })}`,
+            tooltipNodes: subscriptionNodes.map(getNodeDisplayName),
+          }
+        : undefined
+
+    return {
+      group,
+      destination,
+      latencyLabel: directNode
+        ? (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
+        : subscriptionBinding
+          ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
+          : '—',
+    }
+  })
+  const topNodes = getTopNodes(sortedNodes, subscriptions, nodeLatencies)
   const topSubscriptions = subscriptions.slice(0, 2)
   const manualNodeCount = sortedNodes.filter((node) => !node.subscriptionID).length
+  const nodeLatencyActionLabel = testingLatencyProgress
+    ? `${t('latency.testAllNodes')} · ${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
+    : t('latency.testAllNodes')
 
   const wanInterfaceItems = (activeConfig?.global.wanInterface ?? []).flatMap((value) => {
     if (value === 'auto') {
@@ -342,7 +449,7 @@ export function WorkspaceSummaryCards({
   })
 
   return (
-    <section className="grid gap-5 lg:grid-cols-[minmax(0,0.98fr)_minmax(0,1.28fr)_minmax(0,0.98fr)]">
+    <section className="grid gap-5 lg:grid-cols-3">
       <SummaryShell
         title={t('config')}
         subtitle={t('workspaceSummary.configSubtitle')}
@@ -363,9 +470,7 @@ export function WorkspaceSummaryCards({
           <InterfaceStat label={t('lanInterface')} items={lanInterfaceItems} />
         </div>
         <SummaryThinList
-          rows={[
-            { label: t('workspaceSummary.fallbackDns'), value: activeConfig?.global.fallbackResolver || '—' },
-          ]}
+          rows={[{ label: t('workspaceSummary.fallbackDns'), value: activeConfig?.global.fallbackResolver || '—' }]}
         />
       </SummaryShell>
 
@@ -376,47 +481,51 @@ export function WorkspaceSummaryCards({
         actionLabel={t('actions.viewDetails')}
         onAction={onOpenGroup}
       >
-        <SummaryHero
-          label={t('workspaceSummary.defaultGroup')}
-          value={defaultGroup?.name || '—'}
-          tag={defaultGroup?.policy || '—'}
-        />
-        {defaultGroup && pathDestination ? (
-          <PathPreview
-            source={{ title: defaultGroup.name, subtitle: t('workspaceSummary.currentGroup') }}
-            destination={{
-              title: pathDestination.tag || pathDestination.name || '—',
-              subtitle: pathDestination.subscriptionID ? t('workspaceSummary.fromSubscription') : t('workspaceSummary.manualNode'),
-            }}
-            latencyLabel={formatLatencyLabel(nodeLatencies?.[pathDestination.id])}
-          />
-        ) : null}
-        <SummaryThinList
-          rows={groups.slice(0, 3).map((group) => ({
-            label: group.name,
-            value: `${group.policy} · ${(group.nodes[0]?.tag || group.subscriptions[0]?.matchedNodes[0]?.name || '—') as string}`,
-          }))}
-        />
+        <div className="max-h-[29rem] space-y-2.5 overflow-y-auto overscroll-contain pr-1">
+          {groupPathCards.map(({ group, destination, latencyLabel }) => (
+            <CurrentGroupPathCard
+              key={group.id}
+              groupName={group.name || '—'}
+              currentLabel={t('workspaceSummary.currentGroup')}
+              policy={group.policy}
+              policyLabel={t('policy')}
+              destination={destination}
+              latencyTitle={t('latency.label')}
+              latencyLabel={latencyLabel}
+            />
+          ))}
+        </div>
       </SummaryShell>
 
       <SummaryShell
         title={t('workspaceSummary.nodeSubscriptionTitle')}
         subtitle={t('workspaceSummary.nodeSubscriptionSubtitle')}
         icon={<CloudCog className="h-4.5 w-4.5" />}
-        actionLabel={t('latency.testAllNodes')}
-        onAction={onOpenNodes}
+        actionLabel={nodeLatencyActionLabel}
+        actionDisabled={testingLatencies}
+        onAction={onTestAllNodeLatencies}
       >
         <div className="space-y-2">
-          {topNodes.map(({ node, latency }, index) => (
-            <NodeRow
-              key={node.id}
-              rank={index + 1}
-              title={node.name || node.tag || node.address}
-              subtitle={`${node.protocol}${node.address ? ` · ${node.address}` : ''}`}
-              latencyLabel={Number.isFinite(latency) ? `${latency} ms` : undefined}
-              warn={latency >= 80}
-            />
-          ))}
+          {topNodes.map(({ node, latency, source }, index) => {
+            const hasLatency = Number.isFinite(latency)
+            const sourceLabel =
+              source.type === 'subscription'
+                ? `${t('workspaceSummary.fromSubscription')} · ${source.name}`
+                : t('workspaceSummary.manualNode')
+            const nodeMeta = [sourceLabel, node.protocol, node.address].filter(Boolean).join(' · ')
+
+            return (
+              <NodeRow
+                key={node.id}
+                rank={index + 1}
+                title={node.name || node.tag || node.address}
+                subtitle={nodeMeta}
+                latencyLabel={hasLatency ? `${latency} ms` : t('latency.unavailable')}
+                warn={hasLatency && latency >= 80}
+                muted={!hasLatency}
+              />
+            )
+          })}
         </div>
         <div className="space-y-2">
           {topSubscriptions.map((subscription) => (
@@ -427,8 +536,10 @@ export function WorkspaceSummaryCards({
               badge={t('workspaceSummary.healthy')}
             />
           ))}
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/88 px-3 py-2.5">
-            <strong className="truncate text-sm font-semibold text-foreground">{t('workspaceSummary.manualNodes')}</strong>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-border bg-card/80 px-3 py-2.5">
+            <strong className="truncate text-sm font-semibold text-foreground">
+              {t('workspaceSummary.manualNodes')}
+            </strong>
             <span className="text-sm text-muted-foreground">{manualNodeCount}</span>
           </div>
         </div>
