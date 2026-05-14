@@ -404,6 +404,7 @@
     "currentGroup": "Current group",
     "fromSubscription": "From subscription",
     "manualNode": "Manual node",
+    "fallbackDns": "Fallback DNS",
     "subscriptionUpdated": "Updated",
     "manualNodes": "Manual Nodes",
     "healthy": "Healthy"
