@@ -22,8 +22,6 @@ interface InputListProps {
   errors?: (string | undefined)[]
 }
 
-// Render the draggable item content (shared between normal and clone)
-/* eslint-disable react-hooks/refs -- provided object from @hello-pangea/dnd is not a React ref */
 function DraggableItemContent({
   provided,
   snapshot,
@@ -52,10 +50,10 @@ function DraggableItemContent({
     >
       <div
         className={cn(
-          'flex items-center gap-2 px-2 py-1.5 rounded-lg border bg-card',
+          'flex items-center gap-2 rounded-lg border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)] px-2 py-1.5',
           'transition-[shadow,border-color,opacity] duration-200',
           'hover:border-primary/30',
-          snapshot.isDragging && 'opacity-95 shadow-lg border-primary/50 z-[9999]',
+          snapshot.isDragging && 'z-[9999] border-primary/50 opacity-95 shadow-lg',
         )}
       >
         <div
@@ -92,7 +90,6 @@ function DraggableItemContent({
     </div>
   )
 }
-/* eslint-enable react-hooks/refs */
 
 // Helper function to reorder array
 function reorder<T>(list: T[], startIndex: number, endIndex: number): T[] {

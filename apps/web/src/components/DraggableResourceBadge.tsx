@@ -29,10 +29,10 @@ export function DraggableResourceBadge({
       {...provided.draggableProps}
       style={getInstantDropStyle(provided, snapshot)}
       className={cn(
-        'group relative flex min-h-10 items-center gap-2 rounded-lg border bg-card px-3 py-2 select-none',
+        'group relative flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)] px-3 py-2 select-none',
         'transition-[shadow,border-color,opacity] duration-150',
-        'hover:shadow-sm hover:border-primary/30',
-        snapshot.isDragging && 'opacity-90 z-10 shadow-md',
+        'hover:border-primary/30 hover:shadow-sm',
+        snapshot.isDragging && 'z-10 opacity-90 shadow-md',
       )}
     >
       {/* Drag handle */}

@@ -305,7 +305,7 @@
   "latency": {
     "label": "延迟",
     "lastTested": "最近测速时间 {{ time }}",
-    "testAllNodes": "测试所有节点延迟",
+    "testAllNodes": "延迟测试",
     "nodesMeasured": "已测速 {{ count }} 个节点",
     "unavailable": "不可用"
   },
@@ -317,7 +317,7 @@
   "node": "节点",
   "node connectivity check": "节点连通性检测",
   "trafficOverview": {
-    "title": "流量统计",
+    "title": "运行状态",
     "description": "实时滚动展示上下行流量，并支持切换时间窗口。",
     "currentThroughput": "当前总吞吐",
     "sampleCount": "{{count}} 个采样",
@@ -335,7 +335,7 @@
     "memoryTitle": "内存",
     "memoryMonitorTitle": "内存监控",
     "memoryDescription": "驻留内存、堆内存和协程状态。",
-    "rss": "RSS",
+    "rss": "RSS 内存",
     "heapAlloc": "堆内存",
     "goroutines": "协程数",
     "lastUpdated": "最近更新",
@@ -415,9 +415,11 @@
     "currentGroup": "当前分组",
     "fromSubscription": "来自订阅",
     "manualNode": "手动节点",
+    "customNode": "自定义节点",
     "fallbackDns": "备用DNS",
     "subscriptionUpdated": "最近更新",
     "manualNodes": "手动节点",
+    "customNodes": "自定义节点",
     "healthy": "正常"
   },
   "setup endpoint": "设置你的后端接口地址（API）",

@@ -982,7 +982,7 @@ export function OrchestratePage() {
   }, [searchParams, setSearchParams])
 
   return (
-    <div className="flex flex-col gap-6 lg:gap-7">
+    <div className="flex flex-col gap-5 lg:gap-5">
       <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
         <TrafficOverview />
       </section>
@@ -1015,7 +1015,7 @@ export function OrchestratePage() {
           <ScrollableDialogBody className="grid gap-3 p-4 sm:p-5">
             <button
               type="button"
-              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-card/80 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/45 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-accent/40 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/55 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
               disabled={!summaryEditingGroup}
               onClick={() => setSummaryGroupEditMode('nodes')}
             >
@@ -1034,7 +1034,7 @@ export function OrchestratePage() {
 
             <button
               type="button"
-              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-card/80 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/45 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-accent/40 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/55 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
               disabled={!summaryEditingGroup}
               onClick={() => setSummaryGroupEditMode('subscriptions')}
             >

@@ -1,7 +1,7 @@
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import { Draggable } from '@hello-pangea/dnd'
 import { GripVertical, Trash2 } from 'lucide-react'
-import React, { useState } from 'react'
+import * as React from 'react'
 
 import { useTranslation } from 'react-i18next'
 import { Badge } from '~/components/ui/badge'
@@ -28,7 +28,7 @@ export function DraggableResourceCard({
   children: React.ReactNode
 }) {
   const { t } = useTranslation()
-  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   return (
     <>
@@ -40,11 +40,11 @@ export function DraggableResourceCard({
             {...provided.dragHandleProps}
             style={getInstantDropStyle(provided, snapshot)}
             className={cn(
-              'group relative bg-card rounded-xl border',
+              'group relative rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]',
               'transition-[shadow,border-color,opacity,transform] duration-200',
-              'hover:shadow-md hover:border-primary/30 hover:-translate-y-0.5',
+              'hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md',
               'cursor-grab active:cursor-grabbing select-none',
-              snapshot.isDragging && 'opacity-90 shadow-lg scale-[1.02] z-50',
+              snapshot.isDragging && 'z-50 scale-[1.02] opacity-90 shadow-lg',
             )}
           >
             {/* Drag handle indicator */}

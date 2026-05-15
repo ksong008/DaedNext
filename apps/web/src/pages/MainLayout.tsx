@@ -51,19 +51,19 @@ function ShellNavButton({
       isActive={active}
       onClick={onClick}
       className={cn(
-        'h-10 rounded-xl border border-transparent px-2.5 text-[0.95rem] font-semibold text-[var(--shell-muted-strong)] transition-all',
-        'hover:border-[color:var(--shell-line)] hover:bg-[color:var(--shell-surface)] hover:text-foreground',
-        'data-[active=true]:border-[color:var(--shell-blue-soft)] data-[active=true]:bg-[color:var(--shell-blue-soft)] data-[active=true]:text-[color:var(--shell-blue-strong)]',
+        'h-10 rounded-xl border border-transparent px-2.5 text-[0.95rem] font-semibold text-sidebar-foreground/75 transition-all',
+        'hover:border-sidebar-border hover:bg-sidebar-accent/65 hover:text-sidebar-accent-foreground',
+        'data-[active=true]:border-sidebar-primary/25 data-[active=true]:bg-sidebar-primary/10 data-[active=true]:text-sidebar-primary',
       )}
       tooltip={label}
       type="button"
     >
-      <span className="flex h-7 w-7 items-center justify-center rounded-[10px] bg-black/5 text-current">
+      <span className="flex h-7 w-7 items-center justify-center rounded-[10px] bg-sidebar-accent/75 text-current">
         <Icon className="h-4 w-4" />
       </span>
       <span className="flex-1 truncate">{label}</span>
       {badge && (
-        <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-bold text-[var(--shell-muted)]">
+        <span className="rounded-full bg-sidebar-accent/75 px-2 py-0.5 text-[11px] font-bold text-sidebar-foreground/60">
           {badge}
         </span>
       )}
@@ -234,18 +234,18 @@ export function MainLayout() {
         <Sidebar
           side="left"
           collapsible="offcanvas"
-          className="border-r border-[color:var(--shell-line)] bg-[color:var(--shell-sidebar)]/88 backdrop-blur-[22px] supports-[backdrop-filter]:bg-[color:var(--shell-sidebar)]/84"
+          className="border-r border-sidebar-border bg-[color:var(--shell-sidebar)] backdrop-blur-[22px] supports-[backdrop-filter]:bg-[color:var(--shell-sidebar)]/92 [&_[data-slot=sidebar-inner]]:bg-[color:var(--shell-sidebar)]"
         >
           <SidebarHeader className="px-4 pb-3 pt-5">
             <div className="flex items-center gap-3">
               <img
                 src="/logo.webp"
                 alt="DAED"
-                className="h-11 w-11 rounded-xl border border-white/80 object-cover shadow-[0_8px_18px_rgba(15,23,42,0.12)]"
+                className="h-11 w-11 rounded-xl border border-sidebar-border object-cover shadow-[0_8px_18px_color-mix(in_oklab,var(--sidebar-foreground)_12%,transparent)]"
               />
               <div className="min-w-0">
-                <p className="truncate text-[1.65rem] font-semibold leading-none text-[var(--shell-text)]">DAED</p>
-                <p className="mt-1 truncate text-sm font-semibold text-[var(--shell-muted)]">
+                <p className="truncate text-[1.65rem] font-semibold leading-none text-sidebar-foreground">DAED</p>
+                <p className="mt-1 truncate text-sm font-semibold text-sidebar-foreground/60">
                   {import.meta.env.APP_VERSION}
                 </p>
               </div>
@@ -255,7 +255,7 @@ export function MainLayout() {
           <SidebarContent className="gap-3 px-3 pb-6">
             {SHELL_NAV_GROUPS.map((group) => (
               <SidebarGroup key={group.labelKey} className="p-0">
-                <SidebarGroupLabel className="px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--shell-muted)]/85">
+                <SidebarGroupLabel className="px-3 text-[11px] font-bold uppercase tracking-[0.14em] text-sidebar-foreground/50">
                   {t(group.labelKey)}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
@@ -300,8 +300,8 @@ export function MainLayout() {
                   className={cn(
                     'flex min-h-11 flex-col items-center justify-center rounded-xl px-2 py-1.5 text-[11px] font-semibold transition-colors',
                     activeSection === item.key
-                      ? 'bg-[color:var(--shell-blue-soft)] text-[color:var(--shell-blue-strong)]'
-                      : 'text-[var(--shell-muted)]',
+                      ? 'bg-sidebar-primary/10 text-sidebar-primary'
+                      : 'text-sidebar-foreground/60',
                   )}
                   onClick={() => scrollToSection(item.key)}
                 >
