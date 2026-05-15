@@ -49,28 +49,30 @@ export function SortableSubscriptionCard({
             )}
           >
             <div
-              className="absolute left-3 top-4 flex h-8 w-8 cursor-grab items-center justify-center rounded-[12px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/88 active:cursor-grabbing touch-none"
+              className="absolute left-2.5 top-3 flex h-7 w-7 cursor-grab touch-none items-center justify-center rounded-[10px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/88 active:cursor-grabbing sm:left-3 sm:top-4 sm:h-8 sm:w-8 sm:rounded-[12px]"
               {...provided.dragHandleProps}
             >
-              <GripVertical className="h-4 w-4 text-muted-foreground/55 transition-colors group-hover:text-muted-foreground" />
+              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/55 transition-colors group-hover:text-muted-foreground sm:h-4 sm:w-4" />
             </div>
 
-            <div className="p-4 pl-14">
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <div className="p-3 pl-12 sm:p-4 sm:pl-14">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <h4 className="pt-0.5 text-sm font-semibold text-foreground [overflow-wrap:anywhere] sm:truncate">
+                    {name}
+                  </h4>
                   {leftSection && (
                     <Badge
                       variant="secondary"
-                      className="shrink-0 rounded-full bg-[color:var(--shell-blue-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--shell-blue-strong)]"
+                      className="mt-1.5 rounded-full bg-[color:var(--shell-blue-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--shell-blue-strong)] sm:mt-0 sm:px-2.5 sm:py-1 sm:tracking-[0.14em]"
                     >
                       {leftSection}
                     </Badge>
                   )}
-                  <h4 className="truncate pt-0.5 text-sm font-semibold text-foreground">{name}</h4>
                 </div>
 
                 <div
-                  className="flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                  className="flex max-w-full shrink-0 self-end overflow-x-auto rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-0.5 transition-opacity [scrollbar-width:none] sm:gap-1 sm:p-1 sm:opacity-0 sm:group-hover:opacity-100 [&_button]:h-7 [&_button]:w-7 [&_button]:shrink-0 [&_button]:p-0 [&_svg]:h-3.5 [&_svg]:w-3.5 sm:[&_button]:h-8 sm:[&_button]:w-8 sm:[&_svg]:h-4 sm:[&_svg]:w-4 [&::-webkit-scrollbar]:hidden"
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   {actions}
@@ -78,7 +80,7 @@ export function SortableSubscriptionCard({
                     <Button
                       variant="ghost"
                       size="xs"
-                      className="h-7 w-7 rounded-full p-0 text-muted-foreground hover:text-destructive"
+                      className="rounded-full text-muted-foreground hover:text-destructive"
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => setConfirmOpen(true)}
                     >

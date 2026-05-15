@@ -53,29 +53,31 @@ export function SortableNodeCard({
             )}
           >
             <div
-              className="absolute left-3 top-4 flex h-8 w-8 cursor-grab items-center justify-center rounded-[12px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/88 active:cursor-grabbing touch-none"
+              className="absolute left-2.5 top-3 flex h-7 w-7 cursor-grab touch-none items-center justify-center rounded-[10px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/88 active:cursor-grabbing sm:left-3 sm:top-4 sm:h-8 sm:w-8 sm:rounded-[12px]"
               {...provided.dragHandleProps}
             >
-              <GripVertical className="h-4 w-4 text-muted-foreground/55 transition-colors group-hover:text-muted-foreground" />
+              <GripVertical className="h-3.5 w-3.5 text-muted-foreground/55 transition-colors group-hover:text-muted-foreground sm:h-4 sm:w-4" />
             </div>
 
-            <div className="p-4 pl-14">
-              <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="p-3 pl-12 sm:p-4 sm:pl-14">
+              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="flex min-w-0 flex-1 items-start gap-2.5">
                   <NodeProtocolBadge
                     protocol={protocol}
                     transport={transport}
                     compact
-                    className="mt-0.5 max-w-[5rem]"
+                    className="mt-0.5 max-w-[4.25rem] sm:max-w-[5rem]"
                   />
                   <div className="min-w-0 flex-1 pt-0.5">
-                    <h4 className="truncate text-sm font-semibold text-foreground">{name}</h4>
+                    <h4 className="text-sm font-semibold text-foreground [overflow-wrap:anywhere] sm:truncate">
+                      {name}
+                    </h4>
                     {subtitle && <p className="mt-1 truncate text-xs font-medium text-muted-foreground">{subtitle}</p>}
                   </div>
                 </div>
 
                 <div
-                  className="flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+                  className="flex max-w-full shrink-0 self-end overflow-x-auto rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-0.5 transition-opacity [scrollbar-width:none] sm:gap-1 sm:p-1 sm:opacity-0 sm:group-hover:opacity-100 [&_button]:h-7 [&_button]:w-7 [&_button]:shrink-0 [&_button]:p-0 [&_svg]:h-3.5 [&_svg]:w-3.5 sm:[&_button]:h-8 sm:[&_button]:w-8 sm:[&_svg]:h-4 sm:[&_svg]:w-4 [&::-webkit-scrollbar]:hidden"
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   {actions}
@@ -83,7 +85,7 @@ export function SortableNodeCard({
                     <Button
                       variant="ghost"
                       size="xs"
-                      className="h-7 w-7 rounded-full p-0 text-muted-foreground hover:text-destructive"
+                      className="rounded-full text-muted-foreground hover:text-destructive"
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => setConfirmOpen(true)}
                     >

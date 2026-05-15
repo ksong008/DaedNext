@@ -92,6 +92,17 @@ function formatChartTooltipTime(value: unknown) {
   return timestampMs === null ? '--:--:--' : dayjs(timestampMs).format('HH:mm:ss')
 }
 
+function formatTrafficTooltipLabel(value: unknown, payload: unknown) {
+  if (Array.isArray(payload)) {
+    const timestamp = (payload[0] as { payload?: { timestamp?: unknown } } | undefined)?.payload?.timestamp
+    if (timestamp !== undefined && timestamp !== null) {
+      return formatChartTooltipTime(timestamp)
+    }
+  }
+
+  return formatChartTooltipTime(value)
+}
+
 function createMetricTintStyle(highlight?: boolean): CSSProperties {
   return {
     backgroundColor: highlight
@@ -332,7 +343,7 @@ export function TrafficOverview() {
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    labelFormatter={(value) => formatChartTooltipTime(value)}
+                    labelFormatter={(value, payload) => formatTrafficTooltipLabel(value, payload)}
                     formatter={(value, name) =>
                       `${name === 'uploadRate' ? t('trafficOverview.uploadLegend') : t('trafficOverview.downloadLegend')}: ${formatRate(Number(value))}`
                     }

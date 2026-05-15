@@ -29,13 +29,15 @@ interface CommandPaletteProps {
   actions: CommandAction[]
 }
 
+const macPlatformPattern = /Mac|iPod|iPhone|iPad/
+
 // Helper to detect Mac platform
 function isMacPlatform(): boolean {
   if (typeof navigator === 'undefined') return false
   if ('userAgentData' in navigator && (navigator.userAgentData as { platform?: string }).platform) {
     return (navigator.userAgentData as { platform: string }).platform === 'macOS'
   }
-  return /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
+  return macPlatformPattern.test(navigator.userAgent)
 }
 
 // Format shortcut for display
@@ -195,54 +197,56 @@ export function useCommandPaletteActions({
     }
   }, [themeMode])
 
-  return useMemo(
-    () =>
-      [
-        // General
-        {
-          id: 'help',
-          label: t('shortcuts.help'),
-          icon: <Keyboard className="h-4 w-4" />,
-          shortcut: ['?'],
-          action: openShortcutsModal,
-          group: 'general',
-        },
-        // Appearance
-        {
-          id: 'toggle-theme',
-          label: t('shortcuts.toggleTheme'),
-          icon: getThemeIcon(),
-          shortcut: ['Ctrl/⌘', 'D'],
-          action: cycleThemeMode,
-          group: 'appearance',
-        },
-        {
-          id: 'toggle-language',
-          label: t('shortcuts.toggleLanguage'),
-          icon: <Languages className="h-4 w-4" />,
-          shortcut: ['Ctrl/⌘', 'L'],
-          action: toggleLanguage,
-          group: 'appearance',
-        },
-        // Actions
-        {
-          id: 'toggle-running',
-          label: t('shortcuts.toggleRunning'),
-          icon: <Wifi className="h-4 w-4" />,
-          shortcut: ['Ctrl/⌘', 'S'],
-          action: toggleRunning,
-          group: 'actions',
-        },
-        {
-          id: 'reload-config',
-          label: t('shortcuts.reload'),
-          icon: <RefreshCw className="h-4 w-4" />,
-          shortcut: ['Ctrl/⌘', 'R'],
-          action: reloadConfig,
-          disabled: !isModified,
-          group: 'actions',
-        },
-      ] as CommandAction[],
-    [t, cycleThemeMode, toggleLanguage, toggleRunning, reloadConfig, openShortcutsModal, getThemeIcon, isModified],
-  )
+  return useMemo(() => {
+    const actions: CommandAction[] = [
+      // General
+      {
+        id: 'help',
+        label: t('shortcuts.help'),
+        icon: <Keyboard className="h-4 w-4" />,
+        shortcut: ['?'],
+        action: openShortcutsModal,
+        group: 'general',
+      },
+      // Appearance
+      {
+        id: 'toggle-theme',
+        label: t('shortcuts.toggleTheme'),
+        icon: getThemeIcon(),
+        shortcut: ['Ctrl/⌘', 'D'],
+        action: cycleThemeMode,
+        group: 'appearance',
+      },
+      {
+        id: 'toggle-language',
+        label: t('shortcuts.toggleLanguage'),
+        icon: <Languages className="h-4 w-4" />,
+        shortcut: ['Ctrl/⌘', 'L'],
+        action: toggleLanguage,
+        group: 'appearance',
+      },
+      // Actions
+      {
+        id: 'toggle-running',
+        label: t('shortcuts.toggleRunning'),
+        icon: <Wifi className="h-4 w-4" />,
+        shortcut: ['Ctrl/⌘', 'S'],
+        action: toggleRunning,
+        group: 'actions',
+      },
+    ]
+
+    if (isModified) {
+      actions.push({
+        id: 'reload-config',
+        label: t('shortcuts.reload'),
+        icon: <RefreshCw className="h-4 w-4" />,
+        shortcut: ['Ctrl/⌘', 'R'],
+        action: reloadConfig,
+        group: 'actions',
+      })
+    }
+
+    return actions
+  }, [t, cycleThemeMode, toggleLanguage, toggleRunning, reloadConfig, openShortcutsModal, getThemeIcon, isModified])
 }
