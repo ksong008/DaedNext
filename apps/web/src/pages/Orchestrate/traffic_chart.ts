@@ -22,7 +22,7 @@ export function computeTrafficChartDomain(
     return [fallbackEnd - windowMs, fallbackEnd]
   }
 
-  const latestTimestamp = timestamps.at(-1)
+  const latestTimestamp = timestamps.at(-1)!
   const earliestAllowedTimestamp = latestTimestamp - windowMs
   const firstVisibleTimestamp = timestamps.find((timestamp) => timestamp >= earliestAllowedTimestamp) ?? latestTimestamp
   let domainStart = Math.max(firstVisibleTimestamp, earliestAllowedTimestamp)
