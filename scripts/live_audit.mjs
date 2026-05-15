@@ -1,5 +1,7 @@
-import path from 'node:path'
+/* eslint-disable e18e/prefer-static-regex, no-unneeded-ternary, regexp/prefer-w, regexp/use-ignore-case, unicorn/prefer-dom-node-text-content */
 import { mkdir, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+import process from 'node:process'
 import { firefox } from 'playwright'
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:4199/#/setup'
@@ -9,6 +11,7 @@ const USERNAME = process.env.AUDIT_USERNAME || 'admin'
 const PASSWORD = process.env.AUDIT_PASSWORD || 'abc123'
 const AUDIT_ARTIFACT_DIR = process.env.AUDIT_ARTIFACT_DIR || ''
 const AUDIT_ARTIFACT_PREFIX = process.env.AUDIT_ARTIFACT_PREFIX || 'live-audit'
+const APP_ROOT_URL = `${FRONTEND_URL.split('#')[0]}#/`
 
 let browser
 let page
@@ -59,6 +62,19 @@ async function waitFor(predicate, label, timeoutMs = 15000) {
     await new Promise((resolve) => setTimeout(resolve, 250))
   }
   throw new Error(`Timed out waiting for ${label}`)
+}
+
+async function openWorkspaceSection(panel) {
+  await page.goto(`${APP_ROOT_URL}?panel=${panel}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+
+  const dialog = page.getByRole('dialog').last()
+  await dialog.waitFor({ state: 'visible', timeout: 15000 })
+
+  const section = dialog.locator('[data-testid="section"]').first()
+  await section.waitFor({ state: 'visible', timeout: 15000 })
+  await page.waitForTimeout(250)
+
+  return section
 }
 
 async function main() {
@@ -139,16 +155,27 @@ async function main() {
   await page.getByRole('link', { name: /start your journey/i }).click()
 
   await page.waitForURL(/#\/?$/, { timeout: 15000 })
-  await page.waitForSelector('[data-testid="section"]', { timeout: 15000 })
+  await page.locator('#overview').waitFor({ state: 'visible', timeout: 15000 })
   await page.waitForTimeout(1500)
 
-  const sectionTitles = await page.locator('[data-testid="section"] h4').allInnerTexts()
+  const expectedSections = [
+    { panel: 'config', title: 'Config' },
+    { panel: 'routing', title: 'Routing' },
+    { panel: 'dns', title: 'DNS' },
+    { panel: 'group', title: 'Group' },
+    { panel: 'node', title: 'Node' },
+    { panel: 'subscription', title: 'Subscription' },
+  ]
+  const sectionTitles = []
+  for (const expected of expectedSections) {
+    const section = await openWorkspaceSection(expected.panel)
+    sectionTitles.push(await section.locator('h4').first().innerText())
+  }
   console.log(`[audit] sections: ${sectionTitles.join(', ')}`)
 
-  const expectedSections = ['Config', 'Routing', 'DNS', 'Group', 'Node', 'Subscription']
   for (const expected of expectedSections) {
-    if (!sectionTitles.some((title) => title.toLowerCase().includes(expected.toLowerCase()))) {
-      throw new Error(`Missing section title: ${expected}`)
+    if (!sectionTitles.some((title) => title.toLowerCase().includes(expected.title.toLowerCase()))) {
+      throw new Error(`Missing section title: ${expected.title}`)
     }
   }
 
@@ -249,15 +276,9 @@ async function main() {
     throw new Error(`Smoke node cleanup failed: ${cleanupSmokeNodeResp.status} ${await cleanupSmokeNodeResp.text()}`)
   }
 
-  const sections = page.locator('[data-testid="section"]')
-  const configSection = sections.nth(0)
-  const dnsSection = sections.nth(1)
-  const routingSection = sections.nth(2)
-  const groupSection = sections.nth(3)
-  const nodeSection = sections.nth(4)
-
   const initialConfigCount = configs.items.length
   const initialConfigIds = new Set(configs.items.map((item) => String(item.id)))
+  const configSection = await openWorkspaceSection('config')
   await configSection.locator('button:has(svg.lucide-copy)').first().click()
   const duplicatedConfig = await waitFor(async () => {
     const data = await apiJson('/configs?expand=parsed')
@@ -268,7 +289,10 @@ async function main() {
   const duplicatedConfigName = duplicatedConfig.name
   const currentFallbackResolver = duplicatedConfig.parsedGlobal?.fallbackResolver || '8.8.8.8:53'
   const renamedConfig = `global-copy-${Date.now()}`
-  const duplicatedConfigCard = configSection.locator('.transition-all').filter({ hasText: duplicatedConfigName }).first()
+  const duplicatedConfigCard = configSection
+    .locator('[data-testid="simple-card"]')
+    .filter({ hasText: duplicatedConfigName })
+    .first()
   await duplicatedConfigCard.locator('button:has(svg.lucide-type)').click()
   const configRenameInput = configSection.locator('input').last()
   await configRenameInput.fill(renamedConfig)
@@ -279,7 +303,10 @@ async function main() {
   }, 'renamed config to appear')
   console.log('[audit] config rename flow passed')
   const updatedFallbackResolver = currentFallbackResolver === '1.0.0.1:53' ? '8.8.8.8:53' : '1.0.0.1:53'
-  const renamedConfigCard = configSection.locator('.transition-all').filter({ hasText: renamedConfig }).first()
+  const renamedConfigCard = configSection
+    .locator('[data-testid="simple-card"]')
+    .filter({ hasText: renamedConfig })
+    .first()
   await renamedConfigCard.locator('button:has(svg.lucide-settings-2)').click()
   const configDialog = page.getByRole('dialog').last()
   const fallbackResolverInput = configDialog.locator(`input[value="${currentFallbackResolver}"]`).first()
@@ -300,6 +327,7 @@ async function main() {
 
   const initialDNSCount = (await apiJson('/dns?expand=parsed')).items.length
   const initialDNSIds = new Set((await apiJson('/dns?expand=parsed')).items.map((item) => String(item.id)))
+  const dnsSection = await openWorkspaceSection('dns')
   await dnsSection.locator('button:has(svg.lucide-copy)').first().click()
   const duplicatedDNS = await waitFor(async () => {
     const data = await apiJson('/dns?expand=parsed')
@@ -309,7 +337,10 @@ async function main() {
   console.log('[audit] dns duplicate flow passed')
   const duplicatedDNSName = duplicatedDNS.name
   const renamedDNS = `dns-copy-${Date.now()}`
-  const duplicatedDNSCard = dnsSection.locator('.transition-all').filter({ hasText: duplicatedDNSName }).first()
+  const duplicatedDNSCard = dnsSection
+    .locator('[data-testid="simple-card"]')
+    .filter({ hasText: duplicatedDNSName })
+    .first()
   await duplicatedDNSCard.locator('button:has(svg.lucide-type)').click()
   const dnsRenameInput = dnsSection.locator('input').last()
   await dnsRenameInput.fill(renamedDNS)
@@ -322,7 +353,7 @@ async function main() {
   const currentDNS = (await apiJson('/dns?expand=parsed')).items.find((item) => item.name === renamedDNS)
   const currentUpstream = currentDNS?.dns?.includes('223.5.5.6:53') ? 'udp://223.5.5.6:53' : 'udp://223.5.5.5:53'
   const updatedUpstream = currentUpstream === 'udp://223.5.5.6:53' ? 'udp://223.5.5.5:53' : 'udp://223.5.5.6:53'
-  const renamedDNSCard = dnsSection.locator('.transition-all').filter({ hasText: renamedDNS }).first()
+  const renamedDNSCard = dnsSection.locator('[data-testid="simple-card"]').filter({ hasText: renamedDNS }).first()
   await renamedDNSCard.locator('button:has(svg.lucide-settings-2)').click()
   const dnsDialog = page.getByRole('dialog').last()
   const dnsInputs = dnsDialog.locator('input')
@@ -347,6 +378,7 @@ async function main() {
 
   const initialRoutingCount = (await apiJson('/routings?expand=parsed')).items.length
   const initialRoutingIds = new Set((await apiJson('/routings?expand=parsed')).items.map((item) => String(item.id)))
+  const routingSection = await openWorkspaceSection('routing')
   await routingSection.locator('button:has(svg.lucide-copy)').first().click()
   const duplicatedRouting = await waitFor(async () => {
     const data = await apiJson('/routings?expand=parsed')
@@ -356,7 +388,10 @@ async function main() {
   console.log('[audit] routing duplicate flow passed')
   const duplicatedRoutingName = duplicatedRouting.name
   const renamedRouting = `routing-copy-${Date.now()}`
-  const duplicatedRoutingCard = routingSection.locator('.transition-all').filter({ hasText: duplicatedRoutingName }).first()
+  const duplicatedRoutingCard = routingSection
+    .locator('[data-testid="simple-card"]')
+    .filter({ hasText: duplicatedRoutingName })
+    .first()
   await duplicatedRoutingCard.locator('button:has(svg.lucide-type)').click()
   const routingRenameInput = routingSection.locator('input').last()
   await routingRenameInput.fill(renamedRouting)
@@ -371,7 +406,10 @@ async function main() {
     typeof currentRouting?.routing === 'string' && currentRouting.routing.includes('domain(geosite:cn) -> direct')
       ? 'global'
       : 'nonCn'
-  const renamedRoutingCard = routingSection.locator('.transition-all').filter({ hasText: renamedRouting }).first()
+  const renamedRoutingCard = routingSection
+    .locator('[data-testid="simple-card"]')
+    .filter({ hasText: renamedRouting })
+    .first()
   await renamedRoutingCard.locator('button:has(svg.lucide-settings-2)').click()
   const routingDialog = page.getByRole('dialog').last()
   await routingDialog.locator(`[data-slot="radio-group-item"][value="${nextRoutingValue}"]`).click()
@@ -398,6 +436,7 @@ async function main() {
 
   const groupName = `audit-group-${Date.now()}`
   const initialGroupCount = groups.items.length
+  const groupSection = await openWorkspaceSection('group')
   await groupSection.locator('button:has(svg.lucide-plus)').first().click()
   const groupCreateDialog = page.getByRole('dialog').last()
   await groupCreateDialog.locator('input').first().fill(groupName)
@@ -445,6 +484,7 @@ async function main() {
 
   const uiNodeTag = `ui-node-${Date.now()}`
   const initialNodeCount = (await apiJson('/nodes')).totalCount
+  const nodeSection = await openWorkspaceSection('node')
   await nodeSection.locator('button:has(svg.lucide-cloud-upload)').first().click()
   const importDialog = page.getByRole('dialog').last()
   const importInputs = importDialog.locator('input')
@@ -457,7 +497,7 @@ async function main() {
   }, 'ui-imported node to appear')
   console.log('[audit] node import flow passed')
   const updatedNodeTag = `edited-${uiNodeTag}`
-  const createdNodeCard = nodeSection.locator('div.group.relative.bg-card').filter({ hasText: uiNodeTag }).first()
+  const createdNodeCard = nodeSection.locator('[data-testid="node-card"]').filter({ hasText: uiNodeTag }).first()
   await createdNodeCard.locator('button:has(svg.lucide-pencil)').click()
   const editNodeDialog = page.getByRole('dialog').last()
   const editNodeInputs = editNodeDialog.locator('input')
@@ -469,7 +509,7 @@ async function main() {
     return data.items?.some((item) => item.tag === updatedNodeTag && item.address === '127.0.0.2:8081') ? data : null
   }, 'edited node tag to appear')
   console.log('[audit] node edit flow passed')
-  const updatedNodeCard = nodeSection.locator('div.group.relative.bg-card').filter({ hasText: updatedNodeTag }).first()
+  const updatedNodeCard = nodeSection.locator('[data-testid="node-card"]').filter({ hasText: updatedNodeTag }).first()
   await updatedNodeCard.locator('button:has(svg.lucide-trash-2)').click()
   await page.getByRole('dialog').last().locator('[data-slot="dialog-footer"]').getByRole('button').last().click()
   await waitFor(async () => {
@@ -480,10 +520,10 @@ async function main() {
   }, 'ui-imported node to be removed')
   console.log('[audit] node remove flow passed')
 
-  const subscriptionSection = sections.nth(5)
   const initialSubscriptionCount = (await apiJson('/subscriptions')).items.length
   const subscriptionTag = `audit-sub-${Date.now()}`
   const subscriptionLink = `${SUBSCRIPTION_SOURCE}?run=${Date.now()}`
+  const subscriptionSection = await openWorkspaceSection('subscription')
   await subscriptionSection.locator('button:has(svg.lucide-cloud-upload)').first().click()
   const subscriptionDialog = page.getByRole('dialog').last()
   const subscriptionInputs = subscriptionDialog.locator('input')
@@ -501,7 +541,7 @@ async function main() {
 
   const updatedSubscriptionTag = `edited-${subscriptionTag}`
   const subscriptionCard = subscriptionSection
-    .locator('div.group.relative.bg-card')
+    .locator('[data-testid="subscription-card"]')
     .filter({ hasText: subscriptionTag })
     .first()
   await subscriptionCard.locator('button:has(svg.lucide-pencil)').click()
@@ -516,7 +556,7 @@ async function main() {
   console.log('[audit] subscription edit flow passed')
 
   const updatedSubscriptionCard = subscriptionSection
-    .locator('div.group.relative.bg-card')
+    .locator('[data-testid="subscription-card"]')
     .filter({ hasText: updatedSubscriptionTag })
     .first()
   await updatedSubscriptionCard.locator('button:has(svg.lucide-trash-2)').click()

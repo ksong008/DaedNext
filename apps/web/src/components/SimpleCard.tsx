@@ -89,6 +89,7 @@ export function SimpleCard({
   return (
     <Fragment>
       <Card
+        data-testid="simple-card"
         withBorder
         shadow="sm"
         padding="none"

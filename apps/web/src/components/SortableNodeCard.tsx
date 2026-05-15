@@ -42,6 +42,7 @@ export function SortableNodeCard({
         {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
           <div
             ref={provided.innerRef}
+            data-testid="node-card"
             {...provided.draggableProps}
             style={getInstantDropStyle(provided, snapshot)}
             className={cn(

@@ -1,7 +1,8 @@
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import { Draggable } from '@hello-pangea/dnd'
 import { GripVertical, Trash2 } from 'lucide-react'
-import React, { useState } from 'react'
+import * as React from 'react'
+import { useState } from 'react'
 
 import { useTranslation } from 'react-i18next'
 import { Badge } from '~/components/ui/badge'
@@ -37,6 +38,7 @@ export function SortableSubscriptionCard({
         {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
           <div
             ref={provided.innerRef}
+            data-testid="subscription-card"
             {...provided.draggableProps}
             style={getInstantDropStyle(provided, snapshot)}
             className={cn(
