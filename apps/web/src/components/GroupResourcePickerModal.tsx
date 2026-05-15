@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react'
 import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Button } from '~/components/ui/button'
 import { Checkbox } from '~/components/ui/checkbox'
 import { Dialog, DialogTitle } from '~/components/ui/dialog'
@@ -22,7 +24,7 @@ export interface GroupPickerItem {
   metaTone?: 'default' | 'primary'
   latency?: string
   latencyTone?: 'default' | 'primary'
-  badge?: string
+  badge?: ReactNode
   keywords?: string[]
   previewNodes?: GroupPickerPreviewNode[]
 }
@@ -192,11 +194,7 @@ function SelectionDialog({
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="truncate text-sm font-medium">{item.title}</p>
-                              {item.badge && (
-                                <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                                  {item.badge}
-                                </span>
-                              )}
+                              {item.badge}
                             </div>
 
                             {item.description && (
@@ -557,15 +555,13 @@ export function GroupAddSubscriptionsModal({
                             key={node.id}
                             className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
                           >
-                            {node.protocol && (
-                              <span className="rounded bg-primary/10 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                                {node.protocol}
-                              </span>
-                            )}
+                            <NodeProtocolBadge
+                              protocol={node.protocol}
+                              transport={node.transport}
+                              compact
+                              className="max-w-[4.75rem] rounded-md"
+                            />
                             <span className="max-w-[16rem] truncate">{node.title}</span>
-                            {node.transport && (
-                              <span className="text-[10px] font-medium text-muted-foreground">{node.transport}</span>
-                            )}
                           </span>
                         ))}
                       </div>

@@ -264,7 +264,7 @@ export function SortableGroupContent({
             index={index}
             name={tag || name}
             protocol={protocol}
-            subtitle={transport || undefined}
+            transport={transport || undefined}
             address={address}
             meta={formatLatencyMeta(nodeLatencies?.[nodeId], t('latency.unavailable'))}
             onRemove={() => onDelNode(nodeId)}

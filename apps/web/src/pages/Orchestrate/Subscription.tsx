@@ -1,12 +1,12 @@
-import type { QRCodeModalRef } from '~/components/QRCodeModal'
+import type { NodeLatencyProbeResult } from '~/apis'
 import type { SubscriptionListView } from '~/apis/types'
+import type { QRCodeModalRef } from '~/components/QRCodeModal'
 import { Droppable } from '@hello-pangea/dnd'
 import dayjs from 'dayjs'
 import { CloudCog, CloudUpload, Download, Eye, Gauge, Pencil } from 'lucide-react'
 import { Fragment, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  type NodeLatencyProbeResult,
   useImportSubscriptionsMutation,
   useRemoveSubscriptionsMutation,
   useSubscriptionsQuery,
@@ -131,7 +131,10 @@ export function SubscriptionResource({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={cn('flex flex-col gap-3 min-h-[100px]', snapshot.isDraggingOver && 'bg-primary/5 rounded-lg')}
+            className={cn(
+              'flex max-h-[min(760px,calc(100vh-16rem))] min-h-[100px] flex-col gap-3 overflow-y-auto overscroll-contain pr-1',
+              snapshot.isDraggingOver && 'bg-primary/5 rounded-lg',
+            )}
           >
             {sortedSubscriptions.map(
               ({ id: subscriptionID, tag, link, updatedAt, cronExp, cronEnable, nodes }, index) => (
@@ -208,13 +211,14 @@ export function SubscriptionResource({
                               {...droppableProvided.droppableProps}
                               className="flex flex-wrap gap-2 pt-2"
                             >
-                              {nodes.items.map(({ id, name, transport }, nodeIndex) => (
+                              {nodes.items.map(({ id, name, protocol, transport }, nodeIndex) => (
                                 <DraggableResourceBadge
                                   key={id}
                                   id={`subscription-node-${id}`}
                                   index={nodeIndex}
                                   name={name}
-                                  subtitle={transport || undefined}
+                                  protocol={protocol}
+                                  transport={transport}
                                   meta={formatLatencyMeta(nodeLatencies?.[id])}
                                 >
                                   {name}

@@ -1,6 +1,7 @@
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import { Draggable } from '@hello-pangea/dnd'
 import { GripVertical, X } from 'lucide-react'
+import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { cn } from '~/lib/utils'
@@ -10,6 +11,8 @@ export function DraggableResourceBadge({
   id,
   index,
   name,
+  protocol,
+  transport,
   subtitle,
   meta,
   onRemove,
@@ -18,6 +21,8 @@ export function DraggableResourceBadge({
   id: string
   index: number
   name: string
+  protocol?: string | null
+  transport?: string | null
   subtitle?: React.ReactNode
   meta?: React.ReactNode
   onRemove?: () => void
@@ -44,7 +49,10 @@ export function DraggableResourceBadge({
       </div>
 
       <div className="min-w-0 flex-1">
-        <span className="block truncate text-xs font-medium">{name}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <NodeProtocolBadge protocol={protocol} transport={transport} compact className="max-w-[4.75rem] rounded-md" />
+          <span className="block truncate text-xs font-medium">{name}</span>
+        </div>
         {subtitle && <span className="block truncate text-[10px] text-muted-foreground">{subtitle}</span>}
       </div>
 

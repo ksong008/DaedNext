@@ -1,6 +1,6 @@
-import type { QRCodeModalRef } from '~/components/QRCodeModal.tsx'
 import type { NodeLatencyProbeResult } from '~/apis'
 import type { NodeListView } from '~/apis/types'
+import type { QRCodeModalRef } from '~/components/QRCodeModal.tsx'
 import { Droppable } from '@hello-pangea/dnd'
 import { Cloud, CloudUpload, Eye, FileInput, Pencil } from 'lucide-react'
 import { Fragment, useRef, useState } from 'react'
@@ -63,7 +63,10 @@ export function NodeResource({
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={cn('flex flex-col gap-3 min-h-[100px]', snapshot.isDraggingOver && 'bg-primary/5 rounded-lg')}
+            className={cn(
+              'flex max-h-[min(760px,calc(100vh-16rem))] min-h-[100px] flex-col gap-3 overflow-y-auto overscroll-contain pr-1',
+              snapshot.isDraggingOver && 'bg-primary/5 rounded-lg',
+            )}
           >
             {sortedNodes.map(({ id, name, tag, protocol, transport, link }, index) => (
               <SortableNodeCard
@@ -71,8 +74,8 @@ export function NodeResource({
                 id={`node-${id}`}
                 index={index}
                 name={tag || name}
-                leftSection={protocol}
-                subtitle={transport || undefined}
+                protocol={protocol}
+                transport={transport}
                 actions={
                   <Fragment>
                     <SimpleTooltip label={t('actions.edit')}>

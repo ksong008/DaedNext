@@ -1,6 +1,7 @@
 import type { DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd'
 import { Draggable } from '@hello-pangea/dnd'
 import { GripVertical, X } from 'lucide-react'
+import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { cn } from '~/lib/utils'
@@ -11,6 +12,7 @@ export function SortableResourceBadge({
   index,
   name,
   protocol,
+  transport,
   subtitle,
   address,
   meta,
@@ -21,6 +23,7 @@ export function SortableResourceBadge({
   index: number
   name: string
   protocol?: string | null
+  transport?: string | null
   subtitle?: string | null
   address?: string | null
   meta?: React.ReactNode
@@ -46,11 +49,7 @@ export function SortableResourceBadge({
         <GripVertical className="h-4 w-4 text-muted-foreground/45 transition-colors group-hover:text-muted-foreground/70" />
       </div>
 
-      {protocol && (
-        <span className="shrink-0 rounded-full bg-[color:var(--shell-blue-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--shell-blue-strong)]">
-          {protocol}
-        </span>
-      )}
+      <NodeProtocolBadge protocol={protocol} transport={transport} compact className="max-w-[5rem]" />
 
       <div className="min-w-0 flex-1">
         <span className="block truncate text-xs font-semibold text-foreground">{name}</span>
