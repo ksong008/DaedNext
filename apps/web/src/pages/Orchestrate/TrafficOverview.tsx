@@ -11,6 +11,7 @@ import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardTitle } from '~/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/ui/chart'
 import { cn } from '~/lib/utils'
+import { computeTrafficChartDomain, filterTrafficChartDataByDomain } from './traffic_chart'
 
 type TimeRangeKey = '1m' | '10m' | '30m' | '1h'
 
@@ -203,11 +204,6 @@ export function TrafficOverview() {
     () => parseChartTimestampMs(runtimeOverview?.updatedAt) ?? Date.now(),
     [runtimeOverview?.updatedAt],
   )
-  const chartWindowStart = useMemo(
-    () => chartWindowEnd - selectedWindow.seconds * 1000,
-    [chartWindowEnd, selectedWindow.seconds],
-  )
-
   const latestSample = useMemo(
     () => ({
       uploadRate: runtimeOverview?.uploadRate ?? 0,
@@ -233,10 +229,19 @@ export function TrafficOverview() {
         }))
         .filter((sample): sample is { timestamp: number; uploadRate: number; downloadRate: number } =>
           Number.isFinite(sample.timestamp),
-        ),
+        )
+        .sort((left, right) => left.timestamp - right.timestamp),
     [runtimeOverview?.samples],
   )
-  const chartRateDomain = useMemo(() => computeDynamicRateDomain(combinedChartData), [combinedChartData])
+  const chartWindowDomain = useMemo(
+    () => computeTrafficChartDomain(combinedChartData, chartWindowEnd, selectedWindow.seconds),
+    [chartWindowEnd, combinedChartData, selectedWindow.seconds],
+  )
+  const visibleChartData = useMemo(
+    () => filterTrafficChartDataByDomain(combinedChartData, chartWindowDomain),
+    [chartWindowDomain, combinedChartData],
+  )
+  const chartRateDomain = useMemo(() => computeDynamicRateDomain(visibleChartData), [visibleChartData])
 
   return (
     <Card withBorder shadow="sm" padding="none" className="overflow-hidden backdrop-blur-sm" style={runtimeStatusStyle}>
@@ -284,7 +289,7 @@ export function TrafficOverview() {
           </div>
 
           <ChartContainer config={chartConfig} className="mt-2 h-[166px] w-full sm:h-[230px] xl:h-[250px]">
-            <AreaChart data={combinedChartData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
+            <AreaChart data={visibleChartData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="traffic-upload-fill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--color-upload)" stopOpacity={0.12} />
@@ -310,7 +315,7 @@ export function TrafficOverview() {
                 tickMargin={10}
                 height={28}
                 tick={{ fontSize: 11, fill: 'color-mix(in oklab, var(--muted-foreground) 76%, transparent)' }}
-                domain={[chartWindowStart, chartWindowEnd]}
+                domain={chartWindowDomain}
                 allowDataOverflow
                 tickFormatter={(value) => formatChartTime(value)}
               />
