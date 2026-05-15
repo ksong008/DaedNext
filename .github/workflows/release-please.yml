@@ -244,8 +244,8 @@ jobs:
           REF: ${{ needs.release-please.outputs.tag_name }}
         run: |
           tag=${REF}
-          version=${tag}
-          package_version="${tag:1}"
+          version=${tag%-daed-test}
+          package_version="${version:1}"
           echo "VERSION=$version" >> $GITHUB_OUTPUT
           echo "VERSION=$version" >> $GITHUB_ENV
           echo "PACKAGE_VERSION=$package_version" >> $GITHUB_OUTPUT
