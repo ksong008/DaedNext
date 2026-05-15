@@ -9,9 +9,9 @@ const alertVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-card text-card-foreground',
+        default: 'border-[color:var(--shell-line)] bg-[color:var(--shell-surface)] text-card-foreground',
         destructive:
-          'text-destructive bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-destructive/90',
+          'border-destructive/40 bg-[color-mix(in_oklab,var(--destructive)_8%,var(--shell-surface))] text-destructive [&>svg]:text-current *:data-[slot=alert-description]:text-destructive/90',
       },
     },
     defaultVariants: {

@@ -32,8 +32,9 @@ export function Section({
     <div
       data-testid="section"
       className={cn(
-        'flex flex-col gap-4 rounded-[20px] border border-border/80 bg-card/92 p-4 shadow-[0_10px_24px_rgba(15,23,42,0.06)] backdrop-blur-sm transition-[border-color,box-shadow,background-color] sm:p-5',
-        bordered && 'hover:border-primary/18 hover:shadow-[0_14px_30px_rgba(15,23,42,0.08)]',
+        'flex flex-col gap-4 rounded-[20px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)] p-4 shadow-[0_10px_24px_color-mix(in_oklab,var(--foreground)_6%,transparent)] backdrop-blur-sm transition-[border-color,box-shadow,background-color] sm:p-5',
+        bordered &&
+          'hover:border-primary/18 hover:shadow-[0_14px_30px_color-mix(in_oklab,var(--foreground)_8%,transparent)]',
         highlight && 'border-primary/30 bg-[color-mix(in_oklab,var(--primary)_7%,var(--card))]',
         className,
       )}
@@ -41,7 +42,7 @@ export function Section({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           {icon && (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/70 bg-background/80 text-primary shadow-sm">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)] text-primary shadow-sm">
               {icon}
             </div>
           )}
@@ -56,7 +57,7 @@ export function Section({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="rounded-xl border border-transparent bg-background/70 hover:border-border hover:bg-background"
+              className="rounded-xl border border-transparent bg-[color:var(--shell-control)] hover:border-primary/25 hover:bg-[color:var(--shell-control-hover)]"
               onClick={onCreate}
             >
               {iconPlus || <Plus className="h-4 w-4" />}

@@ -48,6 +48,17 @@ interface NodePickerCandidate {
   sourceLabel: string
 }
 
+function GroupSummaryCount({ label, count }: { label: string; count: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--shell-muted-strong)]">
+      <span>{label}</span>
+      <span className="min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-primary-foreground shadow-sm">
+        {count}
+      </span>
+    </span>
+  )
+}
+
 export function GroupResource({
   highlight,
   draggingResource,
@@ -276,8 +287,8 @@ export function GroupResource({
             <span className="rounded bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground/80">
               {policy}
             </span>
-            <span>{t('groupPicker.nodesCount', { count: groupNodes.length })}</span>
-            <span>{t('groupPicker.subscriptionGroupsCount', { count: groupSubscriptions.length })}</span>
+            <GroupSummaryCount label={t('node')} count={groupNodes.length} />
+            <GroupSummaryCount label={t('groupPicker.subscriptionGroupLabel')} count={groupSubscriptions.length} />
           </>
         }
         collapsed={!expandedGroupIds.has(groupId)}

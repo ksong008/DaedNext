@@ -76,7 +76,7 @@ function MultiSelect({
             role="combobox"
             aria-expanded={open}
             className={cn(
-              "border-input data-placeholder:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-full min-h-9 items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
+              "data-placeholder:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive flex min-h-9 w-full items-center justify-between gap-2 rounded-md border border-[color:var(--shell-line)] bg-[color:var(--shell-control)] px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[background-color,border-color,color,box-shadow] outline-none hover:bg-[color:var(--shell-control-hover)] focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
               className,
             )}
           >
@@ -113,8 +113,8 @@ function MultiSelect({
                     value={item.value}
                     onSelect={() => handleSelect(item.value)}
                     className={cn(
-                      'relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none hover:bg-accent hover:text-accent-foreground',
-                      isSelected && 'bg-accent/50',
+                      'relative flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none hover:bg-[color:var(--shell-surface-soft)] hover:text-foreground',
+                      isSelected && 'bg-[color:var(--shell-surface-tint)] text-primary',
                     )}
                   >
                     <div

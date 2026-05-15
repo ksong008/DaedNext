@@ -112,7 +112,7 @@ function RuntimeHealthStrip({
       <div
         className={cn(
           'flex shrink-0 items-center gap-2 font-semibold',
-          running ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground',
+          running ? 'text-primary' : 'text-muted-foreground',
         )}
       >
         {running ? <Power className="h-3.5 w-3.5" /> : <PowerOff className="h-3.5 w-3.5" />}
@@ -623,7 +623,7 @@ export function HeaderWithActions() {
           <Button
             variant="outline"
             size={matchSmallScreen ? 'icon-sm' : 'sm'}
-            className="rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_rgba(15,23,42,0.03)]"
+            className="rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]"
             disabled={runtimeMutationPending || !generalQuery?.general.dae.modified}
             loading={reloadRuntimeMutation.isPending}
             onClick={reloadConfig}
@@ -637,7 +637,7 @@ export function HeaderWithActions() {
               <Button
                 variant="outline"
                 size={matchSmallScreen ? 'icon-sm' : 'sm'}
-                className="rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_rgba(15,23,42,0.03)]"
+                className="rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]"
               >
                 <ArrowLeftRight className="h-4 w-4" />
                 {!matchSmallScreen && <span>{t('shell.transfer')}</span>}
@@ -678,7 +678,7 @@ export function HeaderWithActions() {
           <ThemePicker />
 
           <SimpleTooltip label={t('actions.switchRunning')}>
-            <div className="rounded-xl border border-border/75 bg-background/72 px-2 py-1 shadow-[0_4px_10px_rgba(15,23,42,0.03)]">
+            <div className="rounded-xl border border-border/75 bg-background/72 px-2 py-1 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]">
               <Switch
                 size={matchSmallScreen ? 'xs' : 'md'}
                 onLabel={<Power className="h-3 w-3" />}
@@ -697,7 +697,7 @@ export function HeaderWithActions() {
               <button
                 type="button"
                 className={cn(
-                  'flex items-center gap-2 rounded-xl border border-border/75 bg-background/75 px-2.5 py-1.5 text-left shadow-[0_4px_10px_rgba(15,23,42,0.03)] transition-colors hover:bg-background',
+                  'flex items-center gap-2 rounded-xl border border-border/75 bg-background/75 px-2.5 py-1.5 text-left shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)] transition-colors hover:bg-background',
                   userMenuOpened && 'border-border bg-background',
                 )}
               >

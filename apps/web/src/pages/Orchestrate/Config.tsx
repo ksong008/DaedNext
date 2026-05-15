@@ -11,7 +11,6 @@ import {
   useRenameConfigMutation,
   useSelectConfigMutation,
 } from '~/apis'
-import { ConfigDetailView } from '~/components/ConfigDetailView'
 import { ConfigFormDrawer } from '~/components/ConfigFormModal'
 import { Section } from '~/components/Section'
 import { SimpleCard } from '~/components/SimpleCard'
@@ -82,9 +81,7 @@ export function Config() {
                   },
             )
           }}
-        >
-          <ConfigDetailView config={config} />
-        </SimpleCard>
+        />
       ))}
 
       <ConfigFormDrawer opened={openedCreateConfigFormDrawer} onClose={closeCreateConfigFormDrawer} />

@@ -120,7 +120,7 @@ function NumberInput({
           type="number"
           id={id}
           className={cn(
-            'flex w-full rounded-md border border-input bg-transparent py-1 shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
+            'flex w-full rounded-md border border-[color:var(--shell-line)] bg-[color:var(--shell-control)] py-1 shadow-sm transition-[background-color,border-color,color,box-shadow] placeholder:text-muted-foreground hover:bg-[color:var(--shell-control-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset disabled:cursor-not-allowed disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none',
             sizeClasses[size],
             !hideControls && 'pr-8',
             error && 'border-destructive',
@@ -136,10 +136,10 @@ function NumberInput({
           {...props}
         />
         {!hideControls && (
-          <div className="absolute right-0 top-0 h-full flex flex-col border-l">
+          <div className="absolute right-0 top-0 flex h-full flex-col border-l border-[color:var(--shell-line)]">
             <button
               type="button"
-              className="flex-1 px-1 hover:bg-accent disabled:opacity-50"
+              className="flex-1 px-1 hover:bg-[color:var(--shell-surface-soft)] disabled:opacity-50"
               onClick={increment}
               disabled={disabled || (max !== undefined && typeof value === 'number' && value >= max)}
               tabIndex={-1}
@@ -149,7 +149,7 @@ function NumberInput({
             </button>
             <button
               type="button"
-              className="flex-1 px-1 hover:bg-accent border-t disabled:opacity-50"
+              className="flex-1 border-t border-[color:var(--shell-line)] px-1 hover:bg-[color:var(--shell-surface-soft)] disabled:opacity-50"
               onClick={decrement}
               disabled={disabled || (min !== undefined && typeof value === 'number' && value <= min)}
               tabIndex={-1}

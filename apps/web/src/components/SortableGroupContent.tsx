@@ -1,6 +1,6 @@
 import { Droppable } from '@hello-pangea/dnd'
-import { ChevronDown, Plus } from 'lucide-react'
 import { useStore } from '@nanostores/react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SortableResourceBadge } from '~/components/SortableResourceBadge'
@@ -41,6 +41,17 @@ interface NodeLatencyProbeResult {
   message?: string | null
 }
 
+function ResourceCount({ label, count }: { label: string; count: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>{label}</span>
+      <span className="min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-primary-foreground shadow-sm">
+        {count}
+      </span>
+    </span>
+  )
+}
+
 function GroupDropZone({
   droppableId,
   type,
@@ -78,9 +89,7 @@ function GroupDropZone({
           className="flex items-center justify-between gap-3 py-1 text-left text-xs font-semibold text-[var(--shell-muted-strong)] transition-colors hover:text-foreground"
           onClick={onToggle}
         >
-          <span>
-            {label} ({count})
-          </span>
+          <ResourceCount label={label} count={count} />
           <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', !open && '-rotate-90')} />
         </button>
       )}
@@ -115,7 +124,9 @@ function GroupDropZone({
               <>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold">{label}</span>
-                  <span className="rounded bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{count}</span>
+                  <span className="min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-primary-foreground shadow-sm">
+                    {count}
+                  </span>
                 </div>
                 {provided.placeholder}
               </>

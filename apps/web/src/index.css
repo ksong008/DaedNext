@@ -200,17 +200,22 @@ form {
   --sidebar-accent-foreground: oklch(0.18 0.02 60);
   --sidebar-border: oklch(0.92 0.015 85);
   --sidebar-ring: oklch(0.75 0.18 85);
-  --shell-page: #f4f6fb;
-  --shell-sidebar: #fbfcff;
-  --shell-surface: #ffffff;
-  --shell-surface-soft: #f8faff;
-  --shell-surface-tint: #eef5ff;
-  --shell-line: #dfe4ee;
-  --shell-text: #161b26;
-  --shell-muted: #687184;
-  --shell-muted-strong: #4e596d;
-  --shell-blue-soft: rgba(10, 132, 255, 0.1);
-  --shell-blue-strong: #006bd6;
+  --shell-page: color-mix(in oklab, var(--background) 92%, var(--primary) 8%);
+  --shell-sidebar: color-mix(in oklab, var(--card) 94%, var(--primary) 6%);
+  --shell-surface: color-mix(in oklab, var(--card) 96%, var(--primary) 4%);
+  --shell-surface-soft: color-mix(in oklab, var(--accent) 72%, var(--card));
+  --shell-surface-tint: color-mix(in oklab, var(--primary) 12%, var(--card));
+  --shell-control: color-mix(in oklab, var(--card) 92%, var(--primary) 8%);
+  --shell-control-hover: color-mix(in oklab, var(--card) 86%, var(--primary) 14%);
+  --shell-dialog: color-mix(in oklab, var(--card) 96%, var(--primary) 4%);
+  --shell-dialog-header: color-mix(in oklab, var(--card) 93%, var(--primary) 7%);
+  --shell-dialog-body: color-mix(in oklab, var(--background) 90%, var(--primary) 10%);
+  --shell-line: color-mix(in oklab, var(--border) 82%, var(--primary) 18%);
+  --shell-text: var(--foreground);
+  --shell-muted: var(--muted-foreground);
+  --shell-muted-strong: color-mix(in oklab, var(--foreground) 72%, var(--muted-foreground));
+  --shell-blue-soft: color-mix(in oklab, var(--primary) 14%, transparent);
+  --shell-blue-strong: var(--primary);
 }
 
 .dark {
@@ -245,17 +250,22 @@ form {
   --sidebar-accent-foreground: oklch(0.95 0.015 85);
   --sidebar-border: oklch(0.28 0.015 60);
   --sidebar-ring: oklch(0.82 0.165 85);
-  --shell-page: #161922;
-  --shell-sidebar: #1b202b;
-  --shell-surface: #202633;
-  --shell-surface-soft: #252d3a;
-  --shell-surface-tint: rgba(10, 132, 255, 0.16);
-  --shell-line: rgba(148, 163, 184, 0.18);
-  --shell-text: #edf2ff;
-  --shell-muted: #a6b0c2;
-  --shell-muted-strong: #d4dceb;
-  --shell-blue-soft: rgba(10, 132, 255, 0.18);
-  --shell-blue-strong: #7bc1ff;
+  --shell-page: color-mix(in oklab, var(--background) 90%, var(--primary) 10%);
+  --shell-sidebar: color-mix(in oklab, var(--card) 92%, var(--primary) 8%);
+  --shell-surface: color-mix(in oklab, var(--card) 93%, var(--primary) 7%);
+  --shell-surface-soft: color-mix(in oklab, var(--accent) 72%, var(--card));
+  --shell-surface-tint: color-mix(in oklab, var(--primary) 14%, var(--card));
+  --shell-control: color-mix(in oklab, var(--card) 86%, var(--primary) 14%);
+  --shell-control-hover: color-mix(in oklab, var(--card) 78%, var(--primary) 22%);
+  --shell-dialog: color-mix(in oklab, var(--card) 93%, var(--primary) 7%);
+  --shell-dialog-header: color-mix(in oklab, var(--card) 90%, var(--primary) 10%);
+  --shell-dialog-body: color-mix(in oklab, var(--background) 88%, var(--primary) 12%);
+  --shell-line: color-mix(in oklab, var(--border) 82%, var(--primary) 18%);
+  --shell-text: var(--foreground);
+  --shell-muted: var(--muted-foreground);
+  --shell-muted-strong: color-mix(in oklab, var(--foreground) 76%, var(--muted-foreground));
+  --shell-blue-soft: color-mix(in oklab, var(--primary) 18%, transparent);
+  --shell-blue-strong: var(--primary);
 }
 
 @layer base {
@@ -275,11 +285,23 @@ form {
 
 .daed-shell {
   min-height: 100vh;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(244, 246, 251, 0) 420px), var(--shell-page);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--card) 78%, transparent),
+      color-mix(in oklab, var(--background) 0%, transparent) 420px
+    ),
+    var(--shell-page);
 }
 
 .dark .daed-shell {
-  background: linear-gradient(180deg, rgba(43, 51, 67, 0.58), rgba(22, 25, 34, 0) 360px), var(--shell-page);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--card) 58%, transparent),
+      color-mix(in oklab, var(--background) 0%, transparent) 360px
+    ),
+    var(--shell-page);
 }
 
 .shell-mobile-tabs {
@@ -307,7 +329,7 @@ form {
   border: 1px solid var(--shell-line);
   border-radius: 1rem;
   background: color-mix(in oklab, var(--shell-surface) 88%, transparent);
-  box-shadow: 0 18px 38px rgba(22, 27, 38, 0.16);
+  box-shadow: 0 18px 38px color-mix(in oklab, var(--foreground) 16%, transparent);
   backdrop-filter: blur(24px) saturate(170%);
   -webkit-backdrop-filter: blur(24px) saturate(170%);
 }

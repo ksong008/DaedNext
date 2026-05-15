@@ -305,7 +305,7 @@
   "latency": {
     "label": "Latency",
     "lastTested": "Last tested at {{ time }}",
-    "testAllNodes": "Test all node latencies",
+    "testAllNodes": "Latency Test",
     "nodesMeasured": "{{ count }} nodes measured",
     "unavailable": "Unavailable"
   },
@@ -317,7 +317,7 @@
   "node": "Node",
   "node connectivity check": "Node Connectivity Check",
   "trafficOverview": {
-    "title": "Traffic Statistics",
+    "title": "Runtime Status",
     "description": "Rolling uplink and downlink overview with a switchable time window.",
     "currentThroughput": "Current Total Throughput",
     "sampleCount": "{{count}} samples",
@@ -335,7 +335,7 @@
     "memoryTitle": "Memory",
     "memoryMonitorTitle": "Memory Monitor",
     "memoryDescription": "Resident memory, heap usage, and goroutine state.",
-    "rss": "RSS",
+    "rss": "RSS Memory",
     "heapAlloc": "Heap Alloc",
     "goroutines": "Goroutines",
     "lastUpdated": "Last Updated",
@@ -415,9 +415,11 @@
     "currentGroup": "Current group",
     "fromSubscription": "From subscription",
     "manualNode": "Manual node",
+    "customNode": "Custom node",
     "fallbackDns": "Fallback DNS",
     "subscriptionUpdated": "Updated",
     "manualNodes": "Manual Nodes",
+    "customNodes": "Custom Nodes",
     "healthy": "Healthy"
   },
   "setup endpoint": "Setup your backend endpoint URL (API)",
