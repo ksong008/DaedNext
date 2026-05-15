@@ -21,14 +21,25 @@ export function NodeProtocolBadge({
   return (
     <span
       className={cn(
-        'inline-flex min-w-[3.7rem] shrink-0 flex-col items-center justify-center rounded-full bg-[color:var(--shell-blue-soft)] px-2 py-1 text-center font-semibold uppercase leading-none text-[color:var(--shell-blue-strong)]',
-        compact ? 'gap-0.5 text-[8.5px]' : 'gap-1 text-[9.5px]',
+        'inline-flex min-w-[3.35rem] shrink-0 flex-col items-center justify-center rounded-full bg-[color:var(--shell-blue-soft)] px-1.5 py-0.5 text-center font-semibold uppercase leading-none text-[color:var(--shell-blue-strong)]',
+        compact ? 'gap-[1px]' : 'gap-0.5 py-1',
         className,
       )}
     >
-      {parts.protocol ? <span className="max-w-full truncate tracking-[0.12em]">{parts.protocol}</span> : null}
+      {parts.protocol ? (
+        <span className={cn('max-w-full truncate tracking-[0.08em]', compact ? 'text-[9px]' : 'text-[10px]')}>
+          {parts.protocol}
+        </span>
+      ) : null}
       {parts.transport ? (
-        <span className="max-w-full truncate tracking-[0.08em] opacity-75">{parts.transport}</span>
+        <span
+          className={cn(
+            'max-w-full truncate font-medium tracking-[0.05em] opacity-[0.72]',
+            compact ? 'text-[7px]' : 'text-[8px]',
+          )}
+        >
+          {parts.transport}
+        </span>
       ) : null}
     </span>
   )
