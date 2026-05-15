@@ -7,7 +7,7 @@ import { defineConfig } from 'vite'
 import { version } from './package.json'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const displayVersion = version.replace(/\.0$/, '')
+const displayVersion = `v${version}`
 
 export default defineConfig(() => {
   return {
