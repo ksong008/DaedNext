@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - daed2.0
     tags:
       - 'v*'
   workflow_dispatch:
@@ -36,7 +35,7 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
-        if: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/daed2.0')) || (github.event_name == 'workflow_dispatch' && inputs.tag_name == '') }}
+        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.tag_name == '') }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target-branch: ${{ github.ref_name }}
