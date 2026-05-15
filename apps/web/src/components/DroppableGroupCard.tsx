@@ -86,7 +86,7 @@ export function DroppableGroupCard({
         className="rounded-[22px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/96 shadow-[0_10px_24px_rgba(15,23,42,0.055)]"
       >
         <div className="border-b border-[color:var(--shell-line)]/80 pb-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start justify-between gap-2 sm:gap-3">
             {isEditing ? (
               <div className="mr-2 flex flex-1 items-center gap-2">
                 <Input
@@ -129,26 +129,26 @@ export function DroppableGroupCard({
 
             {!isEditing && (
               <div
-                className="flex w-fit max-w-full items-center gap-1 self-end overflow-x-auto rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1 [scrollbar-width:none] sm:self-start [&::-webkit-scrollbar]:hidden"
+                className="flex max-w-[52%] shrink-0 items-center gap-0.5 self-start overflow-x-auto rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-0.5 [scrollbar-width:none] sm:max-w-full sm:gap-1 sm:p-1 [&_button]:h-7 [&_button]:w-7 [&_button]:shrink-0 [&_button]:p-0 [&_svg]:h-3.5 [&_svg]:w-3.5 sm:[&_button]:h-8 sm:[&_button]:w-8 sm:[&_svg]:h-4 sm:[&_svg]:w-4 [&::-webkit-scrollbar]:hidden"
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 {dragHandleProps && (
                   <SimpleTooltip label={t('a11y.dragToReorder')}>
                     <div
                       className={cn(
-                        'flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-full text-muted-foreground transition-colors',
+                        'flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-full text-muted-foreground transition-colors sm:h-8 sm:w-8',
                         'hover:bg-accent/70 hover:text-foreground active:cursor-grabbing',
                       )}
                       {...dragHandleProps}
                     >
-                      <GripVertical className="h-4 w-4" />
+                      <GripVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
                   </SimpleTooltip>
                 )}
                 {onRename && (
                   <SimpleTooltip label={t('actions.rename')}>
                     <Button variant="ghost" size="xs" onClick={handleStartEdit} className="rounded-full">
-                      <Type className="h-4 w-4" />
+                      <Type className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </Button>
                   </SimpleTooltip>
                 )}
@@ -156,7 +156,9 @@ export function DroppableGroupCard({
                 {onToggleCollapsed && (
                   <SimpleTooltip label={collapsed ? t('actions.expand') : t('collapse')}>
                     <Button variant="ghost" size="xs" onClick={onToggleCollapsed} className="rounded-full">
-                      <ChevronDown className={cn('h-4 w-4 transition-transform', collapsed && '-rotate-90')} />
+                      <ChevronDown
+                        className={cn('h-3.5 w-3.5 transition-transform sm:h-4 sm:w-4', collapsed && '-rotate-90')}
+                      />
                     </Button>
                   </SimpleTooltip>
                 )}
@@ -170,7 +172,7 @@ export function DroppableGroupCard({
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={() => setConfirmOpen(true)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </Button>
                   </SimpleTooltip>
                 )}

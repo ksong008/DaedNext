@@ -12,7 +12,6 @@ import {
   Power,
   PowerOff,
   RefreshCw,
-  Search,
   Upload,
   UserPen,
 } from 'lucide-react'
@@ -95,13 +94,11 @@ function RuntimeHealthStrip({
   fastestLatencyMs,
   subscriptionCount,
   nodeCount,
-  onOpenCommandPalette,
 }: {
   running?: boolean
   fastestLatencyMs?: number
   subscriptionCount?: number
   nodeCount?: number
-  onOpenCommandPalette: () => void
 }) {
   const { t } = useTranslation()
   const runningKnown = typeof running === 'boolean'
@@ -139,17 +136,6 @@ function RuntimeHealthStrip({
         <span className="text-muted-foreground">{t('shell.nodes')}</span>
         <span className="ml-1.5 font-semibold text-foreground">{nodeCount ?? '—'}</span>
       </div>
-
-      <span className="shrink-0 text-muted-foreground/70">·</span>
-
-      <button
-        type="button"
-        className="flex shrink-0 items-center gap-1.5 rounded-md border border-border/70 bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-        onClick={onOpenCommandPalette}
-      >
-        <Keyboard className="h-3 w-3" />
-        <span>⌘P</span>
-      </button>
     </div>
   )
 }
@@ -174,8 +160,6 @@ function MobileRuntimeHealthStrip({
 
   return (
     <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[10.5px] font-semibold text-muted-foreground sm:text-xs">
-      <span className="shrink-0 text-foreground/90">DAED</span>
-      <span className="shrink-0 text-muted-foreground/60">·</span>
       <span
         className={cn('inline-flex min-w-0 items-center gap-1', running ? 'text-primary' : 'text-muted-foreground/80')}
       >
@@ -250,6 +234,7 @@ export function HeaderWithActions() {
   const reloadRuntimeMutation = useReloadRuntimeMutation()
   const stopRuntimeMutation = useStopRuntimeMutation()
   const runtimeMutationPending = reloadRuntimeMutation.isPending || stopRuntimeMutation.isPending
+  const needsReload = generalQuery?.general.dae.modified ?? false
   const updateNameMutation = useUpdateNameMutation()
   const updatePasswordMutation = useUpdatePasswordMutation()
   const updateUsernameMutation = useUpdateUsernameMutation()
@@ -624,11 +609,21 @@ export function HeaderWithActions() {
         className={cn(
           'mx-auto w-full max-w-[1480px]',
           matchSmallScreen
-            ? 'flex min-h-[84px] flex-col gap-1.5 px-3 py-2'
+            ? 'grid min-h-[78px] grid-cols-[48px_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-2 gap-y-1 px-3 py-2'
             : 'grid min-h-[74px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-5 lg:px-7',
         )}
       >
-        <div className={cn('flex min-w-0 items-center', matchSmallScreen && 'w-full')}>
+        {matchSmallScreen && (
+          <div className="row-span-2 flex h-full items-center justify-center">
+            <img
+              src="/logo.webp"
+              alt="DAED"
+              className="h-11 w-11 shrink-0 rounded-[14px] object-cover shadow-[0_6px_16px_color-mix(in_oklab,var(--foreground)_10%,transparent)]"
+            />
+          </div>
+        )}
+
+        <div className={cn('flex min-w-0 items-center', matchSmallScreen && 'col-start-2 row-start-1 w-full self-end')}>
           {matchSmallScreen ? (
             <MobileRuntimeHealthStrip
               running={generalQuery?.general.dae.running}
@@ -642,17 +637,16 @@ export function HeaderWithActions() {
               fastestLatencyMs={fastestLatencyMs}
               subscriptionCount={subscriptionsQuery?.subscriptions.length}
               nodeCount={totalNodeCount}
-              onOpenCommandPalette={openCommandPalette}
             />
           )}
         </div>
 
         <div
           className={cn(
-            'flex items-center justify-end',
+            'flex items-center',
             matchSmallScreen
-              ? 'w-full gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-              : 'gap-2',
+              ? 'col-start-2 row-start-2 w-full justify-start gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+              : 'justify-end gap-2',
           )}
         >
           <input
@@ -670,36 +664,25 @@ export function HeaderWithActions() {
             onChange={handleImportDAEConfigFile}
           />
 
-          {matchSmallScreen ? (
-            <SimpleTooltip label={t('shortcuts.commandPalette')}>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                className={mobileHeaderButtonClassName}
-                onClick={openCommandPalette}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </SimpleTooltip>
-          ) : null}
-
           {!matchSmallScreen && <ProfileSwitcher />}
 
-          <Button
-            variant="outline"
-            size={matchSmallScreen ? 'icon-sm' : 'sm'}
-            className={cn(
-              matchSmallScreen
-                ? mobileHeaderButtonClassName
-                : 'rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
-            )}
-            disabled={runtimeMutationPending || !generalQuery?.general.dae.modified}
-            loading={reloadRuntimeMutation.isPending}
-            onClick={reloadConfig}
-          >
-            <RefreshCw className="h-4 w-4" />
-            {!matchSmallScreen && <span>{t('actions.reload')}</span>}
-          </Button>
+          {(needsReload || reloadRuntimeMutation.isPending) && (
+            <Button
+              variant="outline"
+              size={matchSmallScreen ? 'icon-sm' : 'sm'}
+              className={cn(
+                matchSmallScreen
+                  ? mobileHeaderButtonClassName
+                  : 'rounded-xl border-primary/30 bg-primary/8 text-primary shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)] hover:bg-primary/12',
+              )}
+              disabled={runtimeMutationPending || !needsReload}
+              loading={reloadRuntimeMutation.isPending}
+              onClick={reloadConfig}
+            >
+              <RefreshCw className="h-4 w-4" />
+              {!matchSmallScreen && <span>{t('actions.reload')}</span>}
+            </Button>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

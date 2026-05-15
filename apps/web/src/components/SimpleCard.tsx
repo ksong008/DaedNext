@@ -99,9 +99,9 @@ export function SimpleCard({
             'border-primary/30 bg-[color-mix(in_oklab,var(--primary)_6%,var(--card))] ring-2 ring-primary/12 ring-offset-2 ring-offset-background',
         )}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-[color:var(--shell-line)]/80 px-3.5 py-3">
+        <div className="flex flex-col items-stretch gap-2 border-b border-[color:var(--shell-line)]/80 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
           {isEditing ? (
-            <div className="flex flex-1 items-center gap-2">
+            <div className="flex w-full flex-col gap-2 sm:flex-1 sm:flex-row sm:items-center">
               <Input
                 ref={inputRef}
                 value={editValue}
@@ -110,7 +110,7 @@ export function SimpleCard({
                 onBlur={handleSaveEdit}
                 className="h-9 rounded-xl border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/80 text-sm font-semibold"
               />
-              <div className="flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1">
+              <div className="flex shrink-0 self-end rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-0.5 sm:gap-1 sm:self-auto sm:p-1 [&_button]:h-7 [&_button]:w-7 [&_button]:p-0 sm:[&_button]:h-8 sm:[&_button]:w-8">
                 <SimpleTooltip label={t('actions.confirm')}>
                   <Button variant="ghost" size="xs" onClick={handleSaveEdit} className="rounded-full">
                     <Check className="h-4 w-4 text-primary" />
@@ -133,7 +133,7 @@ export function SimpleCard({
             <button
               type="button"
               className={cn(
-                'flex flex-1 items-center gap-2.5 rounded-[18px] px-0.5 py-0.5 text-left transition-colors',
+                'flex w-full items-start gap-2.5 rounded-[18px] px-0.5 py-0.5 text-left transition-colors sm:flex-1 sm:items-center',
                 selected ? 'text-primary' : 'hover:text-foreground',
               )}
               onClick={onSelect}
@@ -148,8 +148,13 @@ export function SimpleCard({
               >
                 {selected ? <Check className="h-4 w-4" strokeWidth={3} /> : name.slice(0, 1).toUpperCase()}
               </div>
-              <div className="min-w-0">
-                <h4 className={cn('truncate text-sm font-semibold text-foreground', selected && 'text-primary')}>
+              <div className="min-w-0 flex-1">
+                <h4
+                  className={cn(
+                    'text-sm font-semibold text-foreground [overflow-wrap:anywhere] sm:truncate',
+                    selected && 'text-primary',
+                  )}
+                >
                   {name}
                 </h4>
               </div>
@@ -157,7 +162,7 @@ export function SimpleCard({
           )}
 
           {!isEditing && (
-            <div className="flex shrink-0 items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1">
+            <div className="ml-auto flex max-w-full shrink-0 overflow-x-auto rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-0.5 [scrollbar-width:none] sm:gap-1 sm:p-1 [&_button]:h-7 [&_button]:w-7 [&_button]:shrink-0 [&_button]:p-0 [&_svg]:h-3.5 [&_svg]:w-3.5 sm:[&_button]:h-8 sm:[&_button]:w-8 sm:[&_svg]:h-4 sm:[&_svg]:w-4 [&::-webkit-scrollbar]:hidden">
               {onRename && (
                 <SimpleTooltip label={t('actions.rename')}>
                   <Button variant="ghost" size="xs" onClick={handleStartEdit} className="rounded-full">
