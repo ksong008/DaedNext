@@ -49,17 +49,27 @@ interface SimpleTooltipProps {
   children: React.ReactNode
   label: React.ReactNode
   side?: 'top' | 'right' | 'bottom' | 'left'
+  align?: 'start' | 'center' | 'end'
+  contentClassName?: string
 }
 
-function SimpleTooltip({ children, label, side = 'top' }: SimpleTooltipProps) {
+function SimpleTooltip({ children, label, side = 'top', align = 'center', contentClassName }: SimpleTooltipProps) {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="inline-flex">{children}</div>
         </TooltipTrigger>
-        <TooltipContent side={side}>
-          <p>{label}</p>
+        <TooltipContent
+          side={side}
+          align={align}
+          collisionPadding={12}
+          className={cn(
+            'max-w-[calc(100vw-2rem)] whitespace-normal break-words text-left sm:max-w-xs',
+            contentClassName,
+          )}
+        >
+          <div className="max-w-full leading-relaxed">{label}</div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

@@ -70,6 +70,12 @@ export function SubscriptionResource({
   const tagSubscriptionMutation = useTagSubscriptionMutation()
 
   const updateSubscriptionCronMutation = useUpdateSubscriptionCronMutation()
+  const measuredNodeCount = Object.keys(nodeLatencies || {}).length
+  const latencyActionStatus = testingLatencyProgress
+    ? `${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
+    : lastLatencyProbeAt
+      ? `${t('latency.lastTested', { time: dayjs(lastLatencyProbeAt).format('HH:mm:ss') })} · ${t('latency.nodesMeasured', { count: measuredNodeCount })}`
+      : undefined
 
   return (
     <Section
@@ -82,20 +88,17 @@ export function SubscriptionResource({
         <Fragment>
           {sortedSubscriptions.length > 0 && (
             <div className="flex items-center gap-2">
+              {latencyActionStatus && (
+                <span className="hidden max-w-[18rem] truncate text-right text-xs font-medium leading-none text-muted-foreground sm:inline-block">
+                  {latencyActionStatus}
+                </span>
+              )}
               {testingLatencyProgress && (
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {testingLatencyProgress.completed}/{testingLatencyProgress.total}
                 </span>
               )}
-              <SimpleTooltip
-                label={
-                  testingLatencyProgress
-                    ? `${t('latency.testAllNodes')} · ${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
-                    : lastLatencyProbeAt
-                      ? `${t('latency.testAllNodes')} · ${t('latency.lastTested', { time: dayjs(lastLatencyProbeAt).format('HH:mm:ss') })} · ${t('latency.nodesMeasured', { count: Object.keys(nodeLatencies || {}).length })}`
-                      : t('latency.testAllNodes')
-                }
-              >
+              <SimpleTooltip label={t('latency.testAllNodes')}>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -126,6 +129,13 @@ export function SubscriptionResource({
         </Fragment>
       }
     >
+      {latencyActionStatus && (
+        <div className="-mt-1 flex justify-center px-1 sm:hidden">
+          <span className="max-w-full truncate text-center text-[11px] font-medium leading-none text-muted-foreground sm:text-xs">
+            {latencyActionStatus}
+          </span>
+        </div>
+      )}
       <Droppable droppableId="subscription-list" type="SUBSCRIPTION">
         {(provided, snapshot) => (
           <div
