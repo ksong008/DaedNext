@@ -49,6 +49,8 @@ type RoutingSimpleMode = 'gfw' | 'nonCn' | 'cnOnly' | 'global' | 'macOnly'
 type MacAction = 'proxy' | 'direct'
 
 const MAC_REGEX = /^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$/i
+const MAC_RULE_REGEX = /^mac\((.*)\)\s*->\s*([^\s#]+)\s*$/
+const WRAPPING_QUOTES_REGEX = /^['"]|['"]$/g
 
 function normalizeRoutingLines(text: string) {
   return text
@@ -61,14 +63,14 @@ function parseMacRule(lines: string[]) {
   const macLine = lines.find((l) => l.startsWith('mac('))
   if (!macLine) return
 
-  const match = macLine.match(/^mac\((.*)\)\s*->\s*([^\s#]+)\s*$/)
+  const match = macLine.match(MAC_RULE_REGEX)
   if (!match) return
 
   const listRaw = match[1]
   const target = match[2]
   const macList = listRaw
     .split(',')
-    .map((p) => p.trim().replace(/^['"]|['"]$/g, ''))
+    .map((p) => p.trim().replace(WRAPPING_QUOTES_REGEX, ''))
     .filter(Boolean)
 
   if (macList.some((m) => !MAC_REGEX.test(m))) return
@@ -84,8 +86,7 @@ function detectSimpleMode(text: string, proxyGroupName: string) {
 
   const hasGfw = withoutMac.includes(`domain(geosite:gfw) -> ${proxyGroupName}`)
   const hasCnDirect =
-    withoutMac.includes('dip(geoip:cn) -> direct') &&
-    withoutMac.includes('domain(geosite:cn) -> direct')
+    withoutMac.includes('dip(geoip:cn) -> direct') && withoutMac.includes('domain(geosite:cn) -> direct')
   const hasCnProxy =
     withoutMac.includes(`dip(geoip:cn) -> ${proxyGroupName}`) &&
     withoutMac.includes(`domain(geosite:cn) -> ${proxyGroupName}`)
@@ -255,11 +256,9 @@ export function RoutingFormModal({
 
   const handleClose = useCallback(() => {
     onClose()
-    setTimeout(() => {
-      resetForm()
-      setEditingID(undefined)
-      setOrigins(undefined)
-    }, 200)
+    resetForm()
+    setEditingID(undefined)
+    setOrigins(undefined)
   }, [onClose, resetForm])
 
   const onSubmit = async (data: FormValues) => {

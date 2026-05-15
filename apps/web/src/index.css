@@ -319,17 +319,16 @@ form {
 .shell-mobile-nav {
   display: none;
   position: fixed;
-  right: 0.625rem;
-  bottom: max(0.5rem, env(safe-area-inset-bottom));
-  left: 0.625rem;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 30;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.2rem;
-  padding: 0.35rem;
-  border: 1px solid var(--shell-line);
-  border-radius: 0.95rem;
-  background: color-mix(in oklab, var(--shell-surface) 88%, transparent);
-  box-shadow: 0 12px 28px color-mix(in oklab, var(--foreground) 14%, transparent);
+  gap: 0.15rem;
+  padding: 0.3rem 0.75rem calc(0.3rem + env(safe-area-inset-bottom));
+  border-top: 1px solid color-mix(in oklab, var(--shell-line) 58%, transparent);
+  background: color-mix(in oklab, var(--shell-surface) 82%, transparent);
+  box-shadow: 0 -4px 16px color-mix(in oklab, var(--foreground) 5%, transparent);
   backdrop-filter: blur(24px) saturate(170%);
   -webkit-backdrop-filter: blur(24px) saturate(170%);
 }
