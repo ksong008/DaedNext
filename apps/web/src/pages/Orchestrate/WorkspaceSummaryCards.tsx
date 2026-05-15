@@ -72,7 +72,7 @@ function SummaryShell({
 }) {
   return (
     <section
-      className="flex max-h-[520px] min-h-0 flex-col overflow-hidden rounded-[18px] border lg:h-[430px] lg:max-h-none"
+      className="flex min-h-[430px] max-h-[620px] flex-col overflow-hidden rounded-[18px] border sm:min-h-[460px] lg:h-[500px] lg:min-h-0 lg:max-h-none"
       style={summaryShellStyle}
     >
       <div className="flex min-h-[72px] items-start justify-between gap-2.5 border-b border-border/55 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
@@ -109,21 +109,26 @@ function SummaryNodeProtocolStack({
   transport?: string
   compact?: boolean
 }) {
-  return (
-    <NodeProtocolBadge
-      protocol={protocol}
-      transport={transport}
-      compact={compact}
-      className={cn(compact ? 'max-w-[4.5rem]' : 'max-w-[5rem]')}
-    />
-  )
+  return <NodeProtocolBadge protocol={protocol} transport={transport} compact={compact} className="max-w-[5rem]" />
 }
 
-function SummaryNodeIdentityView({ node, compact }: { node: SummaryNodeIdentity; compact?: boolean }) {
+function SummaryNodeIdentityView({
+  node,
+  compact,
+  badgeCompact,
+}: {
+  node: SummaryNodeIdentity
+  compact?: boolean
+  badgeCompact?: boolean
+}) {
   return (
     <div className="min-w-0">
       <div className="flex min-w-0 items-center gap-2">
-        <SummaryNodeProtocolStack protocol={node.protocol} transport={node.transport} compact={compact} />
+        <SummaryNodeProtocolStack
+          protocol={node.protocol}
+          transport={node.transport}
+          compact={badgeCompact ?? compact}
+        />
         <strong
           className={cn(
             'block min-w-0 truncate font-bold leading-none text-foreground',
@@ -193,7 +198,7 @@ function CurrentGroupPathCard({
   const groupNameMaxWidth = destination?.title && destination.title.length > 16 ? '7.25rem' : '9rem'
   const destinationTitleContent = (
     <div className={cn('min-w-0', destination?.tooltipNodes?.length ? 'cursor-default' : '')}>
-      <SummaryNodeIdentityView node={destination || { title: '—' }} />
+      <SummaryNodeIdentityView node={destination || { title: '—' }} badgeCompact />
     </div>
   )
 
@@ -285,6 +290,8 @@ function NodeRow({
   rank,
   title,
   subtitle,
+  protocol,
+  transport,
   latencyLabel,
   warn,
   muted,
@@ -292,6 +299,8 @@ function NodeRow({
   rank: number
   title: string
   subtitle: string
+  protocol?: string
+  transport?: string
   latencyLabel: string
   warn?: boolean
   muted?: boolean
@@ -307,7 +316,10 @@ function NodeRow({
         {rank}
       </span>
       <div className="min-w-0">
-        <strong className="block truncate text-sm font-semibold text-foreground">{title}</strong>
+        <div className="flex min-w-0 items-center gap-2">
+          <NodeProtocolBadge protocol={protocol} transport={transport} compact className="max-w-[5rem]" />
+          <strong className="block min-w-0 truncate text-sm font-semibold text-foreground">{title}</strong>
+        </div>
         <span className="block truncate text-sm text-muted-foreground">{subtitle}</span>
       </div>
       <Badge
@@ -558,7 +570,7 @@ export function WorkspaceSummaryCards({
         actionLabel={t('actions.settings')}
         onAction={onOpenConfig}
       >
-        <div className="grid auto-rows-fr grid-cols-2 gap-2">
+        <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-2">
           <SummaryConfigCard
             label={t('workspaceSummary.currentConfig')}
             value={activeConfig?.name || 'default'}
@@ -624,7 +636,7 @@ export function WorkspaceSummaryCards({
                 source.type === 'subscription'
                   ? `${t('workspaceSummary.fromSubscription')} · ${source.name}`
                   : t('workspaceSummary.customNode')
-              const nodeMeta = [sourceLabel, node.protocol, node.address].filter(Boolean).join(' · ')
+              const nodeMeta = [sourceLabel, node.address].filter(Boolean).join(' · ')
 
               return (
                 <NodeRow
@@ -632,6 +644,8 @@ export function WorkspaceSummaryCards({
                   rank={index + 1}
                   title={node.name || node.tag || node.address}
                   subtitle={nodeMeta}
+                  protocol={node.protocol || undefined}
+                  transport={node.transport || undefined}
                   latencyLabel={hasLatency ? `${latency} ms` : t('latency.unavailable')}
                   warn={hasLatency && latency >= 80}
                   muted={!hasLatency}
