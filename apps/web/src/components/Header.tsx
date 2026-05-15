@@ -154,6 +154,9 @@ function RuntimeHealthStrip({
   )
 }
 
+const mobileHeaderButtonClassName =
+  'h-[30px] w-[30px] rounded-xl border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 shadow-none transition-colors hover:bg-[color:var(--shell-surface-soft)]/72'
+
 function MobileRuntimeHealthStrip({
   running,
   fastestLatencyMs,
@@ -170,18 +173,18 @@ function MobileRuntimeHealthStrip({
   const fastestLatencyLabel = typeof fastestLatencyMs === 'number' ? `${fastestLatencyMs} ms` : t('latency.unavailable')
 
   return (
-    <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[11px] font-semibold sm:text-xs">
-      <span className="shrink-0 text-foreground">DAED</span>
+    <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[10.5px] font-semibold text-muted-foreground sm:text-xs">
+      <span className="shrink-0 text-foreground/90">DAED</span>
       <span className="shrink-0 text-muted-foreground/60">·</span>
       <span
-        className={cn('inline-flex min-w-0 items-center gap-1', running ? 'text-primary' : 'text-muted-foreground')}
+        className={cn('inline-flex min-w-0 items-center gap-1', running ? 'text-primary' : 'text-muted-foreground/80')}
       >
         {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
         <span className="truncate">{runningKnown ? t(running ? 'shell.running' : 'shell.stopped') : '—'}</span>
       </span>
       <span className="shrink-0 text-muted-foreground/60">·</span>
       <span className="shrink-0 text-muted-foreground">
-        {t('shell.fastestNodeShort')} <span className="font-bold text-foreground">{fastestLatencyLabel}</span>
+        {t('shell.fastestNodeShort')} <span className="font-bold text-foreground/90">{fastestLatencyLabel}</span>
       </span>
       <span className="shrink-0 text-muted-foreground/60">·</span>
       <span className="shrink-0 text-muted-foreground">
@@ -621,7 +624,7 @@ export function HeaderWithActions() {
         className={cn(
           'mx-auto w-full max-w-[1480px]',
           matchSmallScreen
-            ? 'flex min-h-[92px] flex-col gap-2 px-3 py-2.5'
+            ? 'flex min-h-[84px] flex-col gap-1.5 px-3 py-2'
             : 'grid min-h-[74px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-5 lg:px-7',
         )}
       >
@@ -672,7 +675,7 @@ export function HeaderWithActions() {
               <Button
                 variant="outline"
                 size="icon-sm"
-                className="rounded-xl border-border/75 bg-background/72"
+                className={mobileHeaderButtonClassName}
                 onClick={openCommandPalette}
               >
                 <Search className="h-4 w-4" />
@@ -685,7 +688,11 @@ export function HeaderWithActions() {
           <Button
             variant="outline"
             size={matchSmallScreen ? 'icon-sm' : 'sm'}
-            className="rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]"
+            className={cn(
+              matchSmallScreen
+                ? mobileHeaderButtonClassName
+                : 'rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
+            )}
             disabled={runtimeMutationPending || !generalQuery?.general.dae.modified}
             loading={reloadRuntimeMutation.isPending}
             onClick={reloadConfig}
@@ -699,7 +706,11 @@ export function HeaderWithActions() {
               <Button
                 variant="outline"
                 size={matchSmallScreen ? 'icon-sm' : 'sm'}
-                className="rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]"
+                className={cn(
+                  matchSmallScreen
+                    ? mobileHeaderButtonClassName
+                    : 'rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
+                )}
               >
                 <ArrowLeftRight className="h-4 w-4" />
                 {!matchSmallScreen && <span>{t('shell.transfer')}</span>}
@@ -730,7 +741,9 @@ export function HeaderWithActions() {
             <Button
               variant="outline"
               size="icon-sm"
-              className="rounded-xl border-border/75 bg-background/72"
+              className={cn(
+                matchSmallScreen ? mobileHeaderButtonClassName : 'rounded-xl border-border/75 bg-background/72',
+              )}
               onClick={toggleLanguage}
             >
               <Languages className="h-4 w-4" />
@@ -740,7 +753,14 @@ export function HeaderWithActions() {
           <ThemePicker />
 
           <SimpleTooltip label={t('actions.switchRunning')}>
-            <div className="rounded-xl border border-border/75 bg-background/72 px-2 py-1 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]">
+            <div
+              className={cn(
+                'rounded-xl border px-2 py-1',
+                matchSmallScreen
+                  ? 'border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 shadow-none'
+                  : 'border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
+              )}
+            >
               <Switch
                 size={matchSmallScreen ? 'xs' : 'md'}
                 onLabel={<Power className="h-3 w-3" />}
@@ -759,14 +779,17 @@ export function HeaderWithActions() {
               <button
                 type="button"
                 className={cn(
-                  'flex items-center gap-2 rounded-xl border border-border/75 bg-background/75 px-2.5 py-1.5 text-left shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)] transition-colors hover:bg-background',
+                  'flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-colors',
+                  matchSmallScreen
+                    ? 'border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 px-2 py-1 shadow-none hover:bg-[color:var(--shell-surface-soft)]/72'
+                    : 'border-border/75 bg-background/75 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)] hover:bg-background',
                   userMenuOpened && 'border-border bg-background',
                 )}
               >
                 <Avatar
                   src={userQuery?.user?.avatar || 'https://avatars.githubusercontent.com/u/126714249?s=200&v=4'}
                   alt="avatar"
-                  size={24}
+                  size={matchSmallScreen ? 22 : 24}
                 />
                 {!matchSmallScreen && (
                   <span className="max-w-[7rem] truncate text-sm font-semibold leading-none">

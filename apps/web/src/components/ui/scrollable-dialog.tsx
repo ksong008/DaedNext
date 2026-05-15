@@ -35,10 +35,10 @@ function ScrollableDialogContent({
         aria-describedby={undefined}
         data-slot="dialog-content"
         className={cn(
-          'bg-[color:var(--shell-dialog)] text-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
+          'bg-[color:var(--shell-dialog)] text-foreground',
           'fixed top-[50%] left-[50%] z-50 translate-x-[-50%] translate-y-[-50%]',
           'flex flex-col w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] sm:w-[calc(100%-2rem)] sm:max-h-[calc(100vh-2rem)]',
-          'rounded-lg border border-[color:var(--shell-line)] shadow-[0_18px_44px_color-mix(in_oklab,var(--foreground)_16%,transparent)] duration-200',
+          'rounded-lg border border-[color:var(--shell-line)] shadow-[0_14px_34px_color-mix(in_oklab,var(--foreground)_12%,transparent)]',
           sizeClasses[size],
           className,
         )}

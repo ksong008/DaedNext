@@ -70,9 +70,7 @@ export function EditSubscriptionFormModal({ opened, onClose, subscription, onSub
     (open: boolean) => {
       if (!open) {
         onClose()
-        setTimeout(() => {
-          reset({ link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true })
-        }, 200)
+        reset({ link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true })
       }
     },
     [onClose, reset],

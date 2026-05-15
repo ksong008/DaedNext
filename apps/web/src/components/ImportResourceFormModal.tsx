@@ -74,20 +74,15 @@ export function ImportResourceFormModal({
 
   const resources = useWatch({ control, name: 'resources' })
 
-  // Reset form when modal closes (with delay for animation)
   const handleClose = useCallback(() => {
     onClose()
-    setTimeout(() => {
-      reset(defaultValues)
-    }, 200)
+    reset(defaultValues)
   }, [onClose, reset])
 
   const onSubmit = async (data: FormValues) => {
     const result = await onSubmitProp(data)
 
-    const importErrors = Array.isArray(result)
-      ? result.map((item) => item.error?.trim() || '').filter(Boolean)
-      : []
+    const importErrors = Array.isArray(result) ? result.map((item) => item.error?.trim() || '').filter(Boolean) : []
 
     if (importErrors.length > 0) {
       toast.error(importErrors.join('\n'))

@@ -13,6 +13,33 @@ describe('deriveTransport', () => {
       ),
     ).toBe('ss2022')
   })
+
+  it('uses VLESS flow instead of plain tcp for Vision links', () => {
+    expect(
+      deriveTransport(
+        'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=reality&sni=example.com&fp=chrome&pbk=abc&sid=123&type=tcp&flow=xtls-rprx-vision#vision',
+        'vless',
+      ),
+    ).toBe('vision')
+  })
+
+  it('keeps the VLESS Vision udp443 flow suffix', () => {
+    expect(
+      deriveTransport(
+        'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=reality&sni=example.com&fp=chrome&pbk=abc&sid=123&type=tcp&flow=xtls-rprx-vision-udp443#vision-udp443',
+        'vless',
+      ),
+    ).toBe('vision-udp443')
+  })
+
+  it('keeps VLESS non-Vision transport from net', () => {
+    expect(
+      deriveTransport(
+        'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=tls&type=ws&host=example.com&path=%2Fws#ws',
+        'vless',
+      ),
+    ).toBe('ws')
+  })
 })
 
 describe('mergeRuntimeOverviewDelta', () => {

@@ -83,9 +83,7 @@ export function RenameFormModal({
 
   const handleClose = useCallback(() => {
     onClose()
-    setTimeout(() => {
-      reset({ name: '' })
-    }, 200)
+    reset({ name: '' })
   }, [onClose, reset])
 
   const renameConfigMutation = useRenameConfigMutation()

@@ -15,13 +15,42 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip
 import { cn } from '~/lib/utils'
 
 const summaryShellStyle = {
-  background: 'color-mix(in oklab, var(--card) 94%, var(--primary) 6%)',
-  borderColor: 'color-mix(in oklab, var(--border) 78%, var(--primary) 22%)',
-  boxShadow: '0 10px 24px color-mix(in oklab, var(--foreground) 7%, transparent)',
+  background: 'color-mix(in oklab, var(--card) 97%, var(--primary) 3%)',
+  borderColor: 'color-mix(in oklab, var(--border) 90%, var(--primary) 10%)',
+  boxShadow: '0 7px 18px color-mix(in oklab, var(--foreground) 4%, transparent)',
 }
 
 const summaryActionButtonClassName =
-  'max-w-[7.5rem] shrink-0 rounded-full border-primary/20 bg-primary/10 px-2.5 text-primary shadow-none hover:border-primary/30 hover:bg-primary/15 hover:text-primary sm:max-w-[10rem] dark:border-primary/20 dark:bg-primary/10 dark:hover:bg-primary/15'
+  'max-w-[7.5rem] shrink-0 rounded-full border-primary/14 bg-primary/7 px-2.5 text-primary shadow-none hover:border-primary/24 hover:bg-primary/12 hover:text-primary sm:max-w-[10rem] dark:border-primary/16 dark:bg-primary/8 dark:hover:bg-primary/12'
+
+const summaryInnerCardClassName =
+  'rounded-[14px] border border-border/55 bg-accent/22 shadow-none transition-colors hover:border-border/70'
+
+const summaryResourceCardClassName =
+  'rounded-[16px] border border-border/55 bg-accent/20 shadow-none transition-colors hover:border-border/70'
+
+const summaryStatusPillClassName =
+  'rounded-full border border-primary/12 bg-primary/8 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/8'
+
+const summaryDataPillClassName =
+  'rounded-full bg-muted/64 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/64'
+
+const summaryLatencyPillClassName =
+  'rounded-full border border-primary/10 bg-primary/6 px-2.5 py-1 text-xs font-medium text-primary/78 hover:bg-primary/6'
+
+const summaryTypePillClassName =
+  'rounded-full bg-primary/7 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/7 sm:px-2.5 sm:text-xs'
+
+interface SummaryNodeIdentity {
+  title: string
+  protocol?: string
+  transport?: string
+}
+
+interface SummaryDestination extends SummaryNodeIdentity {
+  subtitle: string
+  tooltipNodes?: SummaryNodeIdentity[]
+}
 
 function SummaryShell({
   title,
@@ -42,12 +71,12 @@ function SummaryShell({
 }) {
   return (
     <section
-      className="flex h-full flex-col overflow-hidden rounded-[16px] border sm:rounded-[18px] lg:min-h-[430px]"
+      className="flex h-full flex-col overflow-hidden rounded-[18px] border lg:min-h-[430px]"
       style={summaryShellStyle}
     >
-      <div className="flex items-start justify-between gap-2.5 border-b border-border/80 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+      <div className="flex min-h-[72px] items-start justify-between gap-2.5 border-b border-border/55 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary sm:h-9 sm:w-9">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/14 bg-primary/7 text-primary sm:h-9 sm:w-9">
             {icon}
           </div>
           <div className="min-w-0">
@@ -70,87 +99,91 @@ function SummaryShell({
   )
 }
 
-function SummaryHero({
+function SummaryNodeProtocolStack({
+  protocol,
+  transport,
+  compact,
+}: {
+  protocol?: string
+  transport?: string
+  compact?: boolean
+}) {
+  if (!protocol && !transport) {
+    return null
+  }
+
+  return (
+    <span className={cn('flex shrink-0 flex-col items-start gap-0.5', compact ? 'max-w-[5.75rem]' : 'max-w-[6.5rem]')}>
+      {protocol ? (
+        <span
+          className={cn(
+            'max-w-full truncate rounded-full bg-[color:var(--shell-blue-soft)] px-2 py-0.5 font-semibold uppercase leading-none tracking-[0.12em] text-[color:var(--shell-blue-strong)]',
+            compact ? 'text-[8.5px]' : 'text-[9px]',
+          )}
+        >
+          {protocol}
+        </span>
+      ) : null}
+      {transport ? (
+        <span
+          className={cn(
+            'max-w-full truncate pl-0.5 font-medium uppercase leading-none tracking-[0.06em] text-muted-foreground/80',
+            compact ? 'text-[8.5px]' : 'text-[9px]',
+          )}
+        >
+          {transport}
+        </span>
+      ) : null}
+    </span>
+  )
+}
+
+function SummaryNodeIdentityView({ node, compact }: { node: SummaryNodeIdentity; compact?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-2">
+        <SummaryNodeProtocolStack protocol={node.protocol} transport={node.transport} compact={compact} />
+        <strong
+          className={cn(
+            'block min-w-0 truncate font-bold leading-none text-foreground',
+            compact ? 'text-xs' : 'text-[1rem] sm:text-[1.08rem]',
+          )}
+        >
+          {node.title || '—'}
+        </strong>
+      </div>
+    </div>
+  )
+}
+
+function SummaryConfigCard({
   label,
   value,
   tag,
-  note,
-  valueClassName,
+  detail,
 }: {
   label: string
   value: string
   tag?: string
-  note?: string
-  valueClassName?: string
+  detail?: string
 }) {
   return (
-    <div className="rounded-[16px] border border-border bg-accent/45 p-3 sm:p-3.5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <span className="text-xs font-semibold text-muted-foreground">{label}</span>
-          <strong
-            className={cn(
-              'mt-1 block truncate text-[1.35rem] font-extrabold leading-none tracking-tight text-foreground sm:text-[1.95rem]',
-              valueClassName,
-            )}
-          >
-            {value}
-          </strong>
+    <div
+      className={cn(
+        summaryInnerCardClassName,
+        'flex h-[82px] min-w-0 flex-col justify-between px-3 py-2.5 sm:h-[86px] sm:px-3.5 sm:py-3',
+      )}
+    >
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0 truncate">
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
         </div>
-        {tag ? (
-          <Badge className="rounded-full bg-primary/10 px-2.5 py-1 text-primary hover:bg-primary/10">{tag}</Badge>
-        ) : null}
+        {tag ? <Badge className={summaryStatusPillClassName}>{tag}</Badge> : null}
       </div>
-      {note ? <p className="mt-3 text-sm leading-6 text-muted-foreground">{note}</p> : null}
-    </div>
-  )
-}
-
-function InterfaceStat({ label, items }: { label: string; items: Array<{ name: string; address?: string }> }) {
-  return (
-    <div className="flex min-h-[74px] flex-col justify-between rounded-[14px] border border-border bg-accent/40 px-3 py-2.5 sm:min-h-[82px] sm:px-3.5 sm:py-3">
-      <span className="truncate text-xs font-semibold text-muted-foreground">{label}</span>
-      <div className="mt-2 space-y-1.5">
-        {items.length > 0 ? (
-          items.map((item) => (
-            <div key={`${item.name}-${item.address || ''}`} className="min-w-0">
-              <strong className="block truncate text-sm font-semibold leading-none text-foreground">{item.name}</strong>
-              {item.address ? (
-                <span className="block truncate text-xs text-muted-foreground">{item.address}</span>
-              ) : null}
-            </div>
-          ))
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
-        )}
+      <div className="min-w-0">
+        <strong className="block truncate text-base font-bold leading-none text-foreground sm:text-lg">{value}</strong>
+        {detail ? <span className="mt-1 block truncate text-xs text-muted-foreground">{detail}</span> : null}
       </div>
-    </div>
-  )
-}
-
-function SummaryStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex min-h-[74px] flex-col justify-between rounded-[14px] border border-border bg-accent/40 px-3 py-2.5 sm:min-h-[82px] sm:px-3.5 sm:py-3">
-      <span className="truncate text-xs font-semibold text-muted-foreground">{label}</span>
-      <strong className="mt-1 block truncate text-base font-extrabold leading-none text-foreground sm:text-lg">
-        {value}
-      </strong>
-    </div>
-  )
-}
-
-function SummaryThinList({ rows }: { rows: Array<{ label: string; value: string }> }) {
-  return (
-    <div className="space-y-2">
-      {rows.map((row) => (
-        <div
-          key={`${row.label}-${row.value}`}
-          className="flex min-h-[52px] items-center justify-between gap-3 rounded-[14px] border border-border bg-accent/40 px-3 py-2.5 sm:min-h-[58px] sm:px-3.5 sm:py-3"
-        >
-          <strong className="truncate text-sm font-semibold text-foreground">{row.label}</strong>
-          <span className="truncate text-sm text-muted-foreground">{row.value}</span>
-        </div>
-      ))}
     </div>
   )
 }
@@ -170,24 +203,23 @@ function CurrentGroupPathCard({
   currentLabel: string
   policy?: string
   policyLabel: string
-  destination?: { title: string; subtitle: string; tooltipNodes?: string[] }
+  destination?: SummaryDestination
   latencyTitle: string
   latencyLabel?: string
   editGroupLabel?: string
   onEditGroup?: () => void
 }) {
+  const groupNameMaxWidth = destination?.title && destination.title.length > 16 ? '7.25rem' : '9rem'
   const destinationTitleContent = (
     <div className={cn('min-w-0', destination?.tooltipNodes?.length ? 'cursor-default' : '')}>
-      <strong className="block truncate text-[1rem] font-extrabold leading-none text-foreground sm:text-[1.08rem]">
-        {destination?.title || '—'}
-      </strong>
+      <SummaryNodeIdentityView node={destination || { title: '—' }} />
     </div>
   )
 
   return (
     <article
       className={cn(
-        'relative rounded-[16px] border border-border bg-accent/35 py-2.5 pl-3 shadow-sm sm:py-3 sm:pl-3.5',
+        'relative rounded-[16px] border border-border/55 bg-accent/18 py-2.5 pl-3 shadow-none transition-colors hover:border-border/70 sm:py-3 sm:pl-3.5',
         onEditGroup ? 'pr-10 sm:pr-11' : 'pr-3 sm:pr-3.5',
       )}
     >
@@ -196,31 +228,37 @@ function CurrentGroupPathCard({
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="absolute top-2.5 right-2.5 h-7 w-7 rounded-full border border-primary/15 bg-primary/8 text-primary hover:bg-primary/12 hover:text-primary"
+          className="absolute top-2.5 right-2.5 h-7 w-7 rounded-full border border-primary/10 bg-primary/6 text-primary shadow-none hover:bg-primary/10 hover:text-primary"
           aria-label={editGroupLabel}
           onClick={onEditGroup}
         >
           <Pencil className="h-3.5 w-3.5" />
         </Button>
       ) : null}
-      <div className="grid grid-cols-[minmax(0,0.88fr)_1.35rem_minmax(0,1.12fr)] items-center gap-2 sm:grid-cols-[minmax(0,0.75fr)_1.45rem_minmax(0,1.25fr)]">
-        <div className="min-w-0">
-          <span className="block truncate text-[11px] font-semibold text-muted-foreground sm:text-xs">
-            {currentLabel}
-          </span>
-          <strong className="mt-1 block truncate text-[1rem] font-extrabold leading-none text-foreground sm:text-[1.08rem]">
-            {groupName}
-          </strong>
-        </div>
+      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1">
+        <span
+          className="min-w-0 truncate text-[11px] font-medium text-muted-foreground/75 sm:text-xs"
+          style={{ maxWidth: groupNameMaxWidth }}
+        >
+          {currentLabel}
+        </span>
+        <span aria-hidden="true" />
+        <span className="min-w-0 truncate text-[11px] font-medium text-muted-foreground/75 sm:text-xs">
+          {destination?.subtitle || '—'}
+        </span>
 
-        <div className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-primary/20 bg-primary/10 text-[11px] font-semibold leading-none text-primary">
+        <strong
+          className="min-w-0 truncate text-[1rem] font-bold leading-none text-foreground sm:text-[1.08rem]"
+          style={{ maxWidth: groupNameMaxWidth }}
+        >
+          {groupName}
+        </strong>
+
+        <div className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border border-primary/10 bg-primary/6 text-[10px] font-medium leading-none text-primary/85">
           →
         </div>
 
         <div className="min-w-0">
-          <span className="mb-1 block truncate text-[11px] font-semibold text-muted-foreground sm:text-xs">
-            {destination?.subtitle || '—'}
-          </span>
           {destination?.tooltipNodes?.length ? (
             <Tooltip>
               <TooltipTrigger asChild>{destinationTitleContent}</TooltipTrigger>
@@ -229,12 +267,12 @@ function CurrentGroupPathCard({
                   {destination.subtitle}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {destination.tooltipNodes.map((nodeName, index) => (
+                  {destination.tooltipNodes.map((node, index) => (
                     <div
-                      key={`${nodeName}-${index}`}
-                      className="max-w-full truncate rounded-md border border-border/60 bg-background/70 px-2 py-1 text-foreground"
+                      key={`${node.title}-${index}`}
+                      className="min-w-0 max-w-full rounded-md border border-border/60 bg-background/70 px-2 py-1.5 text-foreground sm:max-w-[15rem]"
                     >
-                      {nodeName}
+                      <SummaryNodeIdentityView node={node} compact />
                     </div>
                   ))}
                 </div>
@@ -246,14 +284,16 @@ function CurrentGroupPathCard({
         </div>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-border/70 pt-2.5 sm:mt-3">
-        <Badge className="min-w-0 max-w-[12rem] justify-self-start rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary hover:bg-primary/10">
+      <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-t border-border/55 pt-2.5 sm:mt-3">
+        <Badge className={cn(summaryTypePillClassName, 'min-w-0 max-w-full justify-self-start')}>
           <span className="mr-1 shrink-0 text-primary/70">{policyLabel}</span>
           <span className="truncate">{policy || '—'}</span>
         </Badge>
-        <Badge className="shrink-0 justify-self-end rounded-full bg-accent px-2.5 py-1 text-xs text-accent-foreground hover:bg-accent">
+        <Badge
+          className={cn(summaryLatencyPillClassName, 'shrink-0 justify-self-end px-2 text-[11px] sm:px-2.5 sm:text-xs')}
+        >
           <span className="mr-1 opacity-70">{latencyTitle}</span>
-          <span>{latencyLabel || '—'}</span>
+          <span className="font-semibold text-primary">{latencyLabel || '—'}</span>
         </Badge>
       </div>
     </article>
@@ -276,8 +316,13 @@ function NodeRow({
   muted?: boolean
 }) {
   return (
-    <div className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 rounded-[16px] border border-border bg-accent/40 px-2.5 py-2.5 sm:grid-cols-[32px_minmax(0,1fr)_auto] sm:gap-3 sm:px-3">
-      <span className="grid h-7 w-7 place-items-center rounded-[11px] bg-primary/10 text-xs font-extrabold text-primary sm:h-8 sm:w-8 sm:rounded-[12px]">
+    <div
+      className={cn(
+        summaryResourceCardClassName,
+        'grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-2 px-2.5 py-2.5 sm:grid-cols-[32px_minmax(0,1fr)_auto] sm:gap-3 sm:px-3',
+      )}
+    >
+      <span className="grid h-7 w-7 place-items-center rounded-[11px] bg-primary/8 text-xs font-extrabold text-primary sm:h-8 sm:w-8 sm:rounded-[12px]">
         {rank}
       </span>
       <div className="min-w-0">
@@ -286,12 +331,12 @@ function NodeRow({
       </div>
       <Badge
         className={cn(
-          'max-w-[6.5rem] truncate rounded-full px-2.5 py-1 text-xs sm:max-w-none',
+          'max-w-[6.5rem] truncate sm:max-w-none',
           muted
-            ? 'bg-muted text-muted-foreground hover:bg-muted'
+            ? summaryDataPillClassName
             : warn
-              ? 'bg-destructive/10 text-destructive hover:bg-destructive/10'
-              : 'bg-primary/10 text-primary hover:bg-primary/10',
+              ? 'rounded-full bg-destructive/8 px-2.5 py-1 text-xs font-medium text-destructive hover:bg-destructive/8'
+              : summaryStatusPillClassName,
         )}
       >
         {latencyLabel}
@@ -302,9 +347,9 @@ function NodeRow({
 
 function StatusRow({ title, subtitle, badge }: { title: string; subtitle: string; badge: string }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 rounded-[16px] border border-border bg-accent/40 px-2.5 py-2.5 sm:gap-x-3 sm:px-3">
+    <div className="grid min-h-[50px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 rounded-[14px] border border-border/35 bg-accent/10 px-2.5 py-2 sm:gap-x-3 sm:px-3">
       <strong className="truncate text-sm font-semibold text-foreground">{title}</strong>
-      <Badge className="rounded-full bg-primary/10 px-2.5 py-1 text-primary hover:bg-primary/10">{badge}</Badge>
+      <Badge className={summaryStatusPillClassName}>{badge}</Badge>
       <span className="col-span-2 truncate text-sm text-muted-foreground">{subtitle}</span>
     </div>
   )
@@ -322,10 +367,10 @@ function SummarySplitActions({
   onRight?: () => void
 }) {
   return (
-    <div className="mt-auto grid grid-cols-2 gap-2">
+    <div className="mt-auto grid grid-cols-2 gap-1 rounded-[16px] border border-border/55 bg-accent/18 p-1">
       <button
         type="button"
-        className="flex items-center justify-between rounded-[16px] border border-border bg-accent/40 px-3 py-2.5 text-sm font-semibold text-foreground sm:px-3.5 sm:py-3"
+        className="flex items-center justify-between rounded-[12px] px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-background/70 sm:px-3.5"
         onClick={onLeft}
       >
         <span>{leftLabel}</span>
@@ -333,7 +378,7 @@ function SummarySplitActions({
       </button>
       <button
         type="button"
-        className="flex items-center justify-between rounded-[16px] border border-border bg-accent/40 px-3 py-2.5 text-sm font-semibold text-foreground sm:px-3.5 sm:py-3"
+        className="flex items-center justify-between rounded-[12px] px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-background/70 sm:px-3.5"
         onClick={onRight}
       >
         <span>{rightLabel}</span>
@@ -360,6 +405,28 @@ function formatBestLatencyLabel(nodes: NodeResource[], nodeLatencies?: Record<st
 
 function getNodeDisplayName(node: NodeResource) {
   return node.tag || node.name || node.address || '—'
+}
+
+function getNodeIdentity(node: NodeResource): SummaryNodeIdentity {
+  return {
+    title: getNodeDisplayName(node),
+    protocol: node.protocol || undefined,
+    transport: node.transport || undefined,
+  }
+}
+
+function formatInterfaceSummary(items: Array<{ name: string; address?: string }>) {
+  if (items.length === 0) {
+    return { value: '—' }
+  }
+
+  return {
+    value: items.map((item) => item.name).join(', '),
+    detail: items
+      .map((item) => item.address)
+      .filter(Boolean)
+      .join(', '),
+  }
 }
 
 interface RankedNode {
@@ -449,7 +516,7 @@ export function WorkspaceSummaryCards({
     const subscriptionNodes = subscriptionBinding?.matchedNodes ?? []
     const destination = directNode
       ? {
-          title: getNodeDisplayName(directNode),
+          ...getNodeIdentity(directNode),
           subtitle: directNode.subscriptionID
             ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
             : t('workspaceSummary.manualNode'),
@@ -460,7 +527,7 @@ export function WorkspaceSummaryCards({
             subtitle: `${t('workspaceSummary.fromSubscription')} · ${t('groupPicker.subscriptionPreviewMatchedCount', {
               count: subscriptionBinding.matchedCount,
             })}`,
-            tooltipNodes: subscriptionNodes.map(getNodeDisplayName),
+            tooltipNodes: subscriptionNodes.map(getNodeIdentity),
           }
         : undefined
 
@@ -498,6 +565,8 @@ export function WorkspaceSummaryCards({
     const iface = interfaces.find((item) => item.name === value)
     return iface ? { name: iface.name, address: iface.addresses[0] } : { name: value }
   })
+  const wanInterfaceSummary = formatInterfaceSummary(wanInterfaceItems)
+  const lanInterfaceSummary = formatInterfaceSummary(lanInterfaceItems)
 
   return (
     <section className="grid items-stretch gap-4 lg:grid-cols-3 lg:gap-5">
@@ -508,21 +577,29 @@ export function WorkspaceSummaryCards({
         actionLabel={t('actions.settings')}
         onAction={onOpenConfig}
       >
-        <SummaryHero
-          label={t('workspaceSummary.currentConfig')}
-          value={activeConfig?.name || 'default'}
-          tag={t('workspaceSummary.applied')}
-          valueClassName="text-[1.55rem]"
-        />
-        <div className="grid gap-2 sm:grid-cols-2">
-          <SummaryStat label={t('tproxyPort')} value={String(activeConfig?.global.tproxyPort ?? '—')} />
-          <SummaryStat label={t('dialMode')} value={activeConfig?.global.dialMode || '—'} />
-          <InterfaceStat label={t('wanInterface')} items={wanInterfaceItems} />
-          <InterfaceStat label={t('lanInterface')} items={lanInterfaceItems} />
+        <div className="grid auto-rows-fr grid-cols-2 gap-2">
+          <SummaryConfigCard
+            label={t('workspaceSummary.currentConfig')}
+            value={activeConfig?.name || 'default'}
+            tag={t('workspaceSummary.applied')}
+          />
+          <SummaryConfigCard label={t('tproxyPort')} value={String(activeConfig?.global.tproxyPort ?? '—')} />
+          <SummaryConfigCard
+            label={t('wanInterface')}
+            value={wanInterfaceSummary.value}
+            detail={wanInterfaceSummary.detail}
+          />
+          <SummaryConfigCard
+            label={t('lanInterface')}
+            value={lanInterfaceSummary.value}
+            detail={lanInterfaceSummary.detail}
+          />
+          <SummaryConfigCard label={t('dialMode')} value={activeConfig?.global.dialMode || '—'} />
+          <SummaryConfigCard
+            label={t('workspaceSummary.fallbackDns')}
+            value={activeConfig?.global.fallbackResolver || '—'}
+          />
         </div>
-        <SummaryThinList
-          rows={[{ label: t('workspaceSummary.fallbackDns'), value: activeConfig?.global.fallbackResolver || '—' }]}
-        />
       </SummaryShell>
 
       <SummaryShell
@@ -532,7 +609,7 @@ export function WorkspaceSummaryCards({
         actionLabel={t('actions.viewDetails')}
         onAction={onOpenGroup}
       >
-        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pr-1">
+        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain py-0.5 pr-1">
           {groupPathCards.map(({ group, destination, latencyLabel }) => (
             <CurrentGroupPathCard
               key={group.id}
@@ -580,7 +657,7 @@ export function WorkspaceSummaryCards({
             )
           })}
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {topSubscriptions.map((subscription) => (
             <StatusRow
               key={subscription.id}
@@ -589,11 +666,11 @@ export function WorkspaceSummaryCards({
               badge={t('workspaceSummary.healthy')}
             />
           ))}
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[16px] border border-border bg-accent/40 px-3 py-2.5">
+          <div className="grid min-h-[48px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-border/35 bg-accent/10 px-3 py-2">
             <strong className="truncate text-sm font-semibold text-foreground">
               {t('workspaceSummary.customNodes')}
             </strong>
-            <span className="text-sm text-muted-foreground">{manualNodeCount}</span>
+            <span className="text-sm font-bold text-muted-foreground">{manualNodeCount}</span>
           </div>
         </div>
         <SummarySplitActions

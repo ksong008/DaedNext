@@ -74,11 +74,9 @@ export function GroupFormModal({
 
   const handleClose = useCallback(() => {
     onClose()
-    setTimeout(() => {
-      resetForm()
-      setEditingID(undefined)
-      setOrigins(undefined)
-    }, 200)
+    resetForm()
+    setEditingID(undefined)
+    setOrigins(undefined)
   }, [onClose, resetForm])
 
   useImperativeHandle(ref, () => ({

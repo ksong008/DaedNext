@@ -29,14 +29,14 @@ const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
 ]
 
 const runtimeStatusStyle = {
-  background: 'color-mix(in oklab, var(--card) 94%, var(--primary) 6%)',
-  borderColor: 'color-mix(in oklab, var(--border) 78%, var(--primary) 22%)',
-  boxShadow: '0 10px 24px color-mix(in oklab, var(--foreground) 7%, transparent)',
+  background: 'color-mix(in oklab, var(--card) 97%, var(--primary) 3%)',
+  borderColor: 'color-mix(in oklab, var(--border) 90%, var(--primary) 10%)',
+  boxShadow: '0 7px 18px color-mix(in oklab, var(--foreground) 4%, transparent)',
 }
 
 const runtimePanelStyle = {
-  background: 'color-mix(in oklab, var(--accent) 42%, var(--card))',
-  borderColor: 'color-mix(in oklab, var(--border) 82%, var(--primary) 18%)',
+  background: 'color-mix(in oklab, var(--accent) 22%, var(--card))',
+  borderColor: 'color-mix(in oklab, var(--border) 92%, var(--primary) 8%)',
 }
 
 function formatBytes(value: number) {
@@ -94,11 +94,11 @@ function formatChartTooltipTime(value: unknown) {
 function createMetricTintStyle(highlight?: boolean): CSSProperties {
   return {
     backgroundColor: highlight
-      ? 'color-mix(in oklab, var(--primary) 9%, var(--card))'
-      : 'color-mix(in oklab, var(--accent) 54%, var(--card))',
+      ? 'color-mix(in oklab, var(--primary) 6%, var(--card))'
+      : 'color-mix(in oklab, var(--accent) 30%, var(--card))',
     borderColor: highlight
-      ? 'color-mix(in oklab, var(--primary) 24%, var(--border))'
-      : 'color-mix(in oklab, var(--primary) 14%, var(--border))',
+      ? 'color-mix(in oklab, var(--primary) 14%, var(--border))'
+      : 'color-mix(in oklab, var(--primary) 7%, var(--border))',
   }
 }
 
@@ -145,14 +145,12 @@ function OverviewMetricCard({
 }) {
   return (
     <div
-      className="min-h-[58px] rounded-xl border px-3 py-2 shadow-sm sm:min-h-[62px]"
+      className="min-h-[56px] rounded-[14px] border px-3 py-2 shadow-none sm:min-h-[60px]"
       style={createMetricTintStyle(highlight)}
     >
-      <p className="truncate text-[11px] font-semibold text-muted-foreground">{title}</p>
+      <p className="truncate text-[11px] font-medium text-muted-foreground">{title}</p>
       <div className="mt-1.5 flex min-w-0 items-baseline gap-1.5">
-        <span className="truncate text-base font-extrabold leading-none text-foreground sm:text-[1.05rem]">
-          {amount}
-        </span>
+        <span className="truncate text-base font-bold leading-none text-foreground sm:text-[1.05rem]">{amount}</span>
         {unit ? <span className="text-xs text-muted-foreground">{unit}</span> : null}
       </div>
     </div>
@@ -170,9 +168,9 @@ function TrafficRangeButton({ active, onClick, children }: { active: boolean; on
       variant="outline"
       size="xs"
       className={cn(
-        'shrink-0 rounded-full border-border bg-accent/40 px-3 text-foreground shadow-none transition-colors hover:border-primary/30 hover:bg-primary/10 hover:text-primary dark:border-border dark:bg-accent/40 dark:hover:bg-primary/10',
+        'shrink-0 rounded-full border-border/55 bg-accent/22 px-3 text-foreground shadow-none transition-colors hover:border-primary/24 hover:bg-primary/8 hover:text-primary dark:border-border/55 dark:bg-accent/22 dark:hover:bg-primary/8',
         active &&
-          'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 dark:border-primary/40 dark:bg-primary/10 dark:hover:bg-primary/15',
+          'border-primary/32 bg-primary/8 text-primary hover:bg-primary/12 dark:border-primary/32 dark:bg-primary/8 dark:hover:bg-primary/12',
       )}
       onClick={onClick}
     >
@@ -242,16 +240,16 @@ export function TrafficOverview() {
 
   return (
     <Card withBorder shadow="sm" padding="none" className="overflow-hidden backdrop-blur-sm" style={runtimeStatusStyle}>
-      <CardContent className="border-b border-border/70 px-3 py-2.5 sm:px-5 sm:py-3">
+      <CardContent className="border-b border-border/55 px-3 py-2.5 sm:px-5 sm:py-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <div className="rounded-full border border-primary/15 bg-primary/10 p-1.5 text-primary sm:p-2">
+            <div className="rounded-full border border-primary/12 bg-primary/7 p-1.5 text-primary sm:p-2">
               <Activity className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
             </div>
             <CardTitle className="truncate text-base text-foreground sm:text-lg">
               {t('trafficOverview.title')}
             </CardTitle>
-            <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary sm:px-3 sm:py-1 sm:text-sm">
+            <span className="inline-flex items-center rounded-full border border-primary/12 bg-primary/8 px-2.5 py-0.5 text-xs font-semibold text-primary sm:px-3 sm:py-1 sm:text-sm">
               {t('shell.live')}
             </span>
           </div>
@@ -271,36 +269,37 @@ export function TrafficOverview() {
       </CardContent>
 
       <CardContent className="grid gap-3 px-3 py-3 sm:px-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
-        <div
-          className="min-w-0 rounded-[16px] border p-2.5 shadow-sm sm:rounded-[18px] sm:p-3"
-          style={runtimePanelStyle}
-        >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-medium text-muted-foreground sm:gap-4 sm:text-sm">
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-[var(--chart-1)]" />
+        <div className="min-w-0 rounded-[18px] border p-2.5 shadow-none sm:p-3" style={runtimePanelStyle}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-muted-foreground sm:gap-x-4 sm:text-xs">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[var(--chart-1)]" />
               <span>{t('trafficOverview.uploadLegend')}</span>
               <strong className="font-semibold text-foreground">{formatRate(latestSample.uploadRate)}</strong>
             </span>
-            <span className="inline-flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-[var(--chart-2)]" />
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[var(--chart-2)]" />
               <span>{t('trafficOverview.downloadLegend')}</span>
               <strong className="font-semibold text-foreground">{formatRate(latestSample.downloadRate)}</strong>
             </span>
           </div>
 
-          <ChartContainer config={chartConfig} className="mt-2 h-[178px] w-full sm:h-[240px] xl:h-[260px]">
+          <ChartContainer config={chartConfig} className="mt-2 h-[166px] w-full sm:h-[230px] xl:h-[250px]">
             <AreaChart data={combinedChartData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="traffic-upload-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-upload)" stopOpacity={0.22} />
+                  <stop offset="0%" stopColor="var(--color-upload)" stopOpacity={0.12} />
                   <stop offset="100%" stopColor="var(--color-upload)" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="traffic-download-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-download)" stopOpacity={0.18} />
+                  <stop offset="0%" stopColor="var(--color-download)" stopOpacity={0.1} />
                   <stop offset="100%" stopColor="var(--color-download)" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <CartesianGrid
+                vertical={false}
+                stroke="color-mix(in oklab, var(--border) 42%, transparent)"
+                strokeDasharray="3 3"
+              />
               <XAxis
                 type="number"
                 scale="time"
@@ -310,6 +309,7 @@ export function TrafficOverview() {
                 minTickGap={24}
                 tickMargin={10}
                 height={28}
+                tick={{ fontSize: 11, fill: 'color-mix(in oklab, var(--muted-foreground) 76%, transparent)' }}
                 domain={[chartWindowStart, chartWindowEnd]}
                 allowDataOverflow
                 tickFormatter={(value) => formatChartTime(value)}
@@ -318,8 +318,9 @@ export function TrafficOverview() {
                 axisLine={false}
                 tickLine={false}
                 tickMargin={8}
-                width={50}
+                width={44}
                 tickCount={4}
+                tick={{ fontSize: 11, fill: 'color-mix(in oklab, var(--muted-foreground) 72%, transparent)' }}
                 tickFormatter={(value) => formatAxisRate(Number(value))}
                 domain={chartRateDomain}
               />
@@ -338,7 +339,7 @@ export function TrafficOverview() {
                 dataKey="uploadRate"
                 type="monotone"
                 stroke="var(--color-upload)"
-                strokeWidth={2.5}
+                strokeWidth={2.1}
                 fill="url(#traffic-upload-fill)"
                 isAnimationActive={false}
               />
@@ -346,7 +347,7 @@ export function TrafficOverview() {
                 dataKey="downloadRate"
                 type="monotone"
                 stroke="var(--color-download)"
-                strokeWidth={2.5}
+                strokeWidth={2.1}
                 fill="url(#traffic-download-fill)"
                 isAnimationActive={false}
               />
