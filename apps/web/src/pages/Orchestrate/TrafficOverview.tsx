@@ -144,10 +144,15 @@ function OverviewMetricCard({
   highlight?: boolean
 }) {
   return (
-    <div className="min-h-[62px] rounded-xl border px-3 py-2 shadow-sm" style={createMetricTintStyle(highlight)}>
+    <div
+      className="min-h-[58px] rounded-xl border px-3 py-2 shadow-sm sm:min-h-[62px]"
+      style={createMetricTintStyle(highlight)}
+    >
       <p className="truncate text-[11px] font-semibold text-muted-foreground">{title}</p>
       <div className="mt-1.5 flex min-w-0 items-baseline gap-1.5">
-        <span className="truncate text-[1.05rem] font-extrabold leading-none text-foreground">{amount}</span>
+        <span className="truncate text-base font-extrabold leading-none text-foreground sm:text-[1.05rem]">
+          {amount}
+        </span>
         {unit ? <span className="text-xs text-muted-foreground">{unit}</span> : null}
       </div>
     </div>
@@ -237,14 +242,16 @@ export function TrafficOverview() {
 
   return (
     <Card withBorder shadow="sm" padding="none" className="overflow-hidden backdrop-blur-sm" style={runtimeStatusStyle}>
-      <CardContent className="border-b border-border/70 px-4 py-3 sm:px-5">
+      <CardContent className="border-b border-border/70 px-3 py-2.5 sm:px-5 sm:py-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="rounded-full border border-primary/15 bg-primary/10 p-2 text-primary">
-              <Activity className="h-5 w-5" />
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <div className="rounded-full border border-primary/15 bg-primary/10 p-1.5 text-primary sm:p-2">
+              <Activity className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
             </div>
-            <CardTitle className="truncate text-lg text-foreground">{t('trafficOverview.title')}</CardTitle>
-            <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+            <CardTitle className="truncate text-base text-foreground sm:text-lg">
+              {t('trafficOverview.title')}
+            </CardTitle>
+            <span className="inline-flex items-center rounded-full border border-primary/15 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary sm:px-3 sm:py-1 sm:text-sm">
               {t('shell.live')}
             </span>
           </div>
@@ -263,9 +270,12 @@ export function TrafficOverview() {
         </div>
       </CardContent>
 
-      <CardContent className="grid gap-3 px-4 py-3 sm:px-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
-        <div className="min-w-0 rounded-[18px] border p-3 shadow-sm" style={runtimePanelStyle}>
-          <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-muted-foreground">
+      <CardContent className="grid gap-3 px-3 py-3 sm:px-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
+        <div
+          className="min-w-0 rounded-[16px] border p-2.5 shadow-sm sm:rounded-[18px] sm:p-3"
+          style={runtimePanelStyle}
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-medium text-muted-foreground sm:gap-4 sm:text-sm">
             <span className="inline-flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-[var(--chart-1)]" />
               <span>{t('trafficOverview.uploadLegend')}</span>
@@ -278,7 +288,7 @@ export function TrafficOverview() {
             </span>
           </div>
 
-          <ChartContainer config={chartConfig} className="mt-2 h-[220px] w-full sm:h-[240px] xl:h-[260px]">
+          <ChartContainer config={chartConfig} className="mt-2 h-[178px] w-full sm:h-[240px] xl:h-[260px]">
             <AreaChart data={combinedChartData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="traffic-upload-fill" x1="0" y1="0" x2="0" y2="1">

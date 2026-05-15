@@ -50,7 +50,7 @@ interface NodePickerCandidate {
 
 function GroupSummaryCount({ label, count }: { label: string; count: number }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--shell-muted-strong)]">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)] px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-[var(--shell-muted-strong)]">
       <span>{label}</span>
       <span className="min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-primary-foreground shadow-sm">
         {count}
@@ -188,19 +188,23 @@ export function GroupResource({
     ({ node, sourceLabel }: NodePickerCandidate): GroupPickerItem => {
       const title = node.tag || node.name || node.address || node.id
       const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
-      const metaTone: GroupPickerItem['metaTone'] = nodeLatencies?.[node.id] ? 'primary' : 'default'
+      const latencyResult = nodeLatencies?.[node.id]
+      const latency = formatLatencyMeta(latencyResult, t('latency.unavailable'))
+      const latencyTone: GroupPickerItem['latencyTone'] =
+        typeof latencyResult?.latencyMs === 'number' ? 'primary' : 'default'
 
       return {
         id: node.id,
         title,
         description: description || undefined,
-        meta: [node.transport, sourceLabel, formatLatencyMeta(nodeLatencies?.[node.id])].filter(Boolean).join(' · '),
-        metaTone,
+        meta: [node.transport, sourceLabel].filter(Boolean).join(' · '),
+        latency,
+        latencyTone,
         badge: node.protocol || undefined,
-        keywords: [node.name, node.tag, node.address, node.protocol, sourceLabel].filter(Boolean) as string[],
+        keywords: [node.name, node.tag, node.address, node.protocol, sourceLabel, latency].filter(Boolean) as string[],
       }
     },
-    [nodeLatencies],
+    [nodeLatencies, t],
   )
 
   const addableNodeItems = useMemo<GroupPickerItem[]>(() => {
@@ -434,17 +438,17 @@ export function GroupResource({
   )
 }
 
-function formatLatencyMeta(result?: NodeLatencyProbeResult) {
+function formatLatencyMeta(result: NodeLatencyProbeResult | undefined, unavailableLabel: string) {
   if (!result) {
-    return undefined
+    return unavailableLabel
   }
   if (typeof result.latencyMs === 'number') {
-    return result.message ? `${result.latencyMs}ms · ${result.message}` : `${result.latencyMs}ms`
+    return result.message ? `${result.latencyMs} ms · ${result.message}` : `${result.latencyMs} ms`
   }
   if (result.message) {
-    return result.message === 'no latency result' ? 'N/A' : 'Fail'
+    return result.message === 'no latency result' ? unavailableLabel : result.message
   }
-  return 'N/A'
+  return unavailableLabel
 }
 
 function getNodeIdentityKeys(node: {

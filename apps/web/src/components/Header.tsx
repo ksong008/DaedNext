@@ -154,6 +154,47 @@ function RuntimeHealthStrip({
   )
 }
 
+function MobileRuntimeHealthStrip({
+  running,
+  fastestLatencyMs,
+  subscriptionCount,
+  nodeCount,
+}: {
+  running?: boolean
+  fastestLatencyMs?: number
+  subscriptionCount?: number
+  nodeCount?: number
+}) {
+  const { t } = useTranslation()
+  const runningKnown = typeof running === 'boolean'
+  const fastestLatencyLabel = typeof fastestLatencyMs === 'number' ? `${fastestLatencyMs} ms` : t('latency.unavailable')
+
+  return (
+    <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[11px] font-semibold sm:text-xs">
+      <span className="shrink-0 text-foreground">DAED</span>
+      <span className="shrink-0 text-muted-foreground/60">·</span>
+      <span
+        className={cn('inline-flex min-w-0 items-center gap-1', running ? 'text-primary' : 'text-muted-foreground')}
+      >
+        {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
+        <span className="truncate">{runningKnown ? t(running ? 'shell.running' : 'shell.stopped') : '—'}</span>
+      </span>
+      <span className="shrink-0 text-muted-foreground/60">·</span>
+      <span className="shrink-0 text-muted-foreground">
+        {t('shell.fastestNodeShort')} <span className="font-bold text-foreground">{fastestLatencyLabel}</span>
+      </span>
+      <span className="shrink-0 text-muted-foreground/60">·</span>
+      <span className="shrink-0 text-muted-foreground">
+        {t('shell.subscriptionsShort')} <span className="font-bold text-foreground">{subscriptionCount ?? '—'}</span>
+      </span>
+      <span className="shrink-0 text-muted-foreground/60">·</span>
+      <span className="shrink-0 text-muted-foreground">
+        {t('shell.nodesShort')} <span className="font-bold text-foreground">{nodeCount ?? '—'}</span>
+      </span>
+    </div>
+  )
+}
+
 export function HeaderWithActions() {
   const { t } = useTranslation()
   const endpointURL = useStore(endpointURLAtom)
@@ -576,9 +617,23 @@ export function HeaderWithActions() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[color:var(--shell-line)] bg-[color:var(--shell-page)]/82 backdrop-blur-[24px] supports-[backdrop-filter]:bg-[color:var(--shell-page)]/78">
-      <div className="mx-auto grid min-h-[74px] w-full max-w-[1480px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-5 lg:px-7">
-        <div className="flex min-w-0 items-center">
-          {!matchSmallScreen && (
+      <div
+        className={cn(
+          'mx-auto w-full max-w-[1480px]',
+          matchSmallScreen
+            ? 'flex min-h-[92px] flex-col gap-2 px-3 py-2.5'
+            : 'grid min-h-[74px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-5 lg:px-7',
+        )}
+      >
+        <div className={cn('flex min-w-0 items-center', matchSmallScreen && 'w-full')}>
+          {matchSmallScreen ? (
+            <MobileRuntimeHealthStrip
+              running={generalQuery?.general.dae.running}
+              fastestLatencyMs={fastestLatencyMs}
+              subscriptionCount={subscriptionsQuery?.subscriptions.length}
+              nodeCount={totalNodeCount}
+            />
+          ) : (
             <RuntimeHealthStrip
               running={generalQuery?.general.dae.running}
               fastestLatencyMs={fastestLatencyMs}
@@ -589,7 +644,14 @@ export function HeaderWithActions() {
           )}
         </div>
 
-        <div className={cn('flex items-center justify-end', matchSmallScreen ? 'gap-1.5' : 'gap-2')}>
+        <div
+          className={cn(
+            'flex items-center justify-end',
+            matchSmallScreen
+              ? 'w-full gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+              : 'gap-2',
+          )}
+        >
           <input
             ref={bundleInputRef}
             type="file"

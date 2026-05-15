@@ -453,19 +453,23 @@ export function OrchestratePage() {
     ({ node, sourceLabel }: NodePickerCandidate): GroupPickerItem => {
       const title = node.tag || node.name || node.address || node.id
       const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
-      const metaTone: GroupPickerItem['metaTone'] = nodeLatencies[node.id] ? 'primary' : 'default'
+      const latencyResult = nodeLatencies[node.id]
+      const latency = formatLatencyMeta(latencyResult, t('latency.unavailable'))
+      const latencyTone: GroupPickerItem['latencyTone'] =
+        typeof latencyResult?.latencyMs === 'number' ? 'primary' : 'default'
 
       return {
         id: node.id,
         title,
         description: description || undefined,
-        meta: [node.transport, sourceLabel, formatLatencyMeta(nodeLatencies[node.id])].filter(Boolean).join(' · '),
-        metaTone,
+        meta: [node.transport, sourceLabel].filter(Boolean).join(' · '),
+        latency,
+        latencyTone,
         badge: node.protocol || undefined,
-        keywords: [node.name, node.tag, node.address, node.protocol, sourceLabel].filter(Boolean) as string[],
+        keywords: [node.name, node.tag, node.address, node.protocol, sourceLabel, latency].filter(Boolean) as string[],
       }
     },
-    [nodeLatencies],
+    [nodeLatencies, t],
   )
 
   const summaryEditableNodeItems = useMemo<GroupPickerItem[]>(
@@ -982,7 +986,7 @@ export function OrchestratePage() {
   }, [searchParams, setSearchParams])
 
   return (
-    <div className="flex flex-col gap-5 lg:gap-5">
+    <div className="flex flex-col gap-4 lg:gap-5">
       <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
         <TrafficOverview />
       </section>
@@ -1143,7 +1147,7 @@ export function OrchestratePage() {
       <Dialog open={!!activeWorkspacePanel} onOpenChange={(open) => !open && closeWorkspacePanel()}>
         <ScrollableDialogContent
           size="full"
-          className={cn(matchSmallScreen ? 'h-[96vh] w-[96vw]' : 'h-[92vh] w-[94vw] max-w-[1500px]')}
+          className={cn(matchSmallScreen ? 'h-[94dvh] w-[calc(100vw-0.75rem)]' : 'h-[92vh] w-[94vw] max-w-[1500px]')}
         >
           <ScrollableDialogHeader>
             <DialogTitle>
@@ -1205,17 +1209,17 @@ export function OrchestratePage() {
   )
 }
 
-function formatLatencyMeta(result?: NodeLatencyProbeResult) {
+function formatLatencyMeta(result: NodeLatencyProbeResult | undefined, unavailableLabel: string) {
   if (!result) {
-    return undefined
+    return unavailableLabel
   }
   if (typeof result.latencyMs === 'number') {
-    return result.message ? `${result.latencyMs}ms · ${result.message}` : `${result.latencyMs}ms`
+    return result.message ? `${result.latencyMs} ms · ${result.message}` : `${result.latencyMs} ms`
   }
   if (result.message) {
-    return result.message === 'no latency result' ? 'N/A' : 'Fail'
+    return result.message === 'no latency result' ? unavailableLabel : result.message
   }
-  return 'N/A'
+  return unavailableLabel
 }
 
 function getNodeIdentityKeys(node: {
