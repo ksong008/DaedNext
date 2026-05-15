@@ -47,3 +47,7 @@ export function deriveTransport(link: string, protocol: string): string | null {
   }
   return null
 }
+
+export function resolveNodeTransport(link: string, protocol: string, transport?: string | null): string | null {
+  return deriveTransport(link, protocol) ?? transport ?? null
+}

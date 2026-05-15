@@ -41,7 +41,7 @@ import { useAPIClient } from '~/contexts'
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { buildAPIURL, normalizeEndpointURL } from './client'
-import { deriveTransport } from './node_transport'
+import { resolveNodeTransport } from './node_transport'
 import { adaptRuntimeOverview, mergeRuntimeOverviewDelta } from './runtime_overview'
 
 interface JSONStorageResponse {
@@ -546,7 +546,7 @@ function adaptNode(node: NodeAPI): NodeResource {
     name: node.name,
     address: node.address,
     protocol: node.protocol,
-    transport: node.transport ?? deriveTransport(node.link, node.protocol),
+    transport: resolveNodeTransport(node.link, node.protocol, node.transport),
     tag: node.tag ?? null,
     subscriptionID: node.subscriptionId ? String(node.subscriptionId) : null,
   }

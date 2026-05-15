@@ -9,6 +9,7 @@ import type {
 import { CloudCog, Map as MapIcon, Pencil, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
@@ -71,7 +72,7 @@ function SummaryShell({
 }) {
   return (
     <section
-      className="flex h-full flex-col overflow-hidden rounded-[18px] border lg:min-h-[430px]"
+      className="flex max-h-[520px] min-h-0 flex-col overflow-hidden rounded-[18px] border lg:h-[430px] lg:max-h-none"
       style={summaryShellStyle}
     >
       <div className="flex min-h-[72px] items-start justify-between gap-2.5 border-b border-border/55 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
@@ -94,7 +95,7 @@ function SummaryShell({
           <span className="truncate">{actionLabel}</span>
         </Button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3 sm:gap-3 sm:p-4">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden p-3 sm:gap-3 sm:p-4">{children}</div>
     </section>
   )
 }
@@ -108,33 +109,13 @@ function SummaryNodeProtocolStack({
   transport?: string
   compact?: boolean
 }) {
-  if (!protocol && !transport) {
-    return null
-  }
-
   return (
-    <span className={cn('flex shrink-0 flex-col items-start gap-0.5', compact ? 'max-w-[5.75rem]' : 'max-w-[6.5rem]')}>
-      {protocol ? (
-        <span
-          className={cn(
-            'max-w-full truncate rounded-full bg-[color:var(--shell-blue-soft)] px-2 py-0.5 font-semibold uppercase leading-none tracking-[0.12em] text-[color:var(--shell-blue-strong)]',
-            compact ? 'text-[8.5px]' : 'text-[9px]',
-          )}
-        >
-          {protocol}
-        </span>
-      ) : null}
-      {transport ? (
-        <span
-          className={cn(
-            'max-w-full truncate pl-0.5 font-medium uppercase leading-none tracking-[0.06em] text-muted-foreground/80',
-            compact ? 'text-[8.5px]' : 'text-[9px]',
-          )}
-        >
-          {transport}
-        </span>
-      ) : null}
-    </span>
+    <NodeProtocolBadge
+      protocol={protocol}
+      transport={transport}
+      compact={compact}
+      className={cn(compact ? 'max-w-[4.5rem]' : 'max-w-[5rem]')}
+    />
   )
 }
 
@@ -367,7 +348,7 @@ function SummarySplitActions({
   onRight?: () => void
 }) {
   return (
-    <div className="mt-auto grid grid-cols-2 gap-1 rounded-[16px] border border-border/55 bg-accent/18 p-1">
+    <div className="grid grid-cols-2 gap-1 rounded-[16px] border border-border/55 bg-accent/18 p-1">
       <button
         type="button"
         className="flex items-center justify-between rounded-[12px] px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-background/70 sm:px-3.5"
@@ -609,7 +590,7 @@ export function WorkspaceSummaryCards({
         actionLabel={t('actions.viewDetails')}
         onAction={onOpenGroup}
       >
-        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain py-0.5 pr-1">
+        <div className="min-h-0 max-h-[340px] flex-1 space-y-2.5 overflow-y-auto overscroll-contain py-0.5 pr-1 lg:max-h-none">
           {groupPathCards.map(({ group, destination, latencyLabel }) => (
             <CurrentGroupPathCard
               key={group.id}
@@ -635,42 +616,44 @@ export function WorkspaceSummaryCards({
         actionDisabled={testingLatencies}
         onAction={onTestAllNodeLatencies}
       >
-        <div className="space-y-2">
-          {topNodes.map(({ node, latency, source }, index) => {
-            const hasLatency = Number.isFinite(latency)
-            const sourceLabel =
-              source.type === 'subscription'
-                ? `${t('workspaceSummary.fromSubscription')} · ${source.name}`
-                : t('workspaceSummary.customNode')
-            const nodeMeta = [sourceLabel, node.protocol, node.address].filter(Boolean).join(' · ')
+        <div className="min-h-0 max-h-[326px] space-y-2 overflow-y-auto overscroll-contain pr-1 lg:max-h-[276px]">
+          <div className="space-y-2">
+            {topNodes.map(({ node, latency, source }, index) => {
+              const hasLatency = Number.isFinite(latency)
+              const sourceLabel =
+                source.type === 'subscription'
+                  ? `${t('workspaceSummary.fromSubscription')} · ${source.name}`
+                  : t('workspaceSummary.customNode')
+              const nodeMeta = [sourceLabel, node.protocol, node.address].filter(Boolean).join(' · ')
 
-            return (
-              <NodeRow
-                key={node.id}
-                rank={index + 1}
-                title={node.name || node.tag || node.address}
-                subtitle={nodeMeta}
-                latencyLabel={hasLatency ? `${latency} ms` : t('latency.unavailable')}
-                warn={hasLatency && latency >= 80}
-                muted={!hasLatency}
+              return (
+                <NodeRow
+                  key={node.id}
+                  rank={index + 1}
+                  title={node.name || node.tag || node.address}
+                  subtitle={nodeMeta}
+                  latencyLabel={hasLatency ? `${latency} ms` : t('latency.unavailable')}
+                  warn={hasLatency && latency >= 80}
+                  muted={!hasLatency}
+                />
+              )
+            })}
+          </div>
+          <div className="space-y-1.5">
+            {topSubscriptions.map((subscription) => (
+              <StatusRow
+                key={subscription.id}
+                title={subscription.tag || subscription.link}
+                subtitle={`${t('workspaceSummary.subscriptionUpdated')} · ${subscription.nodes.items.length} ${t('node')}`}
+                badge={t('workspaceSummary.healthy')}
               />
-            )
-          })}
-        </div>
-        <div className="space-y-1.5">
-          {topSubscriptions.map((subscription) => (
-            <StatusRow
-              key={subscription.id}
-              title={subscription.tag || subscription.link}
-              subtitle={`${t('workspaceSummary.subscriptionUpdated')} · ${subscription.nodes.items.length} ${t('node')}`}
-              badge={t('workspaceSummary.healthy')}
-            />
-          ))}
-          <div className="grid min-h-[48px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-border/35 bg-accent/10 px-3 py-2">
-            <strong className="truncate text-sm font-semibold text-foreground">
-              {t('workspaceSummary.customNodes')}
-            </strong>
-            <span className="text-sm font-bold text-muted-foreground">{manualNodeCount}</span>
+            ))}
+            <div className="grid min-h-[48px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-border/35 bg-accent/10 px-3 py-2">
+              <strong className="truncate text-sm font-semibold text-foreground">
+                {t('workspaceSummary.customNodes')}
+              </strong>
+              <span className="text-sm font-bold text-muted-foreground">{manualNodeCount}</span>
+            </div>
           </div>
         </div>
         <SummarySplitActions

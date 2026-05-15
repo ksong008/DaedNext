@@ -24,6 +24,7 @@ import {
   useTestNodeLatenciesMutation,
 } from '~/apis'
 import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
+import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Dialog, DialogTitle } from '~/components/ui/dialog'
 import {
   ScrollableDialogBody,
@@ -462,11 +463,15 @@ export function OrchestratePage() {
         id: node.id,
         title,
         description: description || undefined,
-        meta: [node.transport, sourceLabel].filter(Boolean).join(' · '),
+        meta: sourceLabel,
         latency,
         latencyTone,
-        badge: node.protocol || undefined,
-        keywords: [node.name, node.tag, node.address, node.protocol, sourceLabel, latency].filter(Boolean) as string[],
+        badge: (
+          <NodeProtocolBadge protocol={node.protocol} transport={node.transport} compact className="max-w-[5rem]" />
+        ),
+        keywords: [node.name, node.tag, node.address, node.protocol, node.transport, sourceLabel, latency].filter(
+          Boolean,
+        ) as string[],
       }
     },
     [nodeLatencies, t],

@@ -5,7 +5,7 @@ import * as React from 'react'
 import { useState } from 'react'
 
 import { useTranslation } from 'react-i18next'
-import { Badge } from '~/components/ui/badge'
+import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { SimpleTooltip } from '~/components/ui/tooltip'
@@ -16,7 +16,8 @@ export function SortableNodeCard({
   id,
   index,
   name,
-  leftSection,
+  protocol,
+  transport,
   subtitle,
   onRemove,
   actions,
@@ -25,7 +26,8 @@ export function SortableNodeCard({
   id: string
   index: number
   name: React.ReactNode
-  leftSection?: React.ReactNode
+  protocol?: string | null
+  transport?: string | null
   subtitle?: React.ReactNode
   onRemove: () => void
   actions?: React.ReactNode
@@ -59,14 +61,12 @@ export function SortableNodeCard({
             <div className="p-4 pl-14">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                  {leftSection && (
-                    <Badge
-                      variant="secondary"
-                      className="mt-0.5 shrink-0 rounded-full bg-[color:var(--shell-blue-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--shell-blue-strong)]"
-                    >
-                      {leftSection}
-                    </Badge>
-                  )}
+                  <NodeProtocolBadge
+                    protocol={protocol}
+                    transport={transport}
+                    compact
+                    className="mt-0.5 max-w-[5rem]"
+                  />
                   <div className="min-w-0 flex-1 pt-0.5">
                     <h4 className="truncate text-sm font-semibold text-foreground">{name}</h4>
                     {subtitle && <p className="mt-1 truncate text-xs font-medium text-muted-foreground">{subtitle}</p>}

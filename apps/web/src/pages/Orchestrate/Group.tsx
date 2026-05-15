@@ -31,6 +31,7 @@ import {
 import { DroppableGroupCard } from '~/components/DroppableGroupCard'
 import { GroupFormModal } from '~/components/GroupFormModal'
 import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
+import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Section } from '~/components/Section'
 import { SortableGroupContent } from '~/components/SortableGroupContent'
 import { Button } from '~/components/ui/button'
@@ -197,11 +198,15 @@ export function GroupResource({
         id: node.id,
         title,
         description: description || undefined,
-        meta: [node.transport, sourceLabel].filter(Boolean).join(' · '),
+        meta: sourceLabel,
         latency,
         latencyTone,
-        badge: node.protocol || undefined,
-        keywords: [node.name, node.tag, node.address, node.protocol, sourceLabel, latency].filter(Boolean) as string[],
+        badge: (
+          <NodeProtocolBadge protocol={node.protocol} transport={node.transport} compact className="max-w-[5rem]" />
+        ),
+        keywords: [node.name, node.tag, node.address, node.protocol, node.transport, sourceLabel, latency].filter(
+          Boolean,
+        ) as string[],
       }
     },
     [nodeLatencies, t],
@@ -364,7 +369,11 @@ export function GroupResource({
     >
       <Droppable droppableId={GROUP_DROPPABLE_ID} type="GROUP">
         {(provided) => (
-          <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col gap-3">
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className="flex max-h-[min(760px,calc(100vh-16rem))] flex-col gap-3 overflow-y-auto overscroll-contain pr-1"
+          >
             {sortedGroups.map(
               ({ id: groupId, name, policy, nodes: groupNodes, subscriptions: groupSubscriptions }, index) => (
                 <Draggable key={groupId} draggableId={`group-${groupId}`} index={index}>

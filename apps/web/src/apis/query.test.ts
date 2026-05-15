@@ -1,7 +1,7 @@
 import type { TrafficOverviewQueryData } from './types'
 
 import { describe, expect, it } from 'vitest'
-import { deriveTransport } from './node_transport'
+import { deriveTransport, resolveNodeTransport } from './node_transport'
 import { mergeRuntimeOverviewDelta } from './runtime_overview'
 
 describe('deriveTransport', () => {
@@ -39,6 +39,16 @@ describe('deriveTransport', () => {
         'vless',
       ),
     ).toBe('ws')
+  })
+
+  it('prefers derived VLESS Vision flow over API tcp transport', () => {
+    expect(
+      resolveNodeTransport(
+        'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=reality&sni=example.com&fp=chrome&pbk=abc&sid=123&type=tcp&flow=xtls-rprx-vision#vision',
+        'vless',
+        'tcp',
+      ),
+    ).toBe('vision')
   })
 })
 
