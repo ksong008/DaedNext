@@ -20,6 +20,8 @@ export interface GroupPickerItem {
   description?: string
   meta?: string
   metaTone?: 'default' | 'primary'
+  latency?: string
+  latencyTone?: 'default' | 'primary'
   badge?: string
   keywords?: string[]
   previewNodes?: GroupPickerPreviewNode[]
@@ -133,7 +135,7 @@ function SelectionDialog({
             {filteredItems.length > 0 ? (
               filteredItems.map((item) => {
                 const checked = selectedIds.includes(item.id)
-                const tooltipLabel = [item.title, item.description, item.meta].filter(Boolean).join('\n')
+                const tooltipLabel = [item.title, item.description, item.meta, item.latency].filter(Boolean).join('\n')
 
                 return (
                   <div
@@ -186,28 +188,43 @@ function SelectionDialog({
                           )}
                         </div>
                       ) : (
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate text-sm font-medium">{item.title}</p>
-                            {item.badge && (
-                              <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                                {item.badge}
-                              </span>
+                        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate text-sm font-medium">{item.title}</p>
+                              {item.badge && (
+                                <span className="inline-flex rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </div>
+
+                            {item.description && (
+                              <p className="mt-1 truncate text-xs text-muted-foreground">{item.description}</p>
+                            )}
+                            {item.meta && (
+                              <p
+                                className={cn(
+                                  'mt-1 text-[11px]',
+                                  item.metaTone === 'primary' ? 'text-primary' : 'text-muted-foreground',
+                                )}
+                              >
+                                {item.meta}
+                              </p>
                             )}
                           </div>
 
-                          {item.description && (
-                            <p className="mt-1 truncate text-xs text-muted-foreground">{item.description}</p>
-                          )}
-                          {item.meta && (
-                            <p
+                          {item.latency && (
+                            <span
                               className={cn(
-                                'mt-1 text-[11px]',
-                                item.metaTone === 'primary' ? 'text-primary' : 'text-muted-foreground',
+                                'shrink-0 self-start rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none sm:mt-0.5',
+                                item.latencyTone === 'primary'
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'bg-muted text-muted-foreground',
                               )}
                             >
-                              {item.meta}
-                            </p>
+                              {item.latency}
+                            </span>
                           )}
                         </div>
                       )}

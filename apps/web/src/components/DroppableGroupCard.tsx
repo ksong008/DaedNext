@@ -86,7 +86,7 @@ export function DroppableGroupCard({
         className="rounded-[22px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/96 shadow-[0_10px_24px_rgba(15,23,42,0.055)]"
       >
         <div className="border-b border-[color:var(--shell-line)]/80 pb-3">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             {isEditing ? (
               <div className="mr-2 flex flex-1 items-center gap-2">
                 <Input
@@ -129,7 +129,7 @@ export function DroppableGroupCard({
 
             {!isEditing && (
               <div
-                className="flex items-center gap-1 rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1"
+                className="flex w-fit max-w-full items-center gap-1 self-end overflow-x-auto rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-1 [scrollbar-width:none] sm:self-start [&::-webkit-scrollbar]:hidden"
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 {dragHandleProps && (

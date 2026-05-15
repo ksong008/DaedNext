@@ -43,7 +43,7 @@ interface NodeLatencyProbeResult {
 
 function ResourceCount({ label, count }: { label: string; count: number }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
       <span>{label}</span>
       <span className="min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[11px] font-bold leading-none text-primary-foreground shadow-sm">
         {count}
@@ -266,7 +266,7 @@ export function SortableGroupContent({
             protocol={protocol}
             subtitle={transport || undefined}
             address={address}
-            meta={formatLatencyMeta(nodeLatencies?.[nodeId])}
+            meta={formatLatencyMeta(nodeLatencies?.[nodeId], t('latency.unavailable'))}
             onRemove={() => onDelNode(nodeId)}
           />
         ))}
@@ -318,15 +318,15 @@ export function SortableGroupContent({
   )
 }
 
-function formatLatencyMeta(result?: NodeLatencyProbeResult) {
+function formatLatencyMeta(result: NodeLatencyProbeResult | undefined, unavailableLabel: string) {
   if (!result) {
-    return undefined
+    return unavailableLabel
   }
   if (typeof result.latencyMs === 'number') {
-    return result.message ? `${result.latencyMs}ms · ${result.message}` : `${result.latencyMs}ms`
+    return result.message ? `${result.latencyMs} ms · ${result.message}` : `${result.latencyMs} ms`
   }
   if (result.message) {
-    return result.message === 'no latency result' ? 'N/A' : 'Fail'
+    return result.message === 'no latency result' ? unavailableLabel : result.message
   }
-  return 'N/A'
+  return unavailableLabel
 }

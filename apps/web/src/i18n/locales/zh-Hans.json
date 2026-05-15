@@ -395,8 +395,11 @@
     "running": "运行中",
     "stopped": "已停止",
     "fastestNode": "最快节点",
+    "fastestNodeShort": "最快",
     "subscriptions": "订阅",
+    "subscriptionsShort": "订阅",
     "nodes": "节点",
+    "nodesShort": "节点",
     "modified": "待重载",
     "synced": "已同步",
     "live": "实时"

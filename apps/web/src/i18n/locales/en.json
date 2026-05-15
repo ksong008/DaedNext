@@ -395,8 +395,11 @@
     "running": "Running",
     "stopped": "Stopped",
     "fastestNode": "Fastest node",
+    "fastestNodeShort": "Fast",
     "subscriptions": "Subscriptions",
+    "subscriptionsShort": "Subs",
     "nodes": "Nodes",
+    "nodesShort": "Nodes",
     "modified": "Modified",
     "synced": "Synced",
     "live": "Live"

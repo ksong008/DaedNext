@@ -37,7 +37,7 @@ function ScrollableDialogContent({
         className={cn(
           'bg-[color:var(--shell-dialog)] text-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           'fixed top-[50%] left-[50%] z-50 translate-x-[-50%] translate-y-[-50%]',
-          'flex flex-col w-[calc(100%-2rem)] max-h-[calc(100vh-2rem)]',
+          'flex flex-col w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] sm:w-[calc(100%-2rem)] sm:max-h-[calc(100vh-2rem)]',
           'rounded-lg border border-[color:var(--shell-line)] shadow-[0_18px_44px_color-mix(in_oklab,var(--foreground)_16%,transparent)] duration-200',
           sizeClasses[size],
           className,
@@ -64,7 +64,7 @@ function ScrollableDialogHeader({ className, ...props }: React.ComponentProps<'d
     <div
       data-slot="dialog-header"
       className={cn(
-        'shrink-0 flex flex-col gap-2 text-center sm:text-left p-6 border-b border-[color:var(--shell-line)] bg-[color:var(--shell-dialog-header)]',
+        'shrink-0 flex flex-col gap-2 text-center sm:text-left p-4 sm:p-6 border-b border-[color:var(--shell-line)] bg-[color:var(--shell-dialog-header)]',
         className,
       )}
       {...props}
@@ -76,7 +76,7 @@ function ScrollableDialogBody({ className, ...props }: React.ComponentProps<'div
   return (
     <div
       data-slot="dialog-body"
-      className={cn('flex-1 overflow-y-auto min-h-0 bg-[color:var(--shell-dialog-body)] p-6', className)}
+      className={cn('flex-1 overflow-y-auto min-h-0 bg-[color:var(--shell-dialog-body)] p-4 sm:p-6', className)}
       {...props}
     />
   )
@@ -87,7 +87,7 @@ function ScrollableDialogFooter({ className, ...props }: React.ComponentProps<'d
     <div
       data-slot="dialog-footer"
       className={cn(
-        'shrink-0 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end p-6 border-t border-[color:var(--shell-line)] bg-[color:var(--shell-dialog-header)]',
+        'shrink-0 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end p-4 sm:p-6 border-t border-[color:var(--shell-line)] bg-[color:var(--shell-dialog-header)]',
         className,
       )}
       {...props}

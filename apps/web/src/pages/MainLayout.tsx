@@ -284,7 +284,7 @@ export function MainLayout() {
         <SidebarInset className="min-h-screen bg-transparent">
           <HeaderWithActions />
           <main className="flex-1">
-            <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-4 px-4 pb-24 pt-4 sm:px-5 lg:px-7 lg:pb-10">
+            <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-3 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:px-5 sm:pt-4 lg:px-7 lg:pb-10">
               <Outlet />
             </div>
           </main>
@@ -298,7 +298,7 @@ export function MainLayout() {
                   key={item.key}
                   type="button"
                   className={cn(
-                    'flex min-h-11 flex-col items-center justify-center rounded-xl px-2 py-1.5 text-[11px] font-semibold transition-colors',
+                    'flex min-h-10 flex-col items-center justify-center rounded-xl px-1.5 py-1 text-[10.5px] font-semibold leading-none transition-colors',
                     activeSection === item.key
                       ? 'bg-sidebar-primary/10 text-sidebar-primary'
                       : 'text-sidebar-foreground/60',
