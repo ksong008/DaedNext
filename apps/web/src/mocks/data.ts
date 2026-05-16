@@ -37,6 +37,7 @@ export const mockGeneral: GeneralStateView = {
       running: true,
       modified: false,
       version: 'v0.8.0',
+      netnsLinkMode: 'netkit',
     },
     interfaces: [
       {

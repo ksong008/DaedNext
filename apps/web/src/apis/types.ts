@@ -289,6 +289,7 @@ export interface GeneralStateView {
       running: boolean
       modified: boolean
       version: string
+      netnsLinkMode?: string
     }
     interfaces: InterfaceResource[]
   }

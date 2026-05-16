@@ -422,6 +422,8 @@
     "changes": "Pending Changes",
     "running": "Running",
     "stopped": "Stopped",
+    "netkitMode": "Netkit mode",
+    "vethMode": "Veth mode",
     "fastestNode": "Lowest latency",
     "fastestNodeShort": "Lowest",
     "subscriptions": "Subscriptions",
