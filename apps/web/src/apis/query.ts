@@ -392,7 +392,6 @@ export function useLogsQuery({ level, query, limit = 500 }: { level: string; que
     queryFn: async (): Promise<{ items: LogEntry[] }> => {
       return apiClient.get<{ items: LogEntry[] }>('/logs', { level, q: query, limit })
     },
-    placeholderData: (previousData) => previousData,
   })
 }
 
