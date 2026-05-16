@@ -2,7 +2,7 @@ import type { LogEntry } from '~/apis'
 import { useStore } from '@nanostores/react'
 import dayjs from 'dayjs'
 import { FileText, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   buildLogEventsURL,
@@ -26,6 +26,7 @@ import { endpointURLAtom, tokenAtom } from '~/store'
 const runtimeLevelOptions = ['error', 'warn', 'info', 'debug', 'trace'] as const
 const queryLevelOptions = ['all', ...runtimeLevelOptions] as const
 const maxRenderedEntries = 2_000
+const searchDebounceMs = 300
 
 function formatBytes(value: number) {
   if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`
@@ -74,6 +75,9 @@ export function LogResource() {
   const [settingsEntries, setSettingsEntries] = useState('')
   const [settingsMaxMb, setSettingsMaxMb] = useState('')
   const logViewportRef = useRef<HTMLDivElement>(null)
+  const pendingEntriesRef = useRef<LogEntry[]>([])
+  const flushFrameRef = useRef<number | null>(null)
+  const knownEntryIdsRef = useRef<Set<number>>(new Set())
 
   const logsQuery = useLogsQuery({ level: queryLevel, query: appliedSearch })
   const settingsQuery = useLogSettingsQuery()
@@ -85,7 +89,14 @@ export function LogResource() {
   const runtimeLevel = runtimeLevelQuery.data?.level || 'info'
 
   useEffect(() => {
-    setEntries(logsQuery.data?.items ?? [])
+    const queriedEntries = logsQuery.data?.items ?? []
+    pendingEntriesRef.current = []
+    if (flushFrameRef.current !== null) {
+      window.cancelAnimationFrame(flushFrameRef.current)
+      flushFrameRef.current = null
+    }
+    knownEntryIdsRef.current = new Set(queriedEntries.map((entry) => entry.id))
+    setEntries(queriedEntries)
   }, [logsQuery.data?.items])
 
   useEffect(() => {
@@ -93,6 +104,13 @@ export function LogResource() {
     setSettingsEntries(String(settingsQuery.data.maxEntries))
     setSettingsMaxMb(String(Math.round(settingsQuery.data.maxBytes / 1024 / 1024)))
   }, [settingsQuery.data])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setAppliedSearch(searchDraft.trim())
+    }, searchDebounceMs)
+    return () => window.clearTimeout(timer)
+  }, [searchDraft])
 
   const streamURL = useMemo(() => {
     if (isMockMode() || !token || typeof EventSource === 'undefined') return null
@@ -102,15 +120,33 @@ export function LogResource() {
   useEffect(() => {
     if (!streamURL) return
 
+    const flushPendingEntries = () => {
+      flushFrameRef.current = null
+      const pendingEntries = pendingEntriesRef.current
+      if (pendingEntries.length === 0) return
+      pendingEntriesRef.current = []
+
+      setEntries((current) => {
+        const next = [...current, ...pendingEntries]
+        const trimmed = next.length > maxRenderedEntries ? next.slice(next.length - maxRenderedEntries) : next
+        knownEntryIdsRef.current = new Set(trimmed.map((entry) => entry.id))
+        return trimmed
+      })
+    }
+
+    const scheduleFlush = () => {
+      if (flushFrameRef.current !== null) return
+      flushFrameRef.current = window.requestAnimationFrame(flushPendingEntries)
+    }
+
     const eventSource = new EventSource(streamURL)
     const handleEntry = (event: MessageEvent) => {
       try {
         const entry = JSON.parse(event.data) as LogEntry
-        setEntries((current) => {
-          if (current.some((item) => item.id === entry.id)) return current
-          const next = [...current, entry]
-          return next.length > maxRenderedEntries ? next.slice(next.length - maxRenderedEntries) : next
-        })
+        if (knownEntryIdsRef.current.has(entry.id)) return
+        knownEntryIdsRef.current.add(entry.id)
+        pendingEntriesRef.current.push(entry)
+        scheduleFlush()
       } catch {
         // Ignore malformed stream messages.
       }
@@ -120,10 +156,15 @@ export function LogResource() {
     return () => {
       eventSource.removeEventListener('log.entry', handleEntry as EventListener)
       eventSource.close()
+      pendingEntriesRef.current = []
+      if (flushFrameRef.current !== null) {
+        window.cancelAnimationFrame(flushFrameRef.current)
+        flushFrameRef.current = null
+      }
     }
   }, [streamURL])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!autoScroll || !logViewportRef.current) return
     logViewportRef.current.scrollTop = logViewportRef.current.scrollHeight
   }, [autoScroll, entries])
