@@ -285,7 +285,12 @@ export function MainLayout() {
         <SidebarInset className="min-h-screen bg-transparent">
           <HeaderWithActions />
           <main className="flex-1">
-            <div className="mx-auto flex w-full max-w-[1480px] flex-col gap-3 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:px-5 sm:pt-4 lg:px-7 lg:pb-10">
+            <div
+              className={cn(
+                'mx-auto flex w-full flex-col gap-3 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-3 sm:gap-4 sm:px-5 sm:pt-4 lg:px-7 lg:pb-10',
+                activePanelSection === 'log' ? 'max-w-none' : 'max-w-[1480px]',
+              )}
+            >
               <Outlet />
             </div>
           </main>

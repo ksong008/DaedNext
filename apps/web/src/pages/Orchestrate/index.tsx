@@ -994,27 +994,38 @@ export function OrchestratePage() {
 
   return (
     <div className="flex flex-col gap-4 lg:gap-5">
-      <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
-        <TrafficOverview />
-      </section>
+      {activeWorkspacePanel === 'log' ? (
+        <section
+          id={ORCHESTRATE_SECTION_IDS.log}
+          className="h-[calc(100dvh-9rem)] min-h-[28rem] sm:h-[calc(100dvh-7.75rem)] sm:min-h-[32rem]"
+        >
+          <LogResource />
+        </section>
+      ) : (
+        <>
+          <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
+            <TrafficOverview />
+          </section>
 
-      <WorkspaceSummaryCards
-        selectedConfig={selectedConfig}
-        configs={configsQuery?.configs ?? []}
-        groups={sortedGroups}
-        sortedNodes={sortedNodes}
-        subscriptions={sortedSubscriptions}
-        interfaces={generalQuery?.general.interfaces ?? []}
-        nodeLatencies={nodeLatencies}
-        onOpenConfig={() => openWorkspacePanel('config')}
-        onOpenGroup={() => openWorkspacePanel('group')}
-        onEditGroupResources={openSummaryGroupEdit}
-        onOpenNodes={() => openWorkspacePanel('node')}
-        onOpenSubscriptions={() => openWorkspacePanel('subscription')}
-        onTestAllNodeLatencies={testAllNodeLatencies}
-        testingLatencies={manualLatencyProbeProgress !== null}
-        testingLatencyProgress={manualLatencyProbeProgress}
-      />
+          <WorkspaceSummaryCards
+            selectedConfig={selectedConfig}
+            configs={configsQuery?.configs ?? []}
+            groups={sortedGroups}
+            sortedNodes={sortedNodes}
+            subscriptions={sortedSubscriptions}
+            interfaces={generalQuery?.general.interfaces ?? []}
+            nodeLatencies={nodeLatencies}
+            onOpenConfig={() => openWorkspacePanel('config')}
+            onOpenGroup={() => openWorkspacePanel('group')}
+            onEditGroupResources={openSummaryGroupEdit}
+            onOpenNodes={() => openWorkspacePanel('node')}
+            onOpenSubscriptions={() => openWorkspacePanel('subscription')}
+            onTestAllNodeLatencies={testAllNodeLatencies}
+            testingLatencies={manualLatencyProbeProgress !== null}
+            testingLatencyProgress={manualLatencyProbeProgress}
+          />
+        </>
+      )}
 
       <Dialog open={summaryGroupEditMode === 'actions'} onOpenChange={(open) => !open && closeSummaryGroupEdit()}>
         <ScrollableDialogContent size="md">
@@ -1151,7 +1162,10 @@ export function OrchestratePage() {
         }}
       />
 
-      <Dialog open={!!activeWorkspacePanel} onOpenChange={(open) => !open && closeWorkspacePanel()}>
+      <Dialog
+        open={!!activeWorkspacePanel && activeWorkspacePanel !== 'log'}
+        onOpenChange={(open) => !open && closeWorkspacePanel()}
+      >
         <ScrollableDialogContent
           size="full"
           className={cn(matchSmallScreen ? 'h-[94dvh] w-[calc(100vw-0.75rem)]' : 'h-[92vh] w-[94vw] max-w-[1500px]')}
@@ -1176,7 +1190,6 @@ export function OrchestratePage() {
             </DialogTitle>
           </ScrollableDialogHeader>
           <ScrollableDialogBody className="p-4 sm:p-5">
-            {activeWorkspacePanel === 'log' && <LogResource />}
             {activeWorkspacePanel === 'config' && <Config />}
             {activeWorkspacePanel === 'dns' && <DNS />}
             {activeWorkspacePanel === 'routing' && <Routing />}

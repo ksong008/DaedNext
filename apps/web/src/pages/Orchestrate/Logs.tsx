@@ -275,16 +275,13 @@ export function LogResource() {
 
   return (
     <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/96 shadow-[0_10px_24px_color-mix(in_oklab,var(--foreground)_6%,transparent)] sm:rounded-[22px]">
-      <div className="flex shrink-0 flex-col gap-3 border-b border-[color:var(--shell-line)]/80 p-3 sm:p-4">
+      <div className="flex shrink-0 flex-col gap-2 border-b border-[color:var(--shell-line)]/80 p-3 sm:px-4 sm:py-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)] text-primary shadow-sm sm:h-10 sm:w-10">
             <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
           </div>
           <div className="min-w-0">
             <h3 className="truncate text-base font-semibold text-foreground sm:text-lg">{t('logs.title')}</h3>
-            <p className="mt-1 hidden truncate text-xs text-muted-foreground sm:block sm:text-sm">
-              {t('logs.subtitle')}
-            </p>
           </div>
         </div>
 
