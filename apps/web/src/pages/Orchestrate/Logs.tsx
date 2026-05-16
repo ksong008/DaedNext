@@ -62,6 +62,26 @@ function displayFieldValue(value: string) {
   return value === '' ? '-' : value
 }
 
+function canonicalLogLevel(level: string) {
+  const normalized = level.trim().toLowerCase()
+  return normalized === 'warning' ? 'warn' : normalized
+}
+
+function logEntryMatchesFilter(entry: LogEntry, level: string, query: string) {
+  const normalizedLevel = canonicalLogLevel(level)
+  if (normalizedLevel !== '' && normalizedLevel !== 'all' && canonicalLogLevel(entry.level) !== normalizedLevel) {
+    return false
+  }
+
+  const normalizedQuery = query.trim().toLowerCase()
+  if (normalizedQuery === '') return true
+  if (entry.message.toLowerCase().includes(normalizedQuery)) return true
+
+  return Object.entries(entry.fields ?? {}).some(([key, value]) => {
+    return key.toLowerCase().includes(normalizedQuery) || value.toLowerCase().includes(normalizedQuery)
+  })
+}
+
 function formatLogTime(timestamp: string) {
   const timeStart = timestamp.indexOf('T')
   if (timeStart >= 0 && timestamp.length >= timeStart + 9) {
@@ -189,6 +209,7 @@ export function LogResource() {
     const handleEntry = (event: MessageEvent) => {
       try {
         const entry = JSON.parse(event.data) as LogEntry
+        if (!logEntryMatchesFilter(entry, queryLevel, appliedSearch)) return
         if (knownEntryIdsRef.current.has(entry.id)) return
         knownEntryIdsRef.current.add(entry.id)
         pendingEntriesRef.current.push(entry)
@@ -208,7 +229,7 @@ export function LogResource() {
         flushFrameRef.current = null
       }
     }
-  }, [streamURL])
+  }, [appliedSearch, queryLevel, streamURL])
 
   useLayoutEffect(() => {
     if (!autoScroll || !logViewportRef.current) return
