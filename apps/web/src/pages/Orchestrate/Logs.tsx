@@ -1,8 +1,7 @@
 import type { LogEntry } from '~/apis'
 import { useStore } from '@nanostores/react'
-import dayjs from 'dayjs'
 import { FileText, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   buildLogEventsURL,
@@ -25,7 +24,7 @@ import { endpointURLAtom, tokenAtom } from '~/store'
 
 const runtimeLevelOptions = ['error', 'warn', 'info', 'debug', 'trace'] as const
 const queryLevelOptions = ['all', ...runtimeLevelOptions] as const
-const maxRenderedEntries = 2_000
+const maxRenderedEntries = 500
 const searchDebounceMs = 300
 
 function formatBytes(value: number) {
@@ -62,6 +61,53 @@ function entryFields(entry: LogEntry) {
 function displayFieldValue(value: string) {
   return value === '' ? '-' : value
 }
+
+function formatLogTime(timestamp: string) {
+  const timeStart = timestamp.indexOf('T')
+  if (timeStart >= 0 && timestamp.length >= timeStart + 9) {
+    return timestamp.slice(timeStart + 1, timeStart + 9)
+  }
+  return timestamp
+}
+
+const LogEntryItem = memo(({ entry }: { entry: LogEntry }) => {
+  const fields = entryFields(entry)
+  return (
+    <div className="rounded-lg border border-[color:var(--shell-line)]/60 bg-[color:var(--shell-surface)]/72 px-2.5 py-2 sm:grid sm:grid-cols-[5.5rem_4.5rem_minmax(0,1fr)] sm:gap-2">
+      <div className="flex min-w-0 items-center gap-2 sm:contents">
+        <span className="shrink-0 text-muted-foreground">{formatLogTime(entry.ts)}</span>
+        <span
+          className={cn(
+            'shrink-0 rounded-md border border-current/20 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none sm:border-0 sm:px-0 sm:py-0 sm:text-xs sm:leading-relaxed',
+            levelTone(entry.level),
+          )}
+        >
+          {displayLevel(entry.level)}
+        </span>
+      </div>
+      <div className="mt-1 min-w-0 text-foreground sm:mt-0">
+        <div className="break-words">{entry.message}</div>
+        {fields.length > 0 ? (
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[10.5px] leading-snug text-muted-foreground sm:text-[11px]">
+            {fields.map(([key, value]) => {
+              const displayValue = displayFieldValue(value)
+              return (
+                <span
+                  key={key}
+                  title={`${key}=${displayValue}`}
+                  className="inline-flex max-w-full min-w-0 items-baseline rounded-md border border-[color:var(--shell-line)]/55 bg-[color:var(--shell-surface-soft)]/56 px-1.5 py-0.5"
+                >
+                  <span className="shrink-0 text-muted-foreground/75">{key}=</span>
+                  <span className="min-w-0 break-all text-muted-foreground">{displayValue}</span>
+                </span>
+              )
+            })}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+})
 
 export function LogResource() {
   const { t } = useTranslation()
@@ -318,47 +364,9 @@ export function LogResource() {
           </div>
         ) : (
           <div className="space-y-1.5">
-            {entries.map((entry) => {
-              const fields = entryFields(entry)
-              return (
-                <div
-                  key={entry.id}
-                  className="rounded-lg border border-[color:var(--shell-line)]/60 bg-[color:var(--shell-surface)]/72 px-2.5 py-2 sm:grid sm:grid-cols-[5.5rem_4.5rem_minmax(0,1fr)] sm:gap-2"
-                >
-                  <div className="flex min-w-0 items-center gap-2 sm:contents">
-                    <span className="shrink-0 text-muted-foreground">{dayjs(entry.ts).format('HH:mm:ss')}</span>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-md border border-current/20 px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none sm:border-0 sm:px-0 sm:py-0 sm:text-xs sm:leading-relaxed',
-                        levelTone(entry.level),
-                      )}
-                    >
-                      {displayLevel(entry.level)}
-                    </span>
-                  </div>
-                  <div className="mt-1 min-w-0 text-foreground sm:mt-0">
-                    <div className="break-words">{entry.message}</div>
-                    {fields.length > 0 ? (
-                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[10.5px] leading-snug text-muted-foreground sm:text-[11px]">
-                        {fields.map(([key, value]) => {
-                          const displayValue = displayFieldValue(value)
-                          return (
-                            <span
-                              key={key}
-                              title={`${key}=${displayValue}`}
-                              className="inline-flex max-w-full min-w-0 items-baseline rounded-md border border-[color:var(--shell-line)]/55 bg-[color:var(--shell-surface-soft)]/56 px-1.5 py-0.5"
-                            >
-                              <span className="shrink-0 text-muted-foreground/75">{key}=</span>
-                              <span className="min-w-0 break-all text-muted-foreground">{displayValue}</span>
-                            </span>
-                          )
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              )
-            })}
+            {entries.map((entry) => (
+              <LogEntryItem key={entry.id} entry={entry} />
+            ))}
           </div>
         )}
       </div>
