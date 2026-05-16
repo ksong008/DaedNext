@@ -54,11 +54,12 @@ function displayLevel(level: string) {
   return level === 'warning' ? 'warn' : level
 }
 
-function entryFieldText(entry: LogEntry) {
-  const fields = entry.fields ?? {}
-  return Object.entries(fields)
-    .map(([key, value]) => `${key}=${value}`)
-    .join(' ')
+function entryFields(entry: LogEntry) {
+  return Object.entries(entry.fields ?? {})
+}
+
+function displayFieldValue(value: string) {
+  return value === '' ? '-' : value
 }
 
 export function LogResource() {
@@ -277,7 +278,7 @@ export function LogResource() {
         ) : (
           <div className="space-y-1.5">
             {entries.map((entry) => {
-              const fieldText = entryFieldText(entry)
+              const fields = entryFields(entry)
               return (
                 <div
                   key={entry.id}
@@ -294,10 +295,26 @@ export function LogResource() {
                       {displayLevel(entry.level)}
                     </span>
                   </div>
-                  <span className="mt-1 block min-w-0 break-words text-foreground sm:mt-0">
-                    {entry.message}
-                    {fieldText ? <span className="ml-2 text-muted-foreground">{fieldText}</span> : null}
-                  </span>
+                  <div className="mt-1 min-w-0 text-foreground sm:mt-0">
+                    <div className="break-words">{entry.message}</div>
+                    {fields.length > 0 ? (
+                      <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5 text-[10.5px] leading-snug text-muted-foreground sm:text-[11px]">
+                        {fields.map(([key, value]) => {
+                          const displayValue = displayFieldValue(value)
+                          return (
+                            <span
+                              key={key}
+                              title={`${key}=${displayValue}`}
+                              className="inline-flex max-w-full min-w-0 items-baseline rounded-md border border-[color:var(--shell-line)]/55 bg-[color:var(--shell-surface-soft)]/56 px-1.5 py-0.5"
+                            >
+                              <span className="shrink-0 text-muted-foreground/75">{key}=</span>
+                              <span className="min-w-0 break-all text-muted-foreground">{displayValue}</span>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               )
             })}
