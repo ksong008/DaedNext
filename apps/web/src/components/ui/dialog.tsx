@@ -34,6 +34,7 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -48,6 +49,7 @@ function DialogContent({
           'bg-[color:var(--shell-dialog)] text-foreground fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border border-[color:var(--shell-line)] p-6 shadow-[0_14px_34px_color-mix(in_oklab,var(--foreground)_12%,transparent)] sm:max-w-lg',
           className,
         )}
+        onOpenAutoFocus={onOpenAutoFocus ?? ((event) => event.preventDefault())}
         {...props}
       >
         {children}

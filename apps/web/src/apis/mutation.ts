@@ -6,6 +6,7 @@ import type {
   DAEConfigFilePreviewResult,
   GlobalInput,
   ImportArgument,
+  LogSettings,
   NodeLatencyProbeResult,
   Policy,
   PolicyParam,
@@ -19,6 +20,7 @@ import {
   QUERY_KEY_DNS,
   QUERY_KEY_GENERAL,
   QUERY_KEY_GROUP,
+  QUERY_KEY_LOG,
   QUERY_KEY_NODE,
   QUERY_KEY_ROUTING,
   QUERY_KEY_STORAGE,
@@ -823,6 +825,48 @@ export function useStopRuntimeMutation() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    },
+  })
+}
+
+export function useSetRuntimeLogLevelMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (level: string) => {
+      return apiClient.patch<{ level: string }>('/runtime/log-level', { level })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_LOG })
+    },
+  })
+}
+
+export function useClearLogsMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async () => {
+      return apiClient.delete<{ cleared: boolean }>('/logs')
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_LOG })
+    },
+  })
+}
+
+export function useUpdateLogSettingsMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (settings: Pick<LogSettings, 'maxEntries' | 'maxBytes'>) => {
+      return apiClient.patch<LogSettings>('/logs/settings', settings)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEY_LOG })
     },
   })
 }

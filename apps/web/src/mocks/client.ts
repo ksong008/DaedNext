@@ -41,6 +41,37 @@ const mockStorage = new Map<string, string>([
 ])
 
 const mockLatencyById = new Map<string, MockLatencyResult>()
+let mockRuntimeLogLevel = 'info'
+let mockLogSettings = {
+  maxEntries: 10000,
+  maxBytes: 50 * 1024 * 1024,
+  minMaxEntries: 500,
+  maxMaxEntries: 50000,
+  minMaxBytes: 5 * 1024 * 1024,
+  maxMaxBytes: 200 * 1024 * 1024,
+}
+let mockLogs = [
+  {
+    id: 1,
+    ts: '2026-05-16T07:10:20+08:00',
+    level: 'info',
+    message: 'dae runtime started',
+    fields: { phase: 'startup' },
+  },
+  {
+    id: 2,
+    ts: '2026-05-16T07:10:21+08:00',
+    level: 'info',
+    message: 'Ready',
+  },
+  {
+    id: 3,
+    ts: '2026-05-16T07:11:08+08:00',
+    level: 'warn',
+    message: 'subscription refresh completed with skipped nodes',
+    fields: { subscription: 'Backup Provider' },
+  },
+]
 
 export class MockAPIClient implements APIClientInterface {
   constructor(private readonly endpoint: string) {}
@@ -94,6 +125,12 @@ export class MockAPIClient implements APIClientInterface {
         } as T
       case 'GET /runtime/overview':
         return getMockRuntimeOverview(toQueryNumber(query?.windowSec, 60), toQueryNumber(query?.maxPoints, 240)) as T
+      case 'GET /runtime/log-level':
+        return { level: mockRuntimeLogLevel } as T
+      case 'GET /logs':
+        return { items: filterMockLogs(query) } as T
+      case 'GET /logs/settings':
+        return mockLogSettings as T
       case 'GET /nodes/latencies':
         return { items: Array.from(mockLatencyById.values()) } as T
       case 'POST /nodes/latencies':
@@ -352,6 +389,29 @@ export class MockAPIClient implements APIClientInterface {
       return { stopped: true } as T
     }
 
+    if (method === 'PATCH' && path === '/runtime/log-level') {
+      const payload = body as { level?: string }
+      if (payload.level) {
+        mockRuntimeLogLevel = payload.level
+      }
+      return { level: mockRuntimeLogLevel } as T
+    }
+
+    if (method === 'PATCH' && path === '/logs/settings') {
+      const payload = body as { maxEntries?: number; maxBytes?: number }
+      mockLogSettings = {
+        ...mockLogSettings,
+        maxEntries: payload.maxEntries ?? mockLogSettings.maxEntries,
+        maxBytes: payload.maxBytes ?? mockLogSettings.maxBytes,
+      }
+      return mockLogSettings as T
+    }
+
+    if (method === 'DELETE' && path === '/logs') {
+      mockLogs = []
+      return { cleared: true } as T
+    }
+
     const groupNodesMatch = path.match(groupNodesPathPattern)
     if (groupNodesMatch && (method === 'POST' || method === 'DELETE')) {
       const payload = body as { nodeIds?: number[] }
@@ -429,6 +489,22 @@ function toQueryNumber(value: APIQueryValue, fallback: number): number {
   }
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function filterMockLogs(query?: QueryRecord) {
+  const level = String(query?.level || 'all').toLowerCase()
+  const keyword = String(query?.q || '').toLowerCase()
+  const limit = toQueryNumber(query?.limit, 500)
+  return mockLogs
+    .filter((entry) => level === 'all' || !level || entry.level === level)
+    .filter((entry) => {
+      if (!keyword) return true
+      const fields = Object.entries(entry.fields || {})
+        .map(([key, value]) => `${key}=${value}`)
+        .join(' ')
+      return `${entry.message} ${fields}`.toLowerCase().includes(keyword)
+    })
+    .slice(-limit)
 }
 
 function numericID(value: string | number): number {

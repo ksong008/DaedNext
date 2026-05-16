@@ -141,7 +141,9 @@ function RuntimeHealthStrip({
 }
 
 const mobileHeaderButtonClassName =
-  'h-[30px] w-[30px] rounded-xl border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 shadow-none transition-colors hover:bg-[color:var(--shell-surface-soft)]/72'
+  'h-[30px] w-[30px] rounded-lg border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 p-0 shadow-none transition-colors hover:bg-[color:var(--shell-surface-soft)]/72'
+
+const desktopHeaderIconButtonClassName = 'rounded-lg border-border/75 bg-background/72'
 
 function MobileRuntimeHealthStrip({
   running,
@@ -694,6 +696,7 @@ export function HeaderWithActions() {
                     ? mobileHeaderButtonClassName
                     : 'rounded-xl border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
                 )}
+                aria-label={t('shell.transfer')}
               >
                 <ArrowLeftRight className="h-4 w-4" />
                 {!matchSmallScreen && <span>{t('shell.transfer')}</span>}
@@ -724,24 +727,25 @@ export function HeaderWithActions() {
             <Button
               variant="outline"
               size="icon-sm"
-              className={cn(
-                matchSmallScreen ? mobileHeaderButtonClassName : 'rounded-xl border-border/75 bg-background/72',
-              )}
+              className={cn(matchSmallScreen ? mobileHeaderButtonClassName : desktopHeaderIconButtonClassName)}
               onClick={toggleLanguage}
             >
               <Languages className="h-4 w-4" />
             </Button>
           </SimpleTooltip>
 
-          <ThemePicker />
+          <ThemePicker
+            triggerClassName={matchSmallScreen ? mobileHeaderButtonClassName : desktopHeaderIconButtonClassName}
+            triggerIconClassName="h-4 w-4"
+          />
 
           <SimpleTooltip label={t('actions.switchRunning')}>
             <div
               className={cn(
-                'rounded-xl border px-2 py-1',
+                'flex items-center justify-center border',
                 matchSmallScreen
-                  ? 'border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 shadow-none'
-                  : 'border-border/75 bg-background/72 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
+                  ? 'h-[30px] min-w-[50px] rounded-[14px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 px-2 shadow-none'
+                  : 'rounded-xl border-border/75 bg-background/72 px-2 py-1 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
               )}
             >
               <Switch
@@ -764,7 +768,7 @@ export function HeaderWithActions() {
                 className={cn(
                   'flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-colors',
                   matchSmallScreen
-                    ? 'border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 px-2 py-1 shadow-none hover:bg-[color:var(--shell-surface-soft)]/72'
+                    ? 'h-[30px] rounded-[14px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 px-2 py-0 shadow-none hover:bg-[color:var(--shell-surface-soft)]/72'
                     : 'border-border/75 bg-background/75 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)] hover:bg-background',
                   userMenuOpened && 'border-border bg-background',
                 )}

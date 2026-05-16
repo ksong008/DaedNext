@@ -39,6 +39,7 @@ import { deriveTime } from '~/utils'
 import { Config } from './Config'
 import { DNS } from './DNS'
 import { GroupResource } from './Group'
+import { LogResource } from './Logs'
 import { NODE_DROPPABLE_ID, NodeResource } from './Node'
 import { Routing } from './Routing'
 import { SubscriptionResource } from './Subscription'
@@ -954,6 +955,7 @@ export function OrchestratePage() {
     if (!panel || panel === 'overview') return null
     if (
       panel === 'config' ||
+      panel === 'log' ||
       panel === 'dns' ||
       panel === 'routing' ||
       panel === 'group' ||
@@ -1158,20 +1160,23 @@ export function OrchestratePage() {
             <DialogTitle>
               {activeWorkspacePanel === 'config'
                 ? 'Config'
-                : activeWorkspacePanel === 'dns'
-                  ? 'DNS'
-                  : activeWorkspacePanel === 'routing'
-                    ? 'Routing'
-                    : activeWorkspacePanel === 'group'
-                      ? 'Group'
-                      : activeWorkspacePanel === 'node'
-                        ? 'Node'
-                        : activeWorkspacePanel === 'subscription'
-                          ? 'Subscription'
-                          : ''}
+                : activeWorkspacePanel === 'log'
+                  ? t('log')
+                  : activeWorkspacePanel === 'dns'
+                    ? 'DNS'
+                    : activeWorkspacePanel === 'routing'
+                      ? 'Routing'
+                      : activeWorkspacePanel === 'group'
+                        ? 'Group'
+                        : activeWorkspacePanel === 'node'
+                          ? 'Node'
+                          : activeWorkspacePanel === 'subscription'
+                            ? 'Subscription'
+                            : ''}
             </DialogTitle>
           </ScrollableDialogHeader>
           <ScrollableDialogBody className="p-4 sm:p-5">
+            {activeWorkspacePanel === 'log' && <LogResource />}
             {activeWorkspacePanel === 'config' && <Config />}
             {activeWorkspacePanel === 'dns' && <DNS />}
             {activeWorkspacePanel === 'routing' && <Routing />}

@@ -117,6 +117,7 @@ export function MainLayout() {
   const navCountBySection = useMemo(
     () => ({
       overview: t('shell.live'),
+      log: '',
       config: String(configsQuery?.configs.length ?? 0),
       dns: String(dnssQuery?.dnss.length ?? 0),
       routing: String(routingsQuery?.routings.length ?? 0),

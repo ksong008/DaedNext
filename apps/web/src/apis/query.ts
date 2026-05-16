@@ -9,6 +9,8 @@ import type {
   GroupListView,
   GroupResource,
   InterfaceResource,
+  LogEntry,
+  LogSettings,
   NodeCollection,
   NodeLatencyProbeResult,
   NodeListView,
@@ -28,6 +30,7 @@ import {
   QUERY_KEY_DNS,
   QUERY_KEY_GENERAL,
   QUERY_KEY_GROUP,
+  QUERY_KEY_LOG,
   QUERY_KEY_NODE,
   QUERY_KEY_NODE_LATENCY,
   QUERY_KEY_ROUTING,
@@ -204,6 +207,14 @@ function buildRuntimeEventsURL(endpointURL: string, token: string, windowSec: nu
   }).toString()
 }
 
+export function buildLogEventsURL(endpointURL: string, token: string, level: string, query: string) {
+  return buildAPIURL(normalizeEndpointURL(endpointURL), '/events/logs', {
+    level,
+    q: query,
+    access_token: token,
+  }).toString()
+}
+
 export function getModeRequest(apiClient: APIClientInterface) {
   return async () => {
     const { values } = await apiClient.get<JSONStorageResponse>('/user/me/storage', { path: ['mode'] })
@@ -370,6 +381,40 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true)
     placeholderData: (previousData) => previousData,
     refetchInterval: () => refetchIntervalMs,
     refetchIntervalInBackground: false,
+  })
+}
+
+export function useLogsQuery({ level, query, limit = 500 }: { level: string; query: string; limit?: number }) {
+  const apiClient = useAPIClient()
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_LOG, 'items', level, query, limit],
+    queryFn: async (): Promise<{ items: LogEntry[] }> => {
+      return apiClient.get<{ items: LogEntry[] }>('/logs', { level, q: query, limit })
+    },
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useLogSettingsQuery() {
+  const apiClient = useAPIClient()
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_LOG, 'settings'],
+    queryFn: async (): Promise<LogSettings> => {
+      return apiClient.get<LogSettings>('/logs/settings')
+    },
+  })
+}
+
+export function useRuntimeLogLevelQuery() {
+  const apiClient = useAPIClient()
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_LOG, 'runtime-level'],
+    queryFn: async (): Promise<{ level: string }> => {
+      return apiClient.get<{ level: string }>('/runtime/log-level')
+    },
   })
 }
 

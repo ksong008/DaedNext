@@ -1,8 +1,9 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Cloud, CloudCog, Globe2, Route, Settings, Table2 } from 'lucide-react'
+import { Activity, Cloud, CloudCog, FileText, Globe2, Route, Settings, Table2 } from 'lucide-react'
 
 export const ORCHESTRATE_SECTION_IDS = {
   overview: 'overview',
+  log: 'log',
   config: 'config',
   dns: 'dns',
   routing: 'routing',
@@ -13,7 +14,15 @@ export const ORCHESTRATE_SECTION_IDS = {
 
 export type OrchestrateSectionKey = keyof typeof ORCHESTRATE_SECTION_IDS
 export type OrchestrateSectionId = (typeof ORCHESTRATE_SECTION_IDS)[OrchestrateSectionKey]
-export type ShellNavLabelKey = 'shell.overview' | 'config' | 'dns' | 'routing' | 'group' | 'node' | 'subscription'
+export type ShellNavLabelKey =
+  | 'shell.overview'
+  | 'log'
+  | 'config'
+  | 'dns'
+  | 'routing'
+  | 'group'
+  | 'node'
+  | 'subscription'
 export type ShellNavGroupLabelKey = 'shell.groups.monitor' | 'shell.groups.resources'
 
 export interface ShellNavItem {
@@ -29,6 +38,12 @@ export const SHELL_NAV_ITEMS: ShellNavItem[] = [
     id: ORCHESTRATE_SECTION_IDS.overview,
     labelKey: 'shell.overview',
     icon: Activity,
+  },
+  {
+    key: 'log',
+    id: ORCHESTRATE_SECTION_IDS.log,
+    labelKey: 'log',
+    icon: FileText,
   },
   {
     key: 'config',
@@ -71,7 +86,7 @@ export const SHELL_NAV_ITEMS: ShellNavItem[] = [
 export const SHELL_NAV_GROUPS: Array<{ labelKey: ShellNavGroupLabelKey; items: OrchestrateSectionKey[] }> = [
   {
     labelKey: 'shell.groups.monitor',
-    items: ['overview'],
+    items: ['overview', 'log'],
   },
   {
     labelKey: 'shell.groups.resources',
@@ -81,6 +96,7 @@ export const SHELL_NAV_GROUPS: Array<{ labelKey: ShellNavGroupLabelKey; items: O
 
 export const SHELL_MOBILE_PRIMARY_ITEMS: OrchestrateSectionKey[] = [
   'overview',
+  'log',
   'config',
   'group',
   'node',
