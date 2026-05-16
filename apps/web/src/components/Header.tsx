@@ -78,6 +78,42 @@ const accountSettingsSchema = z.object({
   name: z.string().min(1),
 })
 
+function normalizedRuntimeLinkMode(netnsLinkMode?: string) {
+  const mode = netnsLinkMode?.trim().toLowerCase()
+  return mode === 'netkit' || mode === 'veth' ? mode : ''
+}
+
+function runtimeModeTextKey(running?: boolean, netnsLinkMode?: string) {
+  if (typeof running !== 'boolean') {
+    return ''
+  }
+  if (!running) {
+    return 'shell.stopped'
+  }
+  const mode = normalizedRuntimeLinkMode(netnsLinkMode)
+  if (mode === 'netkit') {
+    return 'shell.netkitMode'
+  }
+  if (mode === 'veth') {
+    return 'shell.vethMode'
+  }
+  return 'shell.running'
+}
+
+function runtimeModeClassName(running?: boolean, netnsLinkMode?: string) {
+  if (running !== true) {
+    return 'text-muted-foreground'
+  }
+  const mode = normalizedRuntimeLinkMode(netnsLinkMode)
+  if (mode === 'netkit') {
+    return 'text-emerald-500 dark:text-emerald-400'
+  }
+  if (mode === 'veth') {
+    return 'text-amber-500 dark:text-amber-400'
+  }
+  return 'text-primary'
+}
+
 const passwordChangeSchema = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),
@@ -91,29 +127,28 @@ const passwordChangeSchema = z
 
 function RuntimeHealthStrip({
   running,
+  netnsLinkMode,
   fastestLatencyMs,
   subscriptionCount,
   nodeCount,
 }: {
   running?: boolean
+  netnsLinkMode?: string
   fastestLatencyMs?: number
   subscriptionCount?: number
   nodeCount?: number
 }) {
   const { t } = useTranslation()
-  const runningKnown = typeof running === 'boolean'
+  const runtimeModeKey = runtimeModeTextKey(running, netnsLinkMode)
   const fastestLatencyLabel = typeof fastestLatencyMs === 'number' ? `${fastestLatencyMs} ms` : t('latency.unavailable')
 
   return (
     <div className="hidden w-full max-w-[620px] items-center gap-2 overflow-hidden text-sm font-medium md:flex">
       <div
-        className={cn(
-          'flex shrink-0 items-center gap-2 font-semibold',
-          running ? 'text-primary' : 'text-muted-foreground',
-        )}
+        className={cn('flex shrink-0 items-center gap-2 font-semibold', runtimeModeClassName(running, netnsLinkMode))}
       >
         {running ? <Power className="h-3.5 w-3.5" /> : <PowerOff className="h-3.5 w-3.5" />}
-        <span>{runningKnown ? t(running ? 'shell.running' : 'shell.stopped') : '—'}</span>
+        <span>{runtimeModeKey ? t(runtimeModeKey) : '—'}</span>
       </div>
 
       <span className="shrink-0 text-muted-foreground/70">·</span>
@@ -147,26 +182,26 @@ const desktopHeaderIconButtonClassName = 'rounded-lg border-border/75 bg-backgro
 
 function MobileRuntimeHealthStrip({
   running,
+  netnsLinkMode,
   fastestLatencyMs,
   subscriptionCount,
   nodeCount,
 }: {
   running?: boolean
+  netnsLinkMode?: string
   fastestLatencyMs?: number
   subscriptionCount?: number
   nodeCount?: number
 }) {
   const { t } = useTranslation()
-  const runningKnown = typeof running === 'boolean'
+  const runtimeModeKey = runtimeModeTextKey(running, netnsLinkMode)
   const fastestLatencyLabel = typeof fastestLatencyMs === 'number' ? `${fastestLatencyMs} ms` : t('latency.unavailable')
 
   return (
     <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[10.5px] font-semibold text-muted-foreground sm:text-xs">
-      <span
-        className={cn('inline-flex min-w-0 items-center gap-1', running ? 'text-primary' : 'text-muted-foreground/80')}
-      >
+      <span className={cn('inline-flex min-w-0 items-center gap-1', runtimeModeClassName(running, netnsLinkMode))}>
         {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
-        <span className="truncate">{runningKnown ? t(running ? 'shell.running' : 'shell.stopped') : '—'}</span>
+        <span className="truncate">{runtimeModeKey ? t(runtimeModeKey) : '—'}</span>
       </span>
       <span className="shrink-0 text-muted-foreground/60">·</span>
       <span className="shrink-0 text-muted-foreground">
@@ -629,6 +664,7 @@ export function HeaderWithActions() {
           {matchSmallScreen ? (
             <MobileRuntimeHealthStrip
               running={generalQuery?.general.dae.running}
+              netnsLinkMode={generalQuery?.general.dae.netnsLinkMode}
               fastestLatencyMs={fastestLatencyMs}
               subscriptionCount={subscriptionsQuery?.subscriptions.length}
               nodeCount={totalNodeCount}
@@ -636,6 +672,7 @@ export function HeaderWithActions() {
           ) : (
             <RuntimeHealthStrip
               running={generalQuery?.general.dae.running}
+              netnsLinkMode={generalQuery?.general.dae.netnsLinkMode}
               fastestLatencyMs={fastestLatencyMs}
               subscriptionCount={subscriptionsQuery?.subscriptions.length}
               nodeCount={totalNodeCount}

@@ -422,6 +422,8 @@
     "changes": "待应用变更",
     "running": "运行中",
     "stopped": "已停止",
+    "netkitMode": "Netkit 模式",
+    "vethMode": "Veth 模式",
     "fastestNode": "最低延迟",
     "fastestNodeShort": "最低延迟",
     "subscriptions": "订阅",
