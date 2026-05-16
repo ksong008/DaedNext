@@ -320,6 +320,23 @@ export interface NodeLatencyProbeResult {
   message?: string | null
 }
 
+export interface LogEntry {
+  id: number
+  ts: string
+  level: string
+  message: string
+  fields?: Record<string, string>
+}
+
+export interface LogSettings {
+  maxEntries: number
+  maxBytes: number
+  minMaxEntries: number
+  maxMaxEntries: number
+  minMaxBytes: number
+  maxMaxBytes: number
+}
+
 export interface ConfigListView {
   configs: ConfigResource[]
 }

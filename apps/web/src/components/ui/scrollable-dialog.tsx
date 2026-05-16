@@ -26,6 +26,7 @@ function ScrollableDialogContent({
   children,
   showCloseButton = true,
   size = 'md',
+  onOpenAutoFocus,
   ...props
 }: ScrollableDialogContentProps) {
   return (
@@ -42,6 +43,7 @@ function ScrollableDialogContent({
           sizeClasses[size],
           className,
         )}
+        onOpenAutoFocus={onOpenAutoFocus ?? ((event) => event.preventDefault())}
         {...props}
       >
         {children}

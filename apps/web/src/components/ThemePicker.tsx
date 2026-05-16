@@ -125,9 +125,11 @@ function ThemeModeToggle({ className }: ThemeModeToggleProps) {
 
 interface ThemePickerProps {
   variant?: 'icon' | 'button'
+  triggerClassName?: string
+  triggerIconClassName?: string
 }
 
-export function ThemePicker({ variant = 'icon' }: ThemePickerProps) {
+export function ThemePicker({ variant = 'icon', triggerClassName, triggerIconClassName }: ThemePickerProps) {
   const { t } = useTranslation()
   const appState = useStore(appStateAtom)
   const themeMigrationVersion = useStore(themeMigrationVersionAtom)
@@ -205,15 +207,15 @@ export function ThemePicker({ variant = 'icon' }: ThemePickerProps) {
     return (
       <Fragment>
         <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full"
+          variant={triggerClassName ? 'outline' : 'ghost'}
+          size={triggerClassName ? 'icon-sm' : 'icon'}
+          className={cn('rounded-lg', triggerClassName)}
           onClick={() => setOpen(true)}
           style={{
             color: currentColors.primary,
           }}
         >
-          <Palette className="h-5 w-5" />
+          <Palette className={cn('h-5 w-5', triggerIconClassName)} />
         </Button>
 
         <Dialog open={open} onOpenChange={setOpen}>
@@ -239,14 +241,14 @@ export function ThemePicker({ variant = 'icon' }: ThemePickerProps) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
-          variant="ghost"
-          size="icon"
-          className="rounded-full"
+          variant={triggerClassName ? 'outline' : 'ghost'}
+          size={triggerClassName ? 'icon-sm' : 'icon'}
+          className={cn('rounded-lg', triggerClassName)}
           style={{
             color: currentColors.primary,
           }}
         >
-          <Palette className="h-5 w-5" />
+          <Palette className={cn('h-5 w-5', triggerIconClassName)} />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[480px] p-4">

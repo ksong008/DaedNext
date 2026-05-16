@@ -56,8 +56,8 @@ export function SortableSubscriptionCard({
             </div>
 
             <div className="p-3 pl-12 sm:p-4 sm:pl-14">
-              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                <div className="min-w-0 flex-1">
+              <div className="mb-3 flex flex-col gap-2 sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-3">
+                <div className="min-w-0">
                   <h4 className="pt-0.5 text-sm font-semibold text-foreground [overflow-wrap:anywhere] sm:truncate">
                     {name}
                   </h4>
@@ -72,7 +72,7 @@ export function SortableSubscriptionCard({
                 </div>
 
                 <div
-                  className="flex max-w-full shrink-0 self-end overflow-x-auto rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-0.5 transition-opacity [scrollbar-width:none] sm:gap-1 sm:p-1 sm:opacity-0 sm:group-hover:opacity-100 [&_button]:h-7 [&_button]:w-7 [&_button]:shrink-0 [&_button]:p-0 [&_svg]:h-3.5 [&_svg]:w-3.5 sm:[&_button]:h-8 sm:[&_button]:w-8 sm:[&_svg]:h-4 sm:[&_svg]:w-4 [&::-webkit-scrollbar]:hidden"
+                  className="ml-auto flex max-w-full shrink-0 self-end overflow-x-auto rounded-full border border-[color:var(--shell-line)] bg-[color:var(--shell-surface-soft)]/90 p-0.5 transition-opacity [scrollbar-width:none] sm:ml-0 sm:self-start sm:gap-1 sm:p-1 sm:opacity-0 sm:group-hover:opacity-100 [&_button]:h-6 [&_button]:w-6 [&_button]:shrink-0 [&_button]:p-0 [&_svg]:h-3 [&_svg]:w-3 sm:[&_button]:h-8 sm:[&_button]:w-8 sm:[&_svg]:h-4 sm:[&_svg]:w-4 [&::-webkit-scrollbar]:hidden"
                   onPointerDown={(e) => e.stopPropagation()}
                 >
                   {actions}
