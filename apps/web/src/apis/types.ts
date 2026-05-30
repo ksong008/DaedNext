@@ -290,6 +290,7 @@ export interface GeneralStateView {
       modified: boolean
       version: string
       netnsLinkMode?: string
+      attachBackend?: string
     }
     interfaces: InterfaceResource[]
   }

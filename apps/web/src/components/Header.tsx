@@ -83,35 +83,100 @@ function normalizedRuntimeLinkMode(netnsLinkMode?: string) {
   return mode === 'netkit' || mode === 'veth' ? mode : ''
 }
 
-function runtimeModeTextKey(running?: boolean, netnsLinkMode?: string) {
-  if (typeof running !== 'boolean') {
-    return ''
+function normalizedRuntimeAttachBackend(attachBackend?: string) {
+  const backend = attachBackend?.trim().toLowerCase()
+  if (backend === 'tcx') {
+    return 'tcx'
   }
-  if (!running) {
-    return 'shell.stopped'
+  if (backend === 'tcx+tc' || backend === 'tcx-tc' || backend === 'mixed') {
+    return 'tcx+tc'
   }
-  const mode = normalizedRuntimeLinkMode(netnsLinkMode)
-  if (mode === 'netkit') {
-    return 'shell.netkitMode'
+  if (
+    backend === 'tc' ||
+    backend === 'tc-netlink' ||
+    backend === 'tc_netlink' ||
+    backend === 'tc-command-fallback' ||
+    backend === 'tc_command_fallback'
+  ) {
+    return 'tc'
   }
-  if (mode === 'veth') {
-    return 'shell.vethMode'
-  }
-  return 'shell.running'
+  return ''
 }
 
-function runtimeModeClassName(running?: boolean, netnsLinkMode?: string) {
-  if (running !== true) {
-    return 'text-muted-foreground'
+function runtimeAttachBackendClassName(attachBackend?: string) {
+  switch (normalizedRuntimeAttachBackend(attachBackend) || 'tc') {
+    case 'tcx':
+      return 'text-violet-600 dark:text-violet-300'
+    case 'tcx+tc':
+      return ''
+    case 'tc':
+    default:
+      return 'text-amber-600 dark:text-amber-400'
   }
-  const mode = normalizedRuntimeLinkMode(netnsLinkMode)
-  if (mode === 'netkit') {
-    return 'text-emerald-500 dark:text-emerald-400'
+}
+
+function runtimeLinkModeClassName(netnsLinkMode?: string) {
+  switch (normalizedRuntimeLinkMode(netnsLinkMode)) {
+    case 'netkit':
+      return 'text-emerald-600 dark:text-emerald-400'
+    case 'veth':
+      return 'text-sky-600 dark:text-sky-400'
+    default:
+      return 'text-primary'
   }
-  if (mode === 'veth') {
-    return 'text-amber-500 dark:text-amber-400'
+}
+
+function RuntimeAttachBackendValue({ attachBackend }: { attachBackend?: string }) {
+  const backend = normalizedRuntimeAttachBackend(attachBackend) || 'tc'
+  if (backend === 'tcx+tc') {
+    return (
+      <span className="inline-flex shrink-0 items-baseline font-bold">
+        <span className="text-violet-600 dark:text-violet-300">tcx</span>
+        <span className="px-0.5 text-muted-foreground/70">+</span>
+        <span className="text-amber-600 dark:text-amber-400">tc</span>
+      </span>
+    )
   }
-  return 'text-primary'
+  return <span className={cn('shrink-0 font-bold', runtimeAttachBackendClassName(backend))}>{backend}</span>
+}
+
+function RuntimeModeIndicator({
+  running,
+  netnsLinkMode,
+  attachBackend,
+  stoppedLabel,
+  runningLabel,
+  compact = false,
+}: {
+  running?: boolean
+  netnsLinkMode?: string
+  attachBackend?: string
+  stoppedLabel: string
+  runningLabel: string
+  compact?: boolean
+}) {
+  if (typeof running !== 'boolean') {
+    return <span>—</span>
+  }
+  if (!running) {
+    return <span>{stoppedLabel}</span>
+  }
+  const linkMode = normalizedRuntimeLinkMode(netnsLinkMode)
+  const backend = normalizedRuntimeAttachBackend(attachBackend)
+  if (!linkMode && !backend) {
+    return <span>{runningLabel}</span>
+  }
+  return (
+    <span className={cn('inline-flex min-w-0 items-center font-semibold', compact ? 'gap-0.5' : 'gap-1')}>
+      <RuntimeAttachBackendValue attachBackend={backend} />
+      {linkMode ? (
+        <>
+          <span className={cn('shrink-0 text-muted-foreground/60', compact ? 'px-0.5' : 'px-1')}>·</span>
+          <span className={cn('shrink-0 font-bold', runtimeLinkModeClassName(linkMode))}>{linkMode}</span>
+        </>
+      ) : null}
+    </span>
+  )
 }
 
 const passwordChangeSchema = z
@@ -128,27 +193,37 @@ const passwordChangeSchema = z
 function RuntimeHealthStrip({
   running,
   netnsLinkMode,
+  attachBackend,
   fastestLatencyMs,
   subscriptionCount,
   nodeCount,
 }: {
   running?: boolean
   netnsLinkMode?: string
+  attachBackend?: string
   fastestLatencyMs?: number
   subscriptionCount?: number
   nodeCount?: number
 }) {
   const { t } = useTranslation()
-  const runtimeModeKey = runtimeModeTextKey(running, netnsLinkMode)
   const fastestLatencyLabel = typeof fastestLatencyMs === 'number' ? `${fastestLatencyMs} ms` : t('latency.unavailable')
 
   return (
     <div className="hidden w-full max-w-[620px] items-center gap-2 overflow-hidden text-sm font-medium md:flex">
       <div
-        className={cn('flex shrink-0 items-center gap-2 font-semibold', runtimeModeClassName(running, netnsLinkMode))}
+        className={cn(
+          'flex shrink-0 items-center gap-2 font-semibold',
+          running ? 'text-primary' : 'text-muted-foreground',
+        )}
       >
-        {running ? <Power className="h-3.5 w-3.5" /> : <PowerOff className="h-3.5 w-3.5" />}
-        <span>{runtimeModeKey ? t(runtimeModeKey) : '—'}</span>
+        {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
+        <RuntimeModeIndicator
+          running={running}
+          netnsLinkMode={netnsLinkMode}
+          attachBackend={attachBackend}
+          stoppedLabel={t('shell.stopped')}
+          runningLabel={t('shell.running')}
+        />
       </div>
 
       <span className="shrink-0 text-muted-foreground/70">·</span>
@@ -183,25 +258,37 @@ const desktopHeaderIconButtonClassName = 'rounded-lg border-border/75 bg-backgro
 function MobileRuntimeHealthStrip({
   running,
   netnsLinkMode,
+  attachBackend,
   fastestLatencyMs,
   subscriptionCount,
   nodeCount,
 }: {
   running?: boolean
   netnsLinkMode?: string
+  attachBackend?: string
   fastestLatencyMs?: number
   subscriptionCount?: number
   nodeCount?: number
 }) {
   const { t } = useTranslation()
-  const runtimeModeKey = runtimeModeTextKey(running, netnsLinkMode)
   const fastestLatencyLabel = typeof fastestLatencyMs === 'number' ? `${fastestLatencyMs} ms` : t('latency.unavailable')
 
   return (
     <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[10.5px] font-semibold text-muted-foreground sm:text-xs">
-      <span className={cn('inline-flex min-w-0 items-center gap-1', runtimeModeClassName(running, netnsLinkMode))}>
+      <span
+        className={cn('inline-flex min-w-0 items-center gap-1', running ? 'text-primary' : 'text-muted-foreground')}
+      >
         {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
-        <span className="truncate">{runtimeModeKey ? t(runtimeModeKey) : '—'}</span>
+        <span className="min-w-0 truncate">
+          <RuntimeModeIndicator
+            running={running}
+            netnsLinkMode={netnsLinkMode}
+            attachBackend={attachBackend}
+            stoppedLabel={t('shell.stopped')}
+            runningLabel={t('shell.running')}
+            compact
+          />
+        </span>
       </span>
       <span className="shrink-0 text-muted-foreground/60">·</span>
       <span className="shrink-0 text-muted-foreground">
@@ -665,6 +752,7 @@ export function HeaderWithActions() {
             <MobileRuntimeHealthStrip
               running={generalQuery?.general.dae.running}
               netnsLinkMode={generalQuery?.general.dae.netnsLinkMode}
+              attachBackend={generalQuery?.general.dae.attachBackend}
               fastestLatencyMs={fastestLatencyMs}
               subscriptionCount={subscriptionsQuery?.subscriptions.length}
               nodeCount={totalNodeCount}
@@ -673,6 +761,7 @@ export function HeaderWithActions() {
             <RuntimeHealthStrip
               running={generalQuery?.general.dae.running}
               netnsLinkMode={generalQuery?.general.dae.netnsLinkMode}
+              attachBackend={generalQuery?.general.dae.attachBackend}
               fastestLatencyMs={fastestLatencyMs}
               subscriptionCount={subscriptionsQuery?.subscriptions.length}
               nodeCount={totalNodeCount}

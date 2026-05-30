@@ -25,6 +25,20 @@ describe('normalizeEndpointURL', () => {
 
     expect(normalizeEndpointURL('http://127.0.0.1:2023/custom')).toBe('http://127.0.0.1:2023/custom/api')
   })
+
+  it('trims API resource paths to the API root', async () => {
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      hostname: '127.0.0.1',
+    })
+    const { normalizeEndpointURL } = await import('./client')
+
+    expect(normalizeEndpointURL('http://127.0.0.1:2023/api/configs/1')).toBe('http://127.0.0.1:2023/api')
+    expect(normalizeEndpointURL('http://127.0.0.1:2023/configs/1')).toBe('http://127.0.0.1:2023/api')
+    expect(normalizeEndpointURL('http://127.0.0.1:2023/configs/api')).toBe('http://127.0.0.1:2023/api')
+    expect(normalizeEndpointURL('http://127.0.0.1:2023/panel/api/configs/1')).toBe('http://127.0.0.1:2023/panel/api')
+    expect(normalizeEndpointURL('http://127.0.0.1:2023/panel/configs/api')).toBe('http://127.0.0.1:2023/panel/api')
+  })
 })
 
 describe('aPI client', () => {
@@ -64,6 +78,30 @@ describe('aPI client', () => {
 
     expect(url.toString()).toBe(
       'http://127.0.0.1:2023/api/events/runtime?windowSec=600&maxPoints=240&access_token=test-token',
+    )
+  })
+
+  it('reports static WebUI handler responses as endpoint errors', async () => {
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      hostname: '127.0.0.1',
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response('Method Not Allowed\n\nmethod should be GET or HEAD\n', {
+          status: 405,
+          statusText: 'Method Not Allowed',
+          headers: { 'content-type': 'text/plain; charset=utf-8' },
+        })
+      }),
+    )
+
+    const { APIClient } = await import('./client')
+    const client = new APIClient('http://127.0.0.1:2023/configs')
+
+    await expect(client.put('/1', {})).rejects.toThrow(
+      'API request reached the WebUI static handler; check the endpoint URL and make sure it points to /api',
     )
   })
 })
