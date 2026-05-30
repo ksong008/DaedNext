@@ -11,6 +11,7 @@ User=root
 LimitNPROC=512
 LimitNOFILE=1048576
 ExecStart=/usr/bin/daed run -c /etc/daed/
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-abnormal
 
 [Install]
