@@ -2,7 +2,7 @@ OUTPUT ?= daed
 APPNAME ?= daed
 VERSION ?= 0.0.0.unknown
 
-.PHONY: submodules submodule
+.PHONY: submodules submodule dist
 
 daed:
 
@@ -42,7 +42,7 @@ ifeq (,$(wildcard ./.git))
 endif
 dist: package.json pnpm-lock.yaml
 	$(PFLAGS) pnpm i
-	TURBO_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 pnpm build
+	VITE_MOCK_MODE= TURBO_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 pnpm build
 	@if [ -d "apps/web/dist" ]; then \
 		rm -rf dist; \
 		cp -r apps/web/dist dist; \

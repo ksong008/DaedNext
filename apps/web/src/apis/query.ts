@@ -56,6 +56,7 @@ interface GeneralStateAPI {
   modified: boolean
   version: string
   netnsLinkMode?: string
+  attachBackend?: string
 }
 
 interface InterfaceAPI {
@@ -243,7 +244,7 @@ export function getInterfacesRequest(apiClient: APIClientInterface) {
     const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true })
     return {
       general: {
-        dae: { running: false, modified: false, version: '', netnsLinkMode: '' },
+        dae: { running: false, modified: false, version: '', netnsLinkMode: '', attachBackend: '' },
         interfaces: data.items.map(adaptInterface),
       },
     }

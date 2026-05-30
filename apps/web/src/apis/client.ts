@@ -16,6 +16,24 @@ export interface APIClientInterface {
 const leadingSlashesRE = /^\/+/
 const trailingSlashesRE = /\/+$/
 const trailingSlashRE = /\/$/
+const staticFileServerMethodHint = 'method should be GET or HEAD'
+const apiSegment = 'api'
+const apiResourceSegments = new Set([
+  'auth',
+  'configs',
+  'dns',
+  'events',
+  'general',
+  'groups',
+  'logs',
+  'nodes',
+  'openapi.json',
+  'routings',
+  'runtime',
+  'subscriptions',
+  'user',
+])
+const frontendRouteSegments = new Set(['setup'])
 
 const httpMethod = {
   get: 'GET',
@@ -53,14 +71,21 @@ function canonicalizeEndpointPathname(pathname: string) {
   }
 
   const segments = trimmedPath.split('/').filter(Boolean)
-  const lastSegment = segments.at(-1)?.toLowerCase()
+  const normalizedSegments = segments.map((segment) => segment.toLowerCase())
+  const apiIndex = normalizedSegments.indexOf(apiSegment)
+  const resourceIndex = normalizedSegments.findIndex(
+    (segment) => apiResourceSegments.has(segment) || frontendRouteSegments.has(segment),
+  )
 
-  if (lastSegment === 'api') {
-    segments[segments.length - 1] = 'api'
-    return `/${segments.join('/')}`
+  if (resourceIndex >= 0 && (apiIndex === -1 || resourceIndex < apiIndex)) {
+    return `/${[...segments.slice(0, resourceIndex), apiSegment].join('/')}`
   }
 
-  return `/${[...segments, 'api'].join('/')}`
+  if (apiIndex >= 0) {
+    return `/${[...segments.slice(0, apiIndex), apiSegment].join('/')}`
+  }
+
+  return `/${[...segments, apiSegment].join('/')}`
 }
 
 export function normalizeEndpointURL(raw: string): string {
@@ -69,6 +94,33 @@ export function normalizeEndpointURL(raw: string): string {
   url.search = ''
   url.hash = ''
   return url.toString().replace(trailingSlashRE, '')
+}
+
+function parseResponsePayload(text: string, contentType: string | null): unknown {
+  if (!text) {
+    return {}
+  }
+  if (contentType?.includes('application/json')) {
+    return JSON.parse(text)
+  }
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+function responseErrorMessage(response: Response, payload: unknown): string {
+  if (typeof payload === 'object' && payload && 'error' in payload && typeof payload.error === 'string') {
+    return payload.error
+  }
+  if (typeof payload === 'string' && payload.includes(staticFileServerMethodHint)) {
+    return 'API request reached the WebUI static handler; check the endpoint URL and make sure it points to /api'
+  }
+  if (typeof payload === 'string' && payload.trim()) {
+    return payload.trim()
+  }
+  return `${response.status} ${response.statusText}`
 }
 
 export class APIClient implements APIClientInterface {
@@ -123,12 +175,9 @@ export class APIClient implements APIClientInterface {
     }
 
     const text = await response.text()
-    const payload = text ? JSON.parse(text) : {}
+    const payload = parseResponsePayload(text, response.headers.get('content-type'))
     if (!response.ok) {
-      const message =
-        typeof payload === 'object' && payload && 'error' in payload && typeof payload.error === 'string'
-          ? payload.error
-          : `${response.status} ${response.statusText}`
+      const message = responseErrorMessage(response, payload)
       toast.error(message)
       throw new Error(message)
     }

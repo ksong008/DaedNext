@@ -17,7 +17,17 @@ import type { GlobalInput } from '~/apis/types'
 import { Policy } from '~/apis/types'
 import { DialMode, LogLevel, TcpCheckHttpMethod, TLSImplementation, UTLSImitate } from './misc'
 
-export const DEFAULT_ENDPOINT_URL = `${location.protocol}//${location.hostname}:2023/api`
+function defaultEndpointURL() {
+  if (import.meta.env.DEV && location.protocol && location.hostname) {
+    return `${location.protocol}//${location.hostname}:2023/api`
+  }
+  if (location.origin && location.origin !== 'null') {
+    return `${location.origin}/api`
+  }
+  return 'http://127.0.0.1:2023/api'
+}
+
+export const DEFAULT_ENDPOINT_URL = defaultEndpointURL()
 
 export const DEFAULT_LOG_LEVEL = LogLevel.info
 export const DEFAULT_TPROXY_PORT = 12345
