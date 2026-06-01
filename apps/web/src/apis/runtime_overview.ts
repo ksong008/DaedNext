@@ -1,6 +1,6 @@
 import type { TrafficOverviewQueryData } from './types'
 
-type RuntimeOverviewAPI = {
+interface RuntimeOverviewAPI {
   updatedAt: string
   uploadRate: string
   downloadRate: string
@@ -8,6 +8,7 @@ type RuntimeOverviewAPI = {
   downloadTotal: string
   activeConnections: number
   udpSessions: number
+  cpuUsagePercent?: number
   rssBytes?: string
   heapAllocBytes?: string
   goroutines?: number
@@ -59,6 +60,7 @@ export function adaptRuntimeOverview(data: RuntimeOverviewAPI): TrafficOverviewQ
     downloadTotal: data.downloadTotal,
     activeConnections: data.activeConnections,
     udpSessions: data.udpSessions,
+    cpuUsagePercent: data.cpuUsagePercent ?? 0,
     rssBytes: data.rssBytes || '0',
     heapAllocBytes: data.heapAllocBytes || '0',
     goroutines: data.goroutines ?? 0,
@@ -94,6 +96,7 @@ export function mergeRuntimeOverviewDelta(
     downloadTotal: delta.downloadTotal,
     activeConnections: delta.activeConnections,
     udpSessions: delta.udpSessions,
+    cpuUsagePercent: delta.cpuUsagePercent ?? previousData.cpuUsagePercent ?? 0,
     rssBytes: delta.rssBytes || previousData.rssBytes || '0',
     heapAllocBytes: delta.heapAllocBytes || previousData.heapAllocBytes || '0',
     goroutines: delta.goroutines ?? previousData.goroutines ?? 0,

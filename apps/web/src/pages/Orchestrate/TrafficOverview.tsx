@@ -2,32 +2,17 @@ import type { CSSProperties } from 'react'
 import type { ChartConfig } from '~/components/ui/chart'
 import dayjs from 'dayjs'
 import { Activity } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 import { useTrafficOverviewQuery } from '~/apis'
-import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardTitle } from '~/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/ui/chart'
-import { cn } from '~/lib/utils'
 import { computeTrafficChartDomain, filterTrafficChartDataByDomain } from './traffic_chart'
 
-type TimeRangeKey = '1m' | '10m' | '30m' | '1h'
-
-interface TimeRangeOption {
-  key: TimeRangeKey
-  seconds: number
-  maxPoints: number
-  label: string
-}
-
-const TIME_RANGE_OPTIONS: TimeRangeOption[] = [
-  { key: '1m', seconds: 60, maxPoints: 120, label: '1m' },
-  { key: '10m', seconds: 10 * 60, maxPoints: 240, label: '10m' },
-  { key: '30m', seconds: 30 * 60, maxPoints: 360, label: '30m' },
-  { key: '1h', seconds: 60 * 60, maxPoints: 480, label: '1h' },
-]
+const REALTIME_TRAFFIC_WINDOW_SECONDS = 60
+const REALTIME_TRAFFIC_MAX_POINTS = 240
 
 const runtimeStatusStyle = {
   background: 'color-mix(in oklab, var(--card) 97%, var(--primary) 3%)',
@@ -49,6 +34,13 @@ function formatBytes(value: number) {
 
 function formatRate(value: number) {
   return `${formatBytes(value)}/s`
+}
+
+function formatCPUUsage(value: number) {
+  const normalized = Number.isFinite(value) && value > 0 ? value : 0
+  if (normalized < 10) return normalized.toFixed(1)
+  if (normalized < 100) return normalized.toFixed(0)
+  return normalized.toFixed(0)
 }
 
 function formatAxisRate(value: number) {
@@ -140,10 +132,6 @@ function computeDynamicRateDomain(
   return [Math.max(0, minValue - padding), maxValue + padding]
 }
 
-function formatClockTime(value: string | undefined) {
-  return formatChartTime(value)
-}
-
 function OverviewMetricCard({
   title,
   amount,
@@ -169,31 +157,33 @@ function OverviewMetricCard({
   )
 }
 
+function IOSDateTime() {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  return (
+    <div className="inline-flex min-w-[136px] flex-col items-start rounded-[16px] border border-primary/12 bg-background/45 px-3 py-1.5 text-left shadow-none backdrop-blur-sm sm:items-end">
+      <span className="text-[10px] font-medium leading-none text-muted-foreground sm:text-[11px]">
+        {dayjs(now).format('YYYY年M月D日')}
+      </span>
+      <span className="mt-1 text-base font-semibold leading-none text-foreground tabular-nums sm:text-lg">
+        {dayjs(now).format('HH:mm:ss')}
+      </span>
+    </div>
+  )
+}
+
 function toNumber(value: string | number | undefined | null) {
   const parsed = Number(value ?? 0)
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function TrafficRangeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: string }) {
-  return (
-    <Button
-      variant="outline"
-      size="xs"
-      className={cn(
-        'shrink-0 rounded-full border-border/55 bg-accent/22 px-3 text-foreground shadow-none transition-colors hover:border-primary/24 hover:bg-primary/8 hover:text-primary dark:border-border/55 dark:bg-accent/22 dark:hover:bg-primary/8',
-        active &&
-          'border-primary/32 bg-primary/8 text-primary hover:bg-primary/12 dark:border-primary/32 dark:bg-primary/8 dark:hover:bg-primary/12',
-      )}
-      onClick={onClick}
-    >
-      {children}
-    </Button>
-  )
-}
-
 export function TrafficOverview() {
   const { t } = useTranslation()
-  const [selectedRange, setSelectedRange] = useState<TimeRangeKey>('1m')
 
   const chartConfig = useMemo(
     () =>
@@ -204,12 +194,7 @@ export function TrafficOverview() {
     [t],
   )
 
-  const selectedWindow = useMemo(
-    () => TIME_RANGE_OPTIONS.find((option) => option.key === selectedRange) ?? TIME_RANGE_OPTIONS[1],
-    [selectedRange],
-  )
-
-  const trafficOverviewQuery = useTrafficOverviewQuery(selectedWindow.seconds, selectedWindow.maxPoints)
+  const trafficOverviewQuery = useTrafficOverviewQuery(REALTIME_TRAFFIC_WINDOW_SECONDS, REALTIME_TRAFFIC_MAX_POINTS)
   const runtimeOverview = trafficOverviewQuery.data
   const chartWindowEnd = useMemo(
     () => parseChartTimestampMs(runtimeOverview?.updatedAt) ?? Date.now(),
@@ -223,6 +208,7 @@ export function TrafficOverview() {
       downloadTotal: toNumber(runtimeOverview?.downloadTotal),
       activeConnections: runtimeOverview?.activeConnections ?? 0,
       udpSessions: runtimeOverview?.udpSessions ?? 0,
+      cpuUsagePercent: runtimeOverview?.cpuUsagePercent ?? 0,
       rssBytes: toNumber(runtimeOverview?.rssBytes),
       heapAllocBytes: toNumber(runtimeOverview?.heapAllocBytes),
       goroutines: runtimeOverview?.goroutines ?? 0,
@@ -245,8 +231,8 @@ export function TrafficOverview() {
     [runtimeOverview?.samples],
   )
   const chartWindowDomain = useMemo(
-    () => computeTrafficChartDomain(combinedChartData, chartWindowEnd, selectedWindow.seconds),
-    [chartWindowEnd, combinedChartData, selectedWindow.seconds],
+    () => computeTrafficChartDomain(combinedChartData, chartWindowEnd, REALTIME_TRAFFIC_WINDOW_SECONDS),
+    [chartWindowEnd, combinedChartData],
   )
   const visibleChartData = useMemo(
     () => filterTrafficChartDataByDomain(combinedChartData, chartWindowDomain),
@@ -257,7 +243,7 @@ export function TrafficOverview() {
   return (
     <Card withBorder shadow="sm" padding="none" className="overflow-hidden backdrop-blur-sm" style={runtimeStatusStyle}>
       <CardContent className="border-b border-border/55 px-3 py-2.5 sm:px-5 sm:py-3">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
             <div className="rounded-full border border-primary/12 bg-primary/7 p-1.5 text-primary sm:p-2">
               <Activity className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
@@ -269,18 +255,7 @@ export function TrafficOverview() {
               {t('shell.live')}
             </span>
           </div>
-
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
-            {TIME_RANGE_OPTIONS.map((option) => (
-              <TrafficRangeButton
-                key={option.key}
-                active={selectedRange === option.key}
-                onClick={() => setSelectedRange(option.key)}
-              >
-                {t(`trafficOverview.ranges.${option.key}`)}
-              </TrafficRangeButton>
-            ))}
-          </div>
+          <IOSDateTime />
         </div>
       </CardContent>
 
@@ -406,8 +381,9 @@ export function TrafficOverview() {
           />
           <OverviewMetricCard title={t('trafficOverview.goroutines')} amount={latestSample.goroutines.toString()} />
           <OverviewMetricCard
-            title={t('trafficOverview.lastUpdated')}
-            amount={formatClockTime(runtimeOverview?.updatedAt)}
+            title={t('trafficOverview.cpuUsage')}
+            amount={formatCPUUsage(latestSample.cpuUsagePercent)}
+            unit="%"
           />
         </div>
       </CardContent>

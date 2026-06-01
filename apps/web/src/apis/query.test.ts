@@ -62,6 +62,7 @@ describe('mergeRuntimeOverviewDelta', () => {
       downloadTotal: '20',
       activeConnections: 3,
       udpSessions: 4,
+      cpuUsagePercent: 1.5,
       rssBytes: '30',
       heapAllocBytes: '40',
       goroutines: 5,
@@ -81,6 +82,7 @@ describe('mergeRuntimeOverviewDelta', () => {
         downloadTotal: '27',
         activeConnections: 8,
         udpSessions: 9,
+        cpuUsagePercent: 12.5,
         rssBytes: '31',
         heapAllocBytes: '41',
         goroutines: 10,
@@ -95,6 +97,7 @@ describe('mergeRuntimeOverviewDelta', () => {
     expect(merged.uploadTotal).toBe('16')
     expect(merged.downloadTotal).toBe('27')
     expect(merged.activeConnections).toBe(8)
+    expect(merged.cpuUsagePercent).toBe(12.5)
     expect(merged.samples).toHaveLength(3)
     expect(merged.samples[2]).toEqual({
       timestamp: '2026-05-03T13:00:01.000Z',
@@ -112,6 +115,7 @@ describe('mergeRuntimeOverviewDelta', () => {
       downloadTotal: '20',
       activeConnections: 3,
       udpSessions: 4,
+      cpuUsagePercent: 1.5,
       rssBytes: '30',
       heapAllocBytes: '40',
       goroutines: 5,
@@ -132,6 +136,7 @@ describe('mergeRuntimeOverviewDelta', () => {
         downloadTotal: '30',
         activeConnections: 11,
         udpSessions: 12,
+        cpuUsagePercent: 2.5,
         rssBytes: '31',
         heapAllocBytes: '41',
         goroutines: 13,
