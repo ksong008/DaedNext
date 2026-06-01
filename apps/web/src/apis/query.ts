@@ -79,6 +79,7 @@ interface RuntimeOverviewAPI {
   downloadTotal: string
   activeConnections: number
   udpSessions: number
+  cpuUsagePercent?: number
   rssBytes?: string
   heapAllocBytes?: string
   goroutines?: number
@@ -286,11 +287,8 @@ export function useGeneralQuery() {
   })
 }
 
-function trafficOverviewRefetchInterval(windowSec: number) {
-  if (windowSec <= 60) return 1_000
-  if (windowSec <= 10 * 60) return 2_000
-  if (windowSec <= 30 * 60) return 5_000
-  return 10_000
+function trafficOverviewRefetchInterval() {
+  return 1_000
 }
 
 export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
@@ -359,7 +357,7 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
       return adaptRuntimeOverview(data)
     },
     placeholderData: (previousData) => previousData,
-    refetchInterval: () => (isStreamLive ? false : trafficOverviewRefetchInterval(windowSec)),
+    refetchInterval: () => (isStreamLive ? false : trafficOverviewRefetchInterval()),
     refetchIntervalInBackground: false,
   })
 }

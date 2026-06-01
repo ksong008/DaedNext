@@ -366,15 +366,9 @@
     "rss": "RSS Memory",
     "heapAlloc": "Heap Alloc",
     "goroutines": "Goroutines",
-    "lastUpdated": "Last Updated",
+    "cpuUsage": "CPU Usage",
     "connectionsUnit": "conn",
-    "sessionsUnit": "sessions",
-    "ranges": {
-      "1m": "1m",
-      "10m": "10m",
-      "30m": "30m",
-      "1h": "1h"
-    }
+    "sessionsUnit": "sessions"
   },
   "notifications": {
     "login succeeded": "Login Succeeded",

@@ -80,6 +80,7 @@ interface MockRuntimeOverviewResponse {
   downloadTotal: string
   activeConnections: number
   udpSessions: number
+  cpuUsagePercent: number
   rssBytes: string
   heapAllocBytes: string
   goroutines: number
@@ -123,8 +124,8 @@ function createMockRuntimeSamples(
 }
 
 export function getMockRuntimeOverview(windowSec = 60, maxPoints = 240): MockRuntimeOverviewResponse {
-  const normalizedWindowSec = Math.max(60, windowSec)
-  const normalizedPointCount = Math.max(24, maxPoints)
+  const normalizedWindowSec = Math.max(1, windowSec)
+  const normalizedPointCount = Math.max(2, maxPoints)
   const samples = createMockRuntimeSamples(normalizedWindowSec, normalizedPointCount)
   const updatedAt = samples.at(-1)?.timestamp || new Date().toISOString()
   const latestSample = samples.at(-1)
@@ -137,6 +138,7 @@ export function getMockRuntimeOverview(windowSec = 60, maxPoints = 240): MockRun
     downloadTotal: String(MOCK_DOWNLOAD_TOTAL_BYTES),
     activeConnections: 284,
     udpSessions: 37,
+    cpuUsagePercent: 8.6,
     rssBytes: String(Math.round(96.2 * 1024 ** 2)),
     heapAllocBytes: String(Math.round(31.4 * 1024 ** 2)),
     goroutines: 42,

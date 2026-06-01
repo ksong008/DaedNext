@@ -304,6 +304,7 @@ export interface TrafficOverviewQueryData {
   downloadTotal: string
   activeConnections: number
   udpSessions: number
+  cpuUsagePercent: number
   rssBytes: string
   heapAllocBytes: string
   goroutines: number
