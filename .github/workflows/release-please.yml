@@ -33,7 +33,7 @@ jobs:
       release_created: ${{ steps.release.outputs['apps/web--release_created'] || (github.ref_type == 'tag' && 'true') || (github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && 'true') || 'false' }}
       publish_extras: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.release.outputs['apps/web--release_created'] == 'true') && 'true' || 'false' }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release
         if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.tag_name == '') }}
         with:
