@@ -4,6 +4,18 @@ import { describe, expect, it } from 'vitest'
 import { deriveTransport, resolveNodeTransport } from './node_transport'
 import { mergeRuntimeOverviewDelta } from './runtime_overview'
 
+async function loadBuildLogEventsURL() {
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true,
+    value: {
+      hostname: '127.0.0.1',
+      protocol: 'http:',
+    },
+  })
+
+  return (await import('./query')).buildLogEventsURL
+}
+
 describe('deriveTransport', () => {
   it('marks SS2022 shadowsocks links as ss2022 transport', () => {
     expect(
@@ -153,5 +165,26 @@ describe('mergeRuntimeOverviewDelta', () => {
       { timestamp: '2026-05-03T13:00:02.000Z', uploadRate: 30, downloadRate: 40 },
       { timestamp: '2026-05-03T13:00:04.000Z', uploadRate: 4, downloadRate: 5 },
     ])
+  })
+})
+
+describe('buildLogEventsURL', () => {
+  it('uses stable API level values instead of localized display labels', async () => {
+    const buildLogEventsURL = await loadBuildLogEventsURL()
+    const url = buildLogEventsURL('http://127.0.0.1:2023', 'token', 'all', '')
+    const parsed = new URL(url)
+
+    expect(parsed.pathname).toBe('/api/events/logs')
+    expect(parsed.searchParams.get('level')).toBe('all')
+    expect(parsed.toString()).not.toContain('%E5%85%A8%E9%83%A8')
+  })
+
+  it('keeps concrete runtime levels as API values', async () => {
+    const buildLogEventsURL = await loadBuildLogEventsURL()
+    const url = buildLogEventsURL('http://127.0.0.1:2023', 'token', 'debug', 'runtime')
+    const parsed = new URL(url)
+
+    expect(parsed.searchParams.get('level')).toBe('debug')
+    expect(parsed.searchParams.get('q')).toBe('runtime')
   })
 })
