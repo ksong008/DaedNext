@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DAE_WING_DIR="${DAE_WING_DIR:-/root/project/dae-wing}"
-DAE_DIR="${DAE_DIR:-/root/project/dae}"
+DAE_WING_DIR="${DAE_WING_DIR:-/root/project/dae-wing-daex-align}"
+DAE_DIR="${DAE_DIR:-/root/project/dae-daex-align}"
 DAE_CORE_DIR="$DAE_WING_DIR/dae-core"
 DAED_DIR="${DAED_DIR:-$(git rev-parse --show-toplevel)}"
 DAED_WING_SUBMODULE_DIR="$DAED_DIR/wing"
