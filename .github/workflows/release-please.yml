@@ -176,53 +176,27 @@ jobs:
 
     strategy:
       matrix:
-        goos: [linux]
-        goarch: [386, riscv64]
-
         include:
-          # BEGIN Linux ARM64
-          - goos: linux
-            goarch: arm64
-          # END Linux ARM64
-
-          # BEGIN Linux AMD64 v1 v2 v3
           - goos: linux
             goarch: amd64
             goamd64: v1
+            rustflags: -C target-cpu=x86-64
           - goos: linux
             goarch: amd64
             goamd64: v2
+            rustflags: -C target-cpu=x86-64-v2
           - goos: linux
             goarch: amd64
             goamd64: v3
-          # END Linux AMD64 v1 v2 v3
-
-          # BEGIN Linux mips
-          - goos: linux
-            goarch: mips64
-            cgo_enabled: 1
-            cc: mips64-linux-gnuabi64-gcc
-          - goos: linux
-            goarch: mips64le
-            cgo_enabled: 1
-            cc: mips64el-linux-gnuabi64-gcc
-          - goos: linux
-            goarch: mipsle
-            cgo_enabled: 1
-            cc: mipsel-linux-gnu-gcc
-          - goos: linux
-            goarch: mips
-            cgo_enabled: 1
-            cc: mips-linux-gnu-gcc
-          # END Linux mips
+            rustflags: -C target-cpu=x86-64-v3
       fail-fast: false
 
     env:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
       GOAMD64: ${{ matrix.goamd64 }}
-      CGO_ENABLED: ${{ matrix.cgo_enabled || 0 }}
-      CC: ${{ matrix.cc }}
+      CGO_ENABLED: 0
+      RUSTFLAGS: ${{ matrix.rustflags }}
 
     steps:
       - uses: actions/checkout@v6
@@ -231,12 +205,17 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.25.9'
-          cache: false
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup toolchain install nightly --profile minimal --component rust-src
+          rustup default stable
+          cargo install bpf-linker --version 0.10.3 --locked
 
-      - run: go version
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm
 
       - name: Get the version
         id: get_version
@@ -258,12 +237,6 @@ jobs:
           echo "GOOS: $GOOS, GOARCH: $GOARCH, RELEASE_NAME: $_NAME"
           echo "BUNDLE_NAME=daed-$_NAME" >> $GITHUB_OUTPUT
 
-      - name: Install mips build dependencies
-        if: ${{ startsWith(matrix.goarch, 'mips') }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-mips64-linux-gnuabi64 gcc-mips64el-linux-gnuabi64 gcc-mips-linux-gnu gcc-mipsel-linux-gnu
-
       - uses: actions/download-artifact@v8
         with:
           name: web
@@ -273,12 +246,13 @@ jobs:
         run: |
           mkdir -p ./bundled/
           export VERSION=${{ steps.get_version.outputs.VERSION }}
-          export GOFLAGS="-trimpath -modcacherw"
+          export DAED_SKIP_WEB_BUILD=1
           export OUTPUT=bundled/${{ steps.get_filename.outputs.BUNDLE_NAME }}
           make
           cp ./install/daed.service ./bundled/
           cp ./install/daed.desktop ./bundled/
           cp -r ./install/icons/ ./bundled/
+          cp -r ./dist ./bundled/web
           curl -L -o ./bundled/geoip.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geoip.dat
           curl -L -o ./bundled/geosite.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geosite.dat
 
@@ -298,12 +272,7 @@ jobs:
           sudo apt install -y libarchive-tools rpm
           sudo gem install fpm -v 1.15.1
           pushd bundled || exit 1
-          if [ "$GOARCH" == 'mips64' ] || [ "$GOARCH" == 'mips64le' ] || [ "$GOARCH" == 'mipsle' ] || [ "$GOARCH" == 'mips' ];then
-            echo "Skip pacman package build for Arch Linux has never been port to MIPS family, Debian package and RPM package are enough."
-            ARCH_PACMAN=''
-          else
-            ARCH_PACMAN='pacman'
-          fi
+          ARCH_PACMAN='pacman'
           for package_manager in deb rpm $ARCH_PACMAN; do
             if [ "$package_manager" == 'pacman' ];then
               if [ "$GOARCH" == 'arm64' ];then
@@ -327,6 +296,7 @@ jobs:
               --after-install ../install/package_after_install.sh \
               --after-remove ../install/package_after_remove.sh \
               ./geoip.dat=/usr/share/daed/geoip.dat ./geosite.dat=/usr/share/daed/geosite.dat \
+              ./web=/usr/share/daed/web \
               ./daed.service=/usr/lib/systemd/system/daed.service \
               ./daed.desktop=/usr/share/applications/daed.desktop \
               ./icons/16x16.png=/usr/share/icons/hicolor/16x16/apps/daed.png \

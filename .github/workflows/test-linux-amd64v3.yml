@@ -20,13 +20,16 @@ jobs:
         include:
           - goamd64: v2
             output_name: daed-linux-x86_64_v2_sse
+            rustflags: -C target-cpu=x86-64-v2
           - goamd64: v3
             output_name: daed-linux-x86_64_v3_avx2
+            rustflags: -C target-cpu=x86-64-v3
     env:
       GOOS: linux
       GOARCH: amd64
       GOAMD64: ${{ matrix.goamd64 }}
       CGO_ENABLED: 0
+      RUSTFLAGS: ${{ matrix.rustflags }}
 
     steps:
       - uses: actions/checkout@v6
@@ -41,10 +44,17 @@ jobs:
           node-version: '22.12.0'
           cache: pnpm
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.25.9'
-          cache: false
+      - name: Setup Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup toolchain install nightly --profile minimal --component rust-src
+          rustup default stable
+          cargo install bpf-linker --version 0.10.3 --locked
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm
 
       - name: Build web
         env:
@@ -53,15 +63,15 @@ jobs:
           pnpm install
           pnpm build --filter daed
 
-      - name: Build bundle
+      - name: Build Rust native daed
         env:
           VERSION: test-${{ github.sha }}
-          GOFLAGS: -trimpath -modcacherw
-          OUTPUT: ../bundled/${{ matrix.output_name }}
+          OUTPUT: bundled/${{ matrix.output_name }}
           APPNAME: daed
-          WEB_DIST: ../apps/web/dist
-        working-directory: wing
-        run: make bundle
+          DAED_SKIP_WEB_BUILD: 1
+        run: |
+          mkdir -p bundled
+          make
 
       - name: Smoke test
         run: ./bundled/${{ matrix.output_name }} --version
@@ -73,6 +83,7 @@ jobs:
           cp install/daed.service artifact/
           cp install/daed.desktop artifact/
           cp -r install/icons artifact/icons
+          cp -r apps/web/dist artifact/web
           curl -L -o artifact/geoip.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geoip.dat
           curl -L -o artifact/geosite.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geosite.dat
           tar -C artifact -czf ${{ matrix.output_name }}-test.tar.gz .
