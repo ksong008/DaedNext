@@ -83,9 +83,10 @@ function logEntryMatchesFilter(entry: LogEntry, level: string, query: string) {
 }
 
 function formatLogTime(timestamp: string) {
-  const timeStart = timestamp.indexOf('T')
-  if (timeStart >= 0 && timestamp.length >= timeStart + 9) {
-    return timestamp.slice(timeStart + 1, timeStart + 9)
+  const date = new Date(timestamp)
+  if (!Number.isNaN(date.getTime())) {
+    const twoDigits = (value: number) => value.toString().padStart(2, '0')
+    return `${twoDigits(date.getHours())}:${twoDigits(date.getMinutes())}:${twoDigits(date.getSeconds())}`
   }
   return timestamp
 }
