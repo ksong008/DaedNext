@@ -51,6 +51,11 @@ interface JSONStorageResponse {
   values: string[]
 }
 
+function useAuthenticatedQueryEnabled(enabled = true) {
+  const token = useStore(tokenAtom)
+  return enabled && (isMockMode() || !!token)
+}
+
 interface GeneralStateAPI {
   running: boolean
   modified: boolean
@@ -254,10 +259,12 @@ export function getInterfacesRequest(apiClient: APIClientInterface) {
 
 export function useDefaultsQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   const { data } = useQuery({
     queryKey: QUERY_KEY_STORAGE,
     queryFn: () => getDefaultsRequest(apiClient)(),
+    enabled,
   })
 
   if (!data) {
@@ -269,6 +276,7 @@ export function useDefaultsQuery() {
 
 export function useGeneralQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: QUERY_KEY_GENERAL,
@@ -284,6 +292,7 @@ export function useGeneralQuery() {
         },
       }
     },
+    enabled,
   })
 }
 
@@ -297,6 +306,7 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   const endpointURL = useStore(endpointURLAtom)
   const token = useStore(tokenAtom)
   const [isStreamLive, setIsStreamLive] = useState(false)
+  const queryEnabled = isMockMode() || !!token
   const streamEnabled = !isMockMode() && !!token && typeof EventSource !== 'undefined'
   const queryKey = useMemo(() => trafficOverviewQueryKey(windowSec, maxPoints), [windowSec, maxPoints])
   const streamURL = useMemo(
@@ -356,6 +366,7 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
       const data = await apiClient.get<RuntimeOverviewAPI>('/runtime/overview', { windowSec, maxPoints })
       return adaptRuntimeOverview(data)
     },
+    enabled: queryEnabled,
     placeholderData: (previousData) => previousData,
     refetchInterval: () => (isStreamLive ? false : trafficOverviewRefetchInterval()),
     refetchIntervalInBackground: false,
@@ -364,6 +375,7 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
 
 export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true) {
   const apiClient = useAPIClient()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
     queryKey: QUERY_KEY_NODE_LATENCY,
@@ -377,7 +389,7 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true)
         message: item.message ?? null,
       }))
     },
-    enabled,
+    enabled: queryEnabled,
     placeholderData: (previousData) => previousData,
     refetchInterval: () => refetchIntervalMs,
     refetchIntervalInBackground: false,
@@ -386,39 +398,46 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true)
 
 export function useLogsQuery({ level, query, limit = 500 }: { level: string; query: string; limit?: number }) {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: [...QUERY_KEY_LOG, 'items', level, query, limit],
     queryFn: async (): Promise<{ items: LogEntry[] }> => {
       return apiClient.get<{ items: LogEntry[] }>('/logs', { level, q: query, limit })
     },
+    enabled,
   })
 }
 
 export function useLogSettingsQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: [...QUERY_KEY_LOG, 'settings'],
     queryFn: async (): Promise<LogSettings> => {
       return apiClient.get<LogSettings>('/logs/settings')
     },
+    enabled,
   })
 }
 
 export function useRuntimeLogLevelQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: [...QUERY_KEY_LOG, 'runtime-level'],
     queryFn: async (): Promise<{ level: string }> => {
       return apiClient.get<{ level: string }>('/runtime/log-level')
     },
+    enabled,
   })
 }
 
 export function useNodesQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: QUERY_KEY_NODE,
@@ -428,11 +447,13 @@ export function useNodesQuery() {
         nodes: adaptNodesConnection(data),
       }
     },
+    enabled,
   })
 }
 
 export function useSubscriptionsQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: QUERY_KEY_SUBSCRIPTION,
@@ -459,11 +480,13 @@ export function useSubscriptionsQuery() {
       )
       return { subscriptions }
     },
+    enabled,
   })
 }
 
 export function useConfigsQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: QUERY_KEY_CONFIG,
@@ -480,11 +503,13 @@ export function useConfigsQuery() {
         })),
       }
     },
+    enabled,
   })
 }
 
 export function useGroupsQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: QUERY_KEY_GROUP,
@@ -516,11 +541,13 @@ export function useGroupsQuery() {
         })),
       }
     },
+    enabled,
   })
 }
 
 export function useRoutingsQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: QUERY_KEY_ROUTING,
@@ -535,11 +562,13 @@ export function useRoutingsQuery() {
         })),
       }
     },
+    enabled,
   })
 }
 
 export function useDNSsQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: QUERY_KEY_DNS,
@@ -560,11 +589,13 @@ export function useDNSsQuery() {
         })),
       }
     },
+    enabled,
   })
 }
 
 export function useUserQuery() {
   const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
     queryKey: QUERY_KEY_USER,
@@ -572,6 +603,7 @@ export function useUserQuery() {
       const user = await apiClient.get<CurrentUserView['user']>('/user/me')
       return { user }
     },
+    enabled,
   })
 }
 

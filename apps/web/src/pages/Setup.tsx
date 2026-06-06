@@ -2,14 +2,14 @@ import { useStore } from '@nanostores/react'
 import { Link2, LockKeyhole, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 
 import { z } from 'zod'
 
+import { APIClient, normalizeEndpointURL } from '~/apis/client'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
-import { APIClient, normalizeEndpointURL } from '~/apis/client'
 import { DEFAULT_ENDPOINT_URL } from '~/constants'
 import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
@@ -37,12 +37,14 @@ async function getNumberUsers(endpointURL: string) {
 
 export function SetupPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
 
   const [active, setActive] = useState(0)
   const nextStep = () => setActive((current) => (current < 3 ? current + 1 : current))
   const [numberUsers, setNumberUsers] = useState(0)
 
   const defaultEndpointURL = useStore(endpointURLAtom)
+  const token = useStore(tokenAtom)
   const normalizedDefaultEndpointURL = normalizeEndpointURL(defaultEndpointURL)
 
   const [endpointFormData, setEndpointFormData] = useState({ endpointURL: normalizedDefaultEndpointURL })
@@ -65,6 +67,12 @@ export function SetupPage() {
       return current
     })
   }, [defaultEndpointURL, normalizedDefaultEndpointURL])
+
+  useEffect(() => {
+    if (token) {
+      navigate('/', { replace: true })
+    }
+  }, [navigate, token])
 
   const handleEndpointURLSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
