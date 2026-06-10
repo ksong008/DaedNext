@@ -61,6 +61,13 @@ RUST_DAED_TARGET ?=
 RUST_DAED_FEATURES ?= native-ebpf
 RUST_DAED_BIN_DIR = $(if $(RUST_DAED_TARGET),$(RUST_DAED_TARGET_DIR)/$(RUST_DAED_TARGET)/release,$(RUST_DAED_TARGET_DIR)/release)
 RUST_DAED_BIN = $(RUST_DAED_BIN_DIR)/daed
+RUST_DAED_DAED_COMMIT = $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+RUST_DAED_WING_COMMIT = $(shell git -C wing rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+RUST_DAED_CORE_COMMIT = $(shell git -C wing/dae-core rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+RUST_DAED_DAED_DIRTY = $(shell test -n "$$(git status --porcelain --untracked-files=no 2>/dev/null)" && echo +dirty)
+RUST_DAED_WING_DIRTY = $(shell test -n "$$(git -C wing status --porcelain --untracked-files=no 2>/dev/null)" && echo +dirty)
+RUST_DAED_CORE_DIRTY = $(shell test -n "$$(git -C wing/dae-core status --porcelain --untracked-files=no 2>/dev/null)" && echo +dirty)
+RUST_DAED_VERSION ?= daed rust-native product daed=$(RUST_DAED_DAED_COMMIT)$(RUST_DAED_DAED_DIRTY) wing=$(RUST_DAED_WING_COMMIT)$(RUST_DAED_WING_DIRTY) dae-core=$(RUST_DAED_CORE_COMMIT)$(RUST_DAED_CORE_DIRTY) features=$(RUST_DAED_FEATURES)
 RUST_DAED_BUILD_ARGS = --manifest-path $(RUST_DAED_MANIFEST) -p dae-daemon --bin daed --release
 ifneq ($(strip $(RUST_DAED_TARGET)),)
 RUST_DAED_BUILD_ARGS += --target $(RUST_DAED_TARGET)
@@ -82,7 +89,7 @@ $(DAE_CORE_BPF_OBJECT): wing
 daed: daed-rust-native
 
 daed-rust-native: submodule dist
-	cargo build $(RUST_DAED_BUILD_ARGS)
+	DAE_DAEMON_VERSION="$(RUST_DAED_VERSION)" cargo build $(RUST_DAED_BUILD_ARGS)
 	cp "$(RUST_DAED_BIN)" "$(OUTPUT)"
 	strip "$(OUTPUT)" 2>/dev/null || true
 
