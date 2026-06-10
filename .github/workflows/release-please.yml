@@ -99,22 +99,12 @@ jobs:
           submodules: recursive
           ref: ${{ needs.release-please.outputs.checkout_ref }}
 
-      - uses: actions/setup-go@v6
-        with:
-          go-version: '1.25.9'
-          cache: false
-
-      - run: go version
-
-      - name: Download wing vendor
+      - name: Verify Rust native source archive inputs
         run: |
           git submodule update --init --recursive
-          export GOMODCACHE="${PWD}"/go-mod
-          go mod download -modcacherw
-          cd dae-core && go mod download -modcacherw && cd ..
-          find "$GOMODCACHE" -maxdepth 1 ! -name "cache" ! -name "go-mod" -exec rm -rf {} \;
-          sed -i 's/#export GOMODCACHE=$(PWD)\/go-mod/export GOMODCACHE=$(PWD)\/go-mod/' Makefile
-        working-directory: wing
+          test -f Makefile
+          test -f wing/dae-core/rust/Cargo.toml
+          test -d apps/web
 
       - name: Create full source ZIP archive and Signature
         run: |
