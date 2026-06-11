@@ -40,7 +40,13 @@ DAED_UI_COMMIT = $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unkno
 RUST_WORKSPACE_COMMIT = $(shell git -C "$(RUST_WORKSPACE)" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 DAED_UI_DIRTY = $(shell test -n "$$(git status --porcelain --untracked-files=no 2>/dev/null)" && echo +dirty)
 RUST_WORKSPACE_DIRTY = $(shell test -n "$$(git -C "$(RUST_WORKSPACE)" status --porcelain --untracked-files=no 2>/dev/null)" && echo +dirty)
-DAED_PRODUCT_VERSION ?= daed rust-native product ui=$(DAED_UI_COMMIT)$(DAED_UI_DIRTY) core=$(RUST_WORKSPACE_COMMIT)$(RUST_WORKSPACE_DIRTY) features=$(RUST_FEATURES)
+DAED_PRODUCT_FEATURES ?= $(RUST_FEATURES)
+ifneq ($(findstring native-ebpf,$(RUST_FEATURES)),)
+ifeq ($(findstring bpf-btf,$(DAED_PRODUCT_FEATURES)),)
+DAED_PRODUCT_FEATURES := $(DAED_PRODUCT_FEATURES),bpf-btf
+endif
+endif
+DAED_PRODUCT_VERSION ?= daed rust-native product ui=$(DAED_UI_COMMIT)$(DAED_UI_DIRTY) core=$(RUST_WORKSPACE_COMMIT)$(RUST_WORKSPACE_DIRTY) features=$(DAED_PRODUCT_FEATURES)
 RUST_BUILD_ARGS = --manifest-path $(RUST_MANIFEST) -p dae-daemon --bin daed --release
 ifneq ($(strip $(RUST_TARGET)),)
 RUST_BUILD_ARGS += --target $(RUST_TARGET)

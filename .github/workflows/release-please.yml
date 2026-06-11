@@ -262,46 +262,55 @@ jobs:
 
       - name: Build Linux packages
         run: |
+          set -euo pipefail
           mkdir -p ./output_packages/
           sudo apt install -y libarchive-tools rpm
           sudo gem install fpm -v 1.15.1
           pushd bundled || exit 1
+          ./${{ steps.get_filename.outputs.BUNDLE_NAME }} --version | grep -F 'bpf-btf'
+          rm -rf package-root
+          mkdir -p package-root/usr/bin \
+            package-root/usr/lib/systemd/system \
+            package-root/usr/share/applications \
+            package-root/usr/share/daed/web \
+            package-root/usr/share/icons/hicolor/{16x16,32x32,64x64,128x128,256x256,512x512,1024x1024}/apps
+          install -m 0755 ./${{ steps.get_filename.outputs.BUNDLE_NAME }} package-root/usr/bin/daed
+          install -m 0644 ./geoip.dat package-root/usr/share/daed/geoip.dat
+          install -m 0644 ./geosite.dat package-root/usr/share/daed/geosite.dat
+          install -m 0644 ./daed.service package-root/usr/lib/systemd/system/daed.service
+          install -m 0644 ./daed.desktop package-root/usr/share/applications/daed.desktop
+          cp -a ./web/. package-root/usr/share/daed/web/
+          install -m 0644 ./icons/16x16.png package-root/usr/share/icons/hicolor/16x16/apps/daed.png
+          install -m 0644 ./icons/32x32.png package-root/usr/share/icons/hicolor/32x32/apps/daed.png
+          install -m 0644 ./icons/64x64.png package-root/usr/share/icons/hicolor/64x64/apps/daed.png
+          install -m 0644 ./icons/128x128.png package-root/usr/share/icons/hicolor/128x128/apps/daed.png
+          install -m 0644 ./icons/256x256.png package-root/usr/share/icons/hicolor/256x256/apps/daed.png
+          install -m 0644 ./icons/512x512.png package-root/usr/share/icons/hicolor/512x512/apps/daed.png
+          install -m 0644 ./icons/1024x1024.png package-root/usr/share/icons/hicolor/1024x1024/apps/daed.png
           ARCH_PACMAN='pacman'
           for package_manager in deb rpm $ARCH_PACMAN; do
-            if [ "$package_manager" == 'pacman' ];then
-              if [ "$GOARCH" == 'arm64' ];then
-                package_arch='aarch64'
-              else
-                package_arch="$GOARCH"
-              fi
-            elif [ "$package_manager" == 'rpm' ];then
-              if [ "$GOARCH" == 'arm64' ];then
-                package_arch='aarch64'
-              else
-                package_arch="$GOARCH"
-              fi
-            elif [ "$package_manager" == 'deb' ];then
-              package_arch="$GOARCH"
-            fi
+            case "$package_manager:$GOARCH" in
+              deb:amd64) package_arch='amd64' ;;
+              deb:arm64) package_arch='arm64' ;;
+              rpm:amd64|pacman:amd64) package_arch='x86_64' ;;
+              rpm:arm64|pacman:arm64) package_arch='aarch64' ;;
+              *) package_arch="$GOARCH" ;;
+            esac
             fpm -s dir -t "$package_manager" -a $package_arch --version "$PACKAGE_VERSION" \
               --url 'https://github.com/daeuniverse/daed' --description "daed, A Modern Dashboard For dae." \
               --maintainer "daed@dae.v2raya.org" --name daed --license 'MIT AGPL' \
               --package daed-linux-$GOARCH$GOAMD64.$package_manager \
               --after-install ../install/package_after_install.sh \
               --after-remove ../install/package_after_remove.sh \
-              ./geoip.dat=/usr/share/daed/geoip.dat ./geosite.dat=/usr/share/daed/geosite.dat \
-              ./web=/usr/share/daed/web \
-              ./daed.service=/usr/lib/systemd/system/daed.service \
-              ./daed.desktop=/usr/share/applications/daed.desktop \
-              ./icons/16x16.png=/usr/share/icons/hicolor/16x16/apps/daed.png \
-              ./icons/32x32.png=/usr/share/icons/hicolor/32x32/apps/daed.png \
-              ./icons/64x64.png=/usr/share/icons/hicolor/64x64/apps/daed.png \
-              ./icons/128x128.png=/usr/share/icons/hicolor/128x128/apps/daed.png \
-              ./icons/256x256.png=/usr/share/icons/hicolor/256x256/apps/daed.png \
-              ./icons/512x512.png=/usr/share/icons/hicolor/512x512/apps/daed.png \
-              ./icons/1024x1024.png=/usr/share/icons/hicolor/1024x1024/apps/daed.png \
-              ./${{ steps.get_filename.outputs.BUNDLE_NAME }}=/usr/bin/daed
+              -C package-root \
+              .
           done
+          dpkg-deb -c daed-linux-$GOARCH$GOAMD64.deb | grep -F './usr/bin/daed'
+          dpkg-deb -c daed-linux-$GOARCH$GOAMD64.deb | grep -F './usr/share/daed/web/index.html'
+          rpm -qpl daed-linux-$GOARCH$GOAMD64.rpm | grep -F '/usr/bin/daed'
+          rpm -qpl daed-linux-$GOARCH$GOAMD64.rpm | grep -F '/usr/share/daed/web/index.html'
+          bsdtar -tf daed-linux-$GOARCH$GOAMD64.pacman | grep -F 'usr/bin/daed'
+          bsdtar -tf daed-linux-$GOARCH$GOAMD64.pacman | grep -F 'usr/share/daed/web/index.html'
           popd || exit 1
           cp bundled/daed-linux-$GOARCH$GOAMD64.deb ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.deb
           cp bundled/daed-linux-$GOARCH$GOAMD64.rpm ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.rpm
