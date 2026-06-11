@@ -27,7 +27,7 @@ WORKDIR /build
 COPY . .
 COPY --from=build-web /build/apps/web/dist /build/dist
 
-RUN DAED_SKIP_WEB_BUILD=1 make APPNAME=daed VERSION=$DAED_VERSION OUTPUT=/build/daed daed-rust-native
+RUN DAED_SKIP_WEB_BUILD=1 RUST_WORKSPACE=/build/DaeNext make APPNAME=daed VERSION=$DAED_VERSION OUTPUT=/build/daed daed-rust-native
 
 
 FROM debian:bookworm-slim

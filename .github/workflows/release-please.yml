@@ -96,19 +96,22 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: recursive
           ref: ${{ needs.release-please.outputs.checkout_ref }}
+      - uses: actions/checkout@v6
+        with:
+          repository: ksong008/DaeNext
+          ref: main
+          path: DaeNext
 
       - name: Verify Rust native source archive inputs
         run: |
-          git submodule update --init --recursive
           test -f Makefile
-          test -f wing/dae-core/rust/Cargo.toml
           test -d apps/web
+          test -f DaeNext/Cargo.toml
 
       - name: Create full source ZIP archive and Signature
         run: |
-          zip -9vr daed-full-src.zip . -x .git/\*
+          zip -9vr daed-full-src.zip . -x .git/\* -x '*/.git/*'
 
       - uses: actions/upload-artifact@v7
         with:
@@ -193,7 +196,11 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
           fetch-depth: 0
-          submodules: recursive
+      - uses: actions/checkout@v6
+        with:
+          repository: ksong008/DaeNext
+          ref: main
+          path: DaeNext
 
       - name: Setup Rust
         run: |
@@ -233,6 +240,8 @@ jobs:
           path: dist/
 
       - name: make
+        env:
+          RUST_WORKSPACE: ${{ github.workspace }}/DaeNext
         run: |
           mkdir -p ./bundled/
           export VERSION=${{ steps.get_version.outputs.VERSION }}
@@ -321,6 +330,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
+      - uses: actions/checkout@v6
+        with:
+          repository: ksong008/DaeNext
+          ref: main
+          path: DaeNext
 
       - uses: actions/download-artifact@v8
         with:
@@ -441,7 +455,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: recursive
           ref: ${{ needs.release-please.outputs.checkout_ref }}
 
       - uses: actions/download-artifact@v8

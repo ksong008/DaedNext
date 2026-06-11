@@ -3,9 +3,6 @@
   "type": "module",
   "private": true,
   "packageManager": "pnpm@10.24.0",
-  "engines": {
-    "node": ">=22.12.0"
-  },
   "description": "A Web Dashboard For dae",
   "author": {
     "email": "dae@v2raya.org",
@@ -14,15 +11,16 @@
   "license": "MIT",
   "homepage": "https://daeuniverse.github.io/daed",
   "repository": "https://github.com/daeuniverse/daed",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "build": "turbo run build",
     "build:mock": "turbo run build --env-mode=loose -- --mode mock",
     "dev": "turbo run dev",
     "dev:mock": "turbo run dev --env-mode=loose -- --mode mock",
-    "test:integration": "node scripts/live_audit_runner.mjs",
-    "test:integration:attached": "node scripts/live_audit.mjs",
+    "test:integration": "node scripts/live_audit.mjs",
     "live-audit": "pnpm test:integration",
-    "live-audit:attached": "pnpm test:integration:attached",
     "lint": "eslint --fix .",
     "lint:emoji": "bash ./scripts/check_no_emoji.sh",
     "lint:web-surface": "bash ./scripts/check_retired_frontend_markers.sh",
