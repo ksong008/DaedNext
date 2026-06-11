@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-> **Note:** `daed` bundles [dae-wing](https://github.com/daeuniverse/dae-wing) (backend API) and [dae](https://github.com/daeuniverse/dae) (eBPF core) into a single binary.
+> **Note:** `daed` now builds its backend API, control plane, datapath, and eBPF support from the Rust-native DaeNext workspace.
 
 ---
 

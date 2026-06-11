@@ -56,7 +56,7 @@ Try daed directly in your browser without installation:
 
 **🔗 [daeuniverse.github.io/daed](https://daeuniverse.github.io/daed)**
 
-> ⚠️ **Important:** Since GitHub Pages uses HTTPS, your dae-wing backend must also be served over HTTPS. Browsers block mixed content (HTTPS page connecting to HTTP backend). Configure a reverse proxy with TLS or use a self-signed certificate for local development.
+> ⚠️ **Important:** Since GitHub Pages uses HTTPS, your daed API endpoint must also be served over HTTPS. Browsers block mixed content (HTTPS page connecting to HTTP backend). Configure a reverse proxy with TLS or use a self-signed certificate for local development.
 
 ## 🚀 Getting Started
 
@@ -130,12 +130,12 @@ pnpm dev
 
 ### Available Scripts
 
-| Command                 | Description                            |
-| ----------------------- | -------------------------------------- |
-| `pnpm dev`              | Start development server               |
-| `pnpm build`            | Build for production                   |
-| `pnpm test:integration` | Run the live browser integration audit |
-| `pnpm lint`             | Lint and fix code                      |
+| Command                 | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| `pnpm dev`              | Start development server                           |
+| `pnpm build`            | Build for production                               |
+| `pnpm test:integration` | Run the browser audit against an existing daed API |
+| `pnpm lint`             | Lint and fix code                                  |
 
 ## 🤝 Contributing
 
@@ -151,10 +151,10 @@ Special thanks to all [contributors](https://github.com/daeuniverse/daed/graphs/
 
 ## 📄 License
 
-This project is dual licensed:
+This project is licensed as follows:
 
 - Frontend (daed): [MIT License](./LICENSE)
-- Backend (dae-wing): [AGPL-3.0 License](https://github.com/daeuniverse/dae-wing/blob/main/LICENSE)
+- Rust-native daemon workspace: [AGPL-3.0 License](https://github.com/ksong008/DaeNext)
 
 ---
 

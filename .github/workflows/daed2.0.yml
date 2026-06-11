@@ -26,7 +26,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          submodules: recursive
       - name: Check retired frontend markers
         run: bash ./scripts/check_retired_frontend_markers.sh
 
@@ -38,7 +37,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          submodules: recursive
       - uses: pnpm/action-setup@v5.0.0
       - uses: actions/setup-node@v6
         with:
@@ -52,7 +50,7 @@ jobs:
         run: pnpm --filter daed test
 
   build-linux-amd64:
-    needs: integration-live-audit
+    needs: web-quality
     name: Build Linux AMD64 ${{ matrix.goamd64 }}
     timeout-minutes: 45
     runs-on: ubuntu-22.04
@@ -76,7 +74,11 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          submodules: recursive
+      - uses: actions/checkout@v6
+        with:
+          repository: ksong008/DaeNext
+          ref: main
+          path: DaeNext
       - uses: pnpm/action-setup@v5.0.0
       - uses: actions/setup-node@v6
         with:
@@ -104,6 +106,7 @@ jobs:
           OUTPUT: bundled/${{ matrix.output_name }}
           APPNAME: daed
           DAED_SKIP_WEB_BUILD: 1
+          RUST_WORKSPACE: ${{ github.workspace }}/DaeNext
         run: |
           mkdir -p bundled
           make
@@ -126,7 +129,3 @@ jobs:
           path: |
             artifact/**
             ${{ matrix.output_name }}-test.tar.gz
-
-  integration-live-audit:
-    needs: web-quality
-    uses: ./.github/workflows/live-audit.yml
