@@ -3,14 +3,14 @@
   "type": "module",
   "private": true,
   "packageManager": "pnpm@10.24.0",
-  "description": "A Web Dashboard For dae",
+  "description": "DaedNext product shell for dae",
   "author": {
-    "email": "dae@v2raya.org",
-    "name": "daeuniverse"
+    "email": "noreply@github.com",
+    "name": "ksong008"
   },
   "license": "MIT",
-  "homepage": "https://daeuniverse.github.io/daed",
-  "repository": "https://github.com/daeuniverse/daed",
+  "homepage": "https://ksong008.github.io/DaedNext",
+  "repository": "https://github.com/ksong008/DaedNext",
   "engines": {
     "node": ">=22.12.0"
   },

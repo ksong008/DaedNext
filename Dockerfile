@@ -32,7 +32,7 @@ RUN DAED_SKIP_WEB_BUILD=1 RUST_WORKSPACE=/build/DaeNext make APPNAME=daed VERSIO
 
 FROM debian:bookworm-slim
 
-LABEL org.opencontainers.image.source=https://github.com/daeuniverse/daed
+LABEL org.opencontainers.image.source=https://github.com/ksong008/DaedNext
 
 RUN apt-get update; apt-get install -y ca-certificates wget; \
     apt-get clean autoclean && apt-get autoremove -y && rm -rf /var/lib/{apt,dpkg,cache,log}/
