@@ -1,11 +1,6 @@
 name: Release Please
 
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:

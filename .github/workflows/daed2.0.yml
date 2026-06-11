@@ -1,12 +1,6 @@
 name: daed2.0 Integration
 
 on:
-  push:
-    branches:
-      - daed2.0
-  pull_request:
-    branches:
-      - daed2.0
   workflow_dispatch:
 
 permissions: read-all

@@ -1,12 +1,7 @@
 name: Publish Packages
 
 on:
-  push:
-    tags:
-      - 'dae-editor-v*'
-      - 'dae-node-parser-v*'
-      - 'dae-lsp-v*'
-      - 'dae-lang-core-v*'
+  workflow_dispatch:
 
 permissions:
   contents: read
