@@ -1,10 +1,6 @@
 name: Test Linux x86_64 v2-v3
 
 on:
-  push:
-    branches:
-      - ci/linux-amd64v3-test
-      - personal/stable
   workflow_dispatch:
 
 concurrency:
