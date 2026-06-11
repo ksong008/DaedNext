@@ -46,7 +46,8 @@ ifeq ($(findstring bpf-btf,$(DAED_PRODUCT_FEATURES)),)
 DAED_PRODUCT_FEATURES := $(DAED_PRODUCT_FEATURES),bpf-btf
 endif
 endif
-DAED_PRODUCT_VERSION ?= daed rust-native product ui=$(DAED_UI_COMMIT)$(DAED_UI_DIRTY) core=$(RUST_WORKSPACE_COMMIT)$(RUST_WORKSPACE_DIRTY) features=$(DAED_PRODUCT_FEATURES)
+DAED_PRODUCT_TARGET ?= $(if $(GOOS),$(GOOS)-$(GOARCH)$(GOAMD64),$(if $(RUST_TARGET),$(RUST_TARGET),host))
+DAED_PRODUCT_VERSION ?= daed rust-native product version=$(VERSION) ui=$(DAED_UI_COMMIT)$(DAED_UI_DIRTY) core=$(RUST_WORKSPACE_COMMIT)$(RUST_WORKSPACE_DIRTY) target=$(DAED_PRODUCT_TARGET) features=$(DAED_PRODUCT_FEATURES)
 RUST_BUILD_ARGS = --manifest-path $(RUST_MANIFEST) -p dae-daemon --bin daed --release
 ifneq ($(strip $(RUST_TARGET)),)
 RUST_BUILD_ARGS += --target $(RUST_TARGET)
