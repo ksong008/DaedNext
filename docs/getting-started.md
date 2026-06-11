@@ -24,9 +24,9 @@
 
 Download the latest release for your platform:
 
-**👉 [GitHub Releases](https://github.com/daeuniverse/daed/releases)**
+**👉 [GitHub Releases](https://github.com/ksong008/DaedNext/releases)**
 
-> 💡 **Tip:** Want to try new features? Check out [PR Builds](https://github.com/daeuniverse/daed/actions/workflows/pr-build.yml) for the latest development builds. Note that these may be unstable.
+> 💡 **Tip:** Want to try new features? Check out [PR Builds](https://github.com/ksong008/DaedNext/actions/workflows/pr-build.yml) for the latest development builds. Note that these may be unstable.
 
 ### Quick Install (Manual)
 
@@ -50,7 +50,7 @@ daed --help
 
 ```bash
 # Download the latest .deb package
-wget -P /tmp https://github.com/daeuniverse/daed/releases/latest/download/installer-daed-linux-$(arch).deb
+wget -P /tmp https://github.com/ksong008/DaedNext/releases/latest/download/installer-daed-linux-$(arch).deb
 
 # Install
 sudo dpkg -i /tmp/installer-daed-linux-$(arch).deb
@@ -72,7 +72,7 @@ sudo dnf install daed
 
 ```bash
 # Download the latest .rpm package
-wget -P /tmp https://github.com/daeuniverse/daed/releases/latest/download/installer-daed-linux-$(arch).rpm
+wget -P /tmp https://github.com/ksong008/DaedNext/releases/latest/download/installer-daed-linux-$(arch).rpm
 
 # Install
 sudo rpm -ivh /tmp/installer-daed-linux-$(arch).rpm
@@ -85,7 +85,7 @@ sudo systemctl enable --now daed
 
 ```bash
 # Download the latest .rpm package
-wget -P /tmp https://github.com/daeuniverse/daed/releases/latest/download/installer-daed-linux-$(arch).rpm
+wget -P /tmp https://github.com/ksong008/DaedNext/releases/latest/download/installer-daed-linux-$(arch).rpm
 
 # Install
 sudo zypper install /tmp/installer-daed-linux-$(arch).rpm
@@ -123,9 +123,9 @@ sudo pacman -S daed-git
 
 Pre-built images are available at:
 
-- `ghcr.io/daeuniverse/daed`
-- `quay.io/daeuniverse/daed`
-- `daeuniverse/daed`
+- `ghcr.io/ksong008/daednext`
+- `quay.io/ksong008/daednext`
+- `ksong008/daednext`
 
 ### Docker Run
 
@@ -138,7 +138,7 @@ docker run -d \
     -v /sys:/sys \
     -v /etc/daed:/etc/daed \
     --name=daed \
-    ghcr.io/daeuniverse/daed:latest
+    ghcr.io/ksong008/daednext:latest
 ```
 
 ### Docker Compose
@@ -147,7 +147,7 @@ docker run -d \
 # docker-compose.yml
 services:
   daed:
-    image: ghcr.io/daeuniverse/daed:latest
+    image: ghcr.io/ksong008/daednext:latest
     container_name: daed
     privileged: true
     network_mode: host
@@ -165,11 +165,11 @@ docker compose up -d
 ### Build from Source
 
 ```bash
-git clone https://github.com/daeuniverse/daed --recursive
+git clone https://github.com/ksong008/DaedNext --recursive
 docker build -t daed .
 ```
 
-> **Note:** Docker support is currently available for i386, amd64, armv7, and arm64 architectures. See [discussion #291](https://github.com/daeuniverse/daed/discussions/291) for details.
+> **Note:** Docker support is currently available for i386, amd64, armv7, and arm64 architectures. See [discussion #291](https://github.com/ksong008/DaedNext/discussions/291) for details.
 
 ---
 

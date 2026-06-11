@@ -22,7 +22,7 @@ This project and everyone participating in it is governed by our commitment to p
 
 ### Before Submitting a Bug Report
 
-- Check the [existing issues](https://github.com/daeuniverse/daed/issues) to see if the problem has already been reported
+- Check the [existing issues](https://github.com/ksong008/DaedNext/issues) to see if the problem has already been reported
 - Make sure you are using the latest version
 - Collect relevant information (OS, browser, Node.js version, etc.)
 
@@ -34,7 +34,7 @@ This project and everyone participating in it is governed by our commitment to p
 - Include screenshots or recordings if applicable
 - Include any relevant logs or error messages
 
-[Open a Bug Report →](https://github.com/daeuniverse/daed/issues/new?template=bug_report.md)
+[Open a Bug Report →](https://github.com/ksong008/DaedNext/issues/new?template=bug_report.md)
 
 ## Suggesting Features
 
@@ -50,7 +50,7 @@ This project and everyone participating in it is governed by our commitment to p
 - Explain why this feature would be useful
 - Include mockups or examples if possible
 
-[Open a Feature Request →](https://github.com/daeuniverse/daed/issues/new?template=feature_request.md)
+[Open a Feature Request →](https://github.com/ksong008/DaedNext/issues/new?template=feature_request.md)
 
 ## Development Setup
 
@@ -74,7 +74,7 @@ This project and everyone participating in it is governed by our commitment to p
 3. **Add upstream remote**:
 
    ```bash
-   git remote add upstream https://github.com/daeuniverse/daed.git
+   git remote add upstream https://github.com/ksong008/DaedNext.git
    ```
 
 4. **Install dependencies**:

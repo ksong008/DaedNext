@@ -4,10 +4,10 @@
   <p><strong>A modern web dashboard for dae</strong></p>
 
   <p>
-    <a href="https://github.com/daeuniverse/daed/actions/workflows/release-please.yml"><img src="https://img.shields.io/github/actions/workflow/status/daeuniverse/daed/release-please.yml?style=for-the-badge" alt="Build Status" /></a>
-    <a href="https://github.com/daeuniverse/daed/releases"><img src="https://img.shields.io/github/v/release/daeuniverse/daed?style=for-the-badge" alt="Release" /></a>
-    <a href="https://github.com/daeuniverse/daed/blob/main/LICENSE"><img src="https://img.shields.io/github/license/daeuniverse/daed?style=for-the-badge" alt="License" /></a>
-    <a href="https://github.com/daeuniverse/daed/pulls"><img src="https://img.shields.io/github/issues-pr-closed/daeuniverse/daed?style=for-the-badge" alt="Pull Requests" /></a>
+    <a href="https://github.com/ksong008/DaedNext/actions/workflows/release-please.yml"><img src="https://img.shields.io/github/actions/workflow/status/ksong008/daednext/release-please.yml?style=for-the-badge" alt="Build Status" /></a>
+    <a href="https://github.com/ksong008/DaedNext/releases"><img src="https://img.shields.io/github/v/release/ksong008/daednext?style=for-the-badge" alt="Release" /></a>
+    <a href="https://github.com/ksong008/DaedNext/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ksong008/daednext?style=for-the-badge" alt="License" /></a>
+    <a href="https://github.com/ksong008/DaedNext/pulls"><img src="https://img.shields.io/github/issues-pr-closed/ksong008/daednext?style=for-the-badge" alt="Pull Requests" /></a>
   </p>
 
   <p>
@@ -54,7 +54,7 @@
 
 Try daed directly in your browser without installation:
 
-**🔗 [daeuniverse.github.io/daed](https://daeuniverse.github.io/daed)**
+**🔗 [ksong008.github.io/DaedNext](https://ksong008.github.io/DaedNext)**
 
 > ⚠️ **Important:** Since GitHub Pages uses HTTPS, your daed API endpoint must also be served over HTTPS. Browsers block mixed content (HTTPS page connecting to HTTP backend). Configure a reverse proxy with TLS or use a self-signed certificate for local development.
 
@@ -67,7 +67,7 @@ Please refer to the [Quick Start Guide](./docs/getting-started.md) to start usin
 Pull the prebuilt image:
 
 ```bash
-docker pull ghcr.io/daeuniverse/daed
+docker pull ghcr.io/ksong008/daednext
 ```
 
 Run the container:
@@ -81,7 +81,7 @@ docker run -d \
     -v /sys:/sys \
     -v /etc/daed:/etc/daed \
     --name=daed \
-    ghcr.io/daeuniverse/daed:latest
+    ghcr.io/ksong008/daednext:latest
 ```
 
 Or use Docker Compose:
@@ -90,7 +90,7 @@ Or use Docker Compose:
 # docker-compose.yml
 services:
   daed:
-    image: ghcr.io/daeuniverse/daed
+    image: ghcr.io/ksong008/daednext
     container_name: daed
     privileged: true
     network_mode: host
@@ -118,7 +118,7 @@ Access the dashboard at `http://localhost:2023`.
 
 ```bash
 # Clone the repository
-git clone https://github.com/daeuniverse/daed.git
+git clone https://github.com/ksong008/DaedNext.git
 cd daed
 
 # Install dependencies
@@ -143,10 +143,10 @@ Contributions are welcome! Whether it's bug reports, feature requests, or pull r
 
 Please read our [Contributing Guide](./CONTRIBUTING.md) before submitting a PR.
 
-Special thanks to all [contributors](https://github.com/daeuniverse/daed/graphs/contributors)! ❤️
+Special thanks to all [contributors](https://github.com/ksong008/DaedNext/graphs/contributors)! ❤️
 
-<a href="https://github.com/daeuniverse/daed/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=daeuniverse/daed" alt="Contributors" />
+<a href="https://github.com/ksong008/DaedNext/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ksong008/daednext" alt="Contributors" />
 </a>
 
 ## 📄 License

@@ -21,16 +21,16 @@ jobs:
   release-please:
     runs-on: macos-latest
     outputs:
-      manual_release: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && 'true' || 'false' }}
+      manual_release: ${{ inputs.tag_name != '' && 'true' || 'false' }}
       release_branch: ${{ github.ref_name }}
-      checkout_ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && github.sha) || steps.release.outputs['apps/web--tag_name'] || (github.ref_type == 'tag' && github.ref_name) || github.sha }}
-      tag_name: ${{ steps.release.outputs['apps/web--tag_name'] || (github.ref_type == 'tag' && github.ref_name) || inputs.tag_name }}
-      release_created: ${{ steps.release.outputs['apps/web--release_created'] || (github.ref_type == 'tag' && 'true') || (github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && 'true') || 'false' }}
-      publish_extras: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.release.outputs['apps/web--release_created'] == 'true') && 'true' || 'false' }}
+      checkout_ref: ${{ (inputs.tag_name != '' && github.sha) || steps.release.outputs['apps/web--tag_name'] || github.sha }}
+      tag_name: ${{ steps.release.outputs['apps/web--tag_name'] || inputs.tag_name }}
+      release_created: ${{ steps.release.outputs['apps/web--release_created'] || (inputs.tag_name != '' && 'true') || 'false' }}
+      publish_extras: ${{ (steps.release.outputs['apps/web--release_created'] == 'true' || inputs.tag_name != '') && 'true' || 'false' }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
-        if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.tag_name == '') }}
+        if: ${{ inputs.tag_name == '' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target-branch: ${{ github.ref_name }}
@@ -165,25 +165,24 @@ jobs:
     strategy:
       matrix:
         include:
-          - goos: linux
-            goarch: amd64
-            goamd64: v1
+          - target_os: linux
+            target_arch: x86_64
+            cpu_level: v1
             rustflags: -C target-cpu=x86-64
-          - goos: linux
-            goarch: amd64
-            goamd64: v2
+          - target_os: linux
+            target_arch: x86_64
+            cpu_level: v2
             rustflags: -C target-cpu=x86-64-v2
-          - goos: linux
-            goarch: amd64
-            goamd64: v3
+          - target_os: linux
+            target_arch: x86_64
+            cpu_level: v3
             rustflags: -C target-cpu=x86-64-v3
       fail-fast: false
 
     env:
-      GOOS: ${{ matrix.goos }}
-      GOARCH: ${{ matrix.goarch }}
-      GOAMD64: ${{ matrix.goamd64 }}
-      CGO_ENABLED: 0
+      TARGET_OS: ${{ matrix.target_os }}
+      TARGET_ARCH: ${{ matrix.target_arch }}
+      CPU_LEVEL: ${{ matrix.cpu_level }}
       RUSTFLAGS: ${{ matrix.rustflags }}
 
     steps:
@@ -225,8 +224,10 @@ jobs:
       - name: Get the filename
         id: get_filename
         run: |
-          export _NAME=$(jq ".[\"$GOOS-$GOARCH$GOAMD64\"].friendlyName" -r < install/friendly-filenames.json)
-          echo "GOOS: $GOOS, GOARCH: $GOARCH, RELEASE_NAME: $_NAME"
+          target_key="${TARGET_OS}-${TARGET_ARCH}-${CPU_LEVEL}"
+          _NAME=$(jq --arg target "$target_key" '.[$target].friendlyName' -r < install/friendly-filenames.json)
+          test "$_NAME" != "null"
+          echo "target_os: $TARGET_OS, target_arch: $TARGET_ARCH, cpu_level: $CPU_LEVEL, release_name: $_NAME"
           echo "BUNDLE_NAME=daed-$_NAME" >> $GITHUB_OUTPUT
 
       - uses: actions/download-artifact@v8
@@ -257,7 +258,7 @@ jobs:
           path: bundled/*
 
       - name: Smoking test
-        if: matrix.goarch == 'amd64' && matrix.goamd64 == 'v1'
+        if: matrix.target_arch == 'x86_64' && matrix.cpu_level == 'v1'
         run: ./bundled/${{ steps.get_filename.outputs.BUNDLE_NAME }} --version
 
       - name: Build Linux packages
@@ -266,6 +267,7 @@ jobs:
           mkdir -p ./output_packages/
           sudo apt install -y libarchive-tools rpm
           sudo gem install fpm -v 1.15.1
+          package_file_base="daed-${TARGET_OS}-${TARGET_ARCH}-${CPU_LEVEL}"
           pushd bundled || exit 1
           ./${{ steps.get_filename.outputs.BUNDLE_NAME }} --version | grep -F 'bpf-btf'
           rm -rf package-root
@@ -289,33 +291,33 @@ jobs:
           install -m 0644 ./icons/1024x1024.png package-root/usr/share/icons/hicolor/1024x1024/apps/daed.png
           ARCH_PACMAN='pacman'
           for package_manager in deb rpm $ARCH_PACMAN; do
-            case "$package_manager:$GOARCH" in
-              deb:amd64) package_arch='amd64' ;;
-              deb:arm64) package_arch='arm64' ;;
-              rpm:amd64|pacman:amd64) package_arch='x86_64' ;;
-              rpm:arm64|pacman:arm64) package_arch='aarch64' ;;
-              *) package_arch="$GOARCH" ;;
+            case "$package_manager:$TARGET_ARCH" in
+              deb:x86_64) package_arch='amd64' ;;
+              deb:aarch64) package_arch='arm64' ;;
+              rpm:x86_64|pacman:x86_64) package_arch='x86_64' ;;
+              rpm:aarch64|pacman:aarch64) package_arch='aarch64' ;;
+              *) package_arch="$TARGET_ARCH" ;;
             esac
             fpm -s dir -t "$package_manager" -a $package_arch --version "$PACKAGE_VERSION" \
-              --url 'https://github.com/daeuniverse/daed' --description "daed, A Modern Dashboard For dae." \
-              --maintainer "daed@dae.v2raya.org" --name daed --license 'MIT AGPL' \
-              --package daed-linux-$GOARCH$GOAMD64.$package_manager \
+              --url 'https://github.com/ksong008/DaedNext' --description "DaedNext product shell for dae." \
+              --maintainer "DaedNext Maintainers <noreply@github.com>" --name daed --license 'MIT AGPL' \
+              --package "$package_file_base.$package_manager" \
               --after-install ../install/package_after_install.sh \
               --after-remove ../install/package_after_remove.sh \
               -C package-root \
               .
           done
-          dpkg-deb -c daed-linux-$GOARCH$GOAMD64.deb | grep -F './usr/bin/daed'
-          dpkg-deb -c daed-linux-$GOARCH$GOAMD64.deb | grep -F './usr/share/daed/web/index.html'
-          rpm -qpl daed-linux-$GOARCH$GOAMD64.rpm | grep -F '/usr/bin/daed'
-          rpm -qpl daed-linux-$GOARCH$GOAMD64.rpm | grep -F '/usr/share/daed/web/index.html'
-          bsdtar -tf daed-linux-$GOARCH$GOAMD64.pacman | grep -F 'usr/bin/daed'
-          bsdtar -tf daed-linux-$GOARCH$GOAMD64.pacman | grep -F 'usr/share/daed/web/index.html'
+          dpkg-deb -c "$package_file_base.deb" | grep -F './usr/bin/daed'
+          dpkg-deb -c "$package_file_base.deb" | grep -F './usr/share/daed/web/index.html'
+          rpm -qpl "$package_file_base.rpm" | grep -F '/usr/bin/daed'
+          rpm -qpl "$package_file_base.rpm" | grep -F '/usr/share/daed/web/index.html'
+          bsdtar -tf "$package_file_base.pacman" | grep -F 'usr/bin/daed'
+          bsdtar -tf "$package_file_base.pacman" | grep -F 'usr/share/daed/web/index.html'
           popd || exit 1
-          cp bundled/daed-linux-$GOARCH$GOAMD64.deb ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.deb
-          cp bundled/daed-linux-$GOARCH$GOAMD64.rpm ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.rpm
+          cp "bundled/$package_file_base.deb" ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.deb
+          cp "bundled/$package_file_base.rpm" ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.rpm
           if [ "$ARCH_PACMAN" == 'pacman' ];then
-            cp bundled/daed-linux-$GOARCH$GOAMD64.pacman ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.pkg.tar.zst
+            cp "bundled/$package_file_base.pacman" ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.pkg.tar.zst
           fi
           ls ./output_packages/ | grep -E ".deb|.rpm|.pkg.tar.zst"
 
@@ -472,7 +474,7 @@ jobs:
           REF: ${{ needs.release-please.outputs.tag_name }}
         run: |
           tag=${REF:1}
-          echo "IMAGE=daeuniverse/daed" >> $GITHUB_OUTPUT
+          echo "IMAGE=ksong008/daednext" >> $GITHUB_OUTPUT
           echo "TAG=$tag" >> $GITHUB_OUTPUT
 
       - uses: docker/setup-qemu-action@v4
@@ -518,11 +520,11 @@ jobs:
           push: true
           load: true
           tags: |
-            ${{ github.repository }}:latest
-            ${{ github.repository }}:${{ steps.prep.outputs.TAG }}
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ steps.prep.outputs.TAG }}
-            quay.io/${{ github.repository }}:latest
-            quay.io/${{ github.repository }}:${{ steps.prep.outputs.TAG }}
+            ${{ steps.prep.outputs.IMAGE }}:latest
+            ${{ steps.prep.outputs.IMAGE }}:${{ steps.prep.outputs.TAG }}
+            ghcr.io/${{ steps.prep.outputs.IMAGE }}:latest
+            ghcr.io/${{ steps.prep.outputs.IMAGE }}:${{ steps.prep.outputs.TAG }}
+            quay.io/${{ steps.prep.outputs.IMAGE }}:latest
+            quay.io/${{ steps.prep.outputs.IMAGE }}:${{ steps.prep.outputs.TAG }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
