@@ -12,6 +12,7 @@ import { Select } from '~/components/ui/select'
 import { Textarea } from '~/components/ui/textarea'
 import { DEFAULT_V2RAY_FORM_VALUES, v2raySchema } from '~/constants'
 import { useNodeForm } from '~/hooks'
+import { buildSupportedXhttpExtra } from '~/utils/xhttp'
 
 const formSchema = v2raySchema.extend({
   protocol: z.enum(['vmess', 'vless']),
@@ -39,106 +40,8 @@ const XHTTP_MODE_OPTIONS = [
   { label: 'packet-up', value: 'packet-up' },
 ]
 
-const XHTTP_PLACEMENT_OPTIONS = [
-  { label: 'Default', value: '' },
-  { label: 'Path', value: 'path' },
-  { label: 'Query', value: 'query' },
-  { label: 'Header', value: 'header' },
-  { label: 'Cookie', value: 'cookie' },
-]
-
-const XHTTP_PADDING_PLACEMENT_OPTIONS = [
-  { label: 'Default', value: '' },
-  { label: 'Header', value: 'header' },
-  { label: 'Cookie', value: 'cookie' },
-  { label: 'Query', value: 'query' },
-  { label: 'QueryInHeader', value: 'queryInHeader' },
-]
-
-const XHTTP_PADDING_METHOD_OPTIONS = [
-  { label: 'Default', value: '' },
-  { label: 'repeat-x', value: 'repeat-x' },
-  { label: 'tokenish', value: 'tokenish' },
-]
-
-const XHTTP_UPLINK_DATA_PLACEMENT_OPTIONS = [
-  { label: 'Default', value: '' },
-  { label: 'Body', value: 'body' },
-  { label: 'Header', value: 'header' },
-  { label: 'Cookie', value: 'cookie' },
-  { label: 'Auto', value: 'auto' },
-]
-
-function parseJsonObject(raw: string): Record<string, unknown> {
-  if (!raw.trim()) return {}
-  try {
-    const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
-  } catch {
-    return {}
-  }
-}
-
-function parseJsonValue(raw: string): unknown | undefined {
-  if (!raw.trim()) return undefined
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return undefined
-  }
-}
-
-function setOrDelete(target: Record<string, unknown>, key: string, value: unknown) {
-  const shouldDelete =
-    value === undefined ||
-    value === null ||
-    value === '' ||
-    (typeof value === 'number' && value === 0) ||
-    (typeof value === 'boolean' && value === false)
-  if (shouldDelete) {
-    delete target[key]
-    return
-  }
-  target[key] = value
-}
-
 function buildXhttpExtra(data: V2rayFormValues): string {
-  const extra = parseJsonObject(data.xhttpExtra)
-
-  setOrDelete(extra, 'xPaddingBytes', data.xPaddingBytes)
-  setOrDelete(extra, 'xPaddingObfsMode', data.xPaddingObfsMode)
-  setOrDelete(extra, 'xPaddingKey', data.xPaddingKey)
-  setOrDelete(extra, 'xPaddingHeader', data.xPaddingHeader)
-  setOrDelete(extra, 'xPaddingPlacement', data.xPaddingPlacement)
-  setOrDelete(extra, 'xPaddingMethod', data.xPaddingMethod)
-  setOrDelete(extra, 'noSSEHeader', data.noSSEHeader)
-  setOrDelete(extra, 'scMaxEachPostBytes', data.scMaxEachPostBytes)
-  setOrDelete(extra, 'scMinPostsIntervalMs', data.scMinPostsIntervalMs)
-  setOrDelete(extra, 'scMaxBufferedPosts', data.scMaxBufferedPosts)
-  setOrDelete(extra, 'uplinkHTTPMethod', data.uplinkHTTPMethod)
-  setOrDelete(extra, 'sessionPlacement', data.sessionPlacement)
-  setOrDelete(extra, 'sessionKey', data.sessionKey)
-  setOrDelete(extra, 'seqPlacement', data.seqPlacement)
-  setOrDelete(extra, 'seqKey', data.seqKey)
-  setOrDelete(extra, 'uplinkDataPlacement', data.uplinkDataPlacement)
-  setOrDelete(extra, 'uplinkDataKey', data.uplinkDataKey)
-  setOrDelete(extra, 'uplinkChunkSize', data.uplinkChunkSize)
-
-  const downloadSettings = parseJsonValue(data.downloadSettingsRaw)
-  if (downloadSettings !== undefined) {
-    extra.downloadSettings = downloadSettings
-  } else if (!data.downloadSettingsRaw.trim()) {
-    delete extra.downloadSettings
-  }
-
-  const xmux = parseJsonValue(data.xmuxRaw)
-  if (xmux !== undefined) {
-    extra.xmux = xmux
-  } else if (!data.xmuxRaw.trim()) {
-    delete extra.xmux
-  }
-
-  return Object.keys(extra).length > 0 ? JSON.stringify(extra) : data.xhttpExtra
+  return buildSupportedXhttpExtra(data)
 }
 
 function generateV2rayLink(data: V2rayFormValues): string {
@@ -178,7 +81,7 @@ function generateV2rayLink(data: V2rayFormValues): string {
       allowInsecure,
     }
 
-    if (flow !== 'none') params.flow = flow
+    if (net !== 'xhttp' && flow !== 'none') params.flow = flow
 
     // Path handling based on network type
     if (net === 'grpc') {
@@ -262,8 +165,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
     generateLink: generateV2rayLink,
     parseLink: parseV2rayUrl,
   })
-  const isCustomAlpn =
-    formValues.alpn !== '' && !COMMON_ALPN_OPTIONS.some((option) => option.value === formValues.alpn)
+  const isCustomAlpn = formValues.alpn !== '' && !COMMON_ALPN_OPTIONS.some((option) => option.value === formValues.alpn)
   const alpnSelectValue = isCustomAlpn ? '__custom__' : formValues.alpn || undefined
 
   return (
@@ -380,16 +282,18 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
         </>
       )}
 
-      <Select
-        label="Flow"
-        data={[
-          { label: 'none', value: 'none' },
-          { label: 'xtls-rprx-vision', value: 'xtls-rprx-vision' },
-          { label: 'xtls-rprx-vision-udp443', value: 'xtls-rprx-vision-udp443' },
-        ]}
-        value={formValues.flow}
-        onChange={(val) => setValue('flow', (val || 'none') as V2rayFormValues['flow'])}
-      />
+      {formValues.net !== 'xhttp' && (
+        <Select
+          label="Flow"
+          data={[
+            { label: 'none', value: 'none' },
+            { label: 'xtls-rprx-vision', value: 'xtls-rprx-vision' },
+            { label: 'xtls-rprx-vision-udp443', value: 'xtls-rprx-vision-udp443' },
+          ]}
+          value={formValues.flow}
+          onChange={(val) => setValue('flow', (val || 'none') as V2rayFormValues['flow'])}
+        />
+      )}
 
       {formValues.tls !== 'none' && (
         <Checkbox
@@ -411,7 +315,13 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
           { label: 'XHTTP', value: 'xhttp' },
         ]}
         value={formValues.net}
-        onChange={(val) => setValue('net', (val || 'tcp') as V2rayFormValues['net'])}
+        onChange={(val) => {
+          const net = (val || 'tcp') as V2rayFormValues['net']
+          setValue('net', net)
+          if (net === 'xhttp') {
+            setValue('flow', 'none')
+          }
+        }}
       />
 
       {formValues.net === 'tcp' && (
@@ -537,86 +447,39 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
               label="XHTTP Mode"
               data={XHTTP_MODE_OPTIONS}
               value={formValues.xhttpMode || 'auto'}
-              onChange={(val) => setValue('xhttpMode', val || 'auto')}
+              onChange={(val) => {
+                const mode = val || 'auto'
+                setValue('xhttpMode', mode)
+                if (mode === 'stream-one') {
+                  setValue('downloadSettingsRaw', '')
+                }
+              }}
             />
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">DownloadSettings JSON</label>
-              <Textarea value={formValues.downloadSettingsRaw} onChange={(e) => setValue('downloadSettingsRaw', e.target.value)} />
-            </div>
+            {formValues.xhttpMode !== 'stream-one' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">DownloadSettings JSON</label>
+                <Textarea
+                  value={formValues.downloadSettingsRaw}
+                  aria-invalid={!!errors.downloadSettingsRaw}
+                  onChange={(e) => setValue('downloadSettingsRaw', e.target.value)}
+                />
+                {errors.downloadSettingsRaw?.message && (
+                  <p className="text-xs text-destructive">{errors.downloadSettingsRaw.message}</p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium">XMUX JSON</label>
-              <Textarea value={formValues.xmuxRaw} onChange={(e) => setValue('xmuxRaw', e.target.value)} />
+              <Textarea
+                value={formValues.xmuxRaw}
+                aria-invalid={!!errors.xmuxRaw}
+                onChange={(e) => setValue('xmuxRaw', e.target.value)}
+              />
+              {errors.xmuxRaw?.message && <p className="text-xs text-destructive">{errors.xmuxRaw.message}</p>}
             </div>
           </div>
-
-          <details className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
-            <summary className="cursor-pointer text-sm font-medium">Advanced XHTTP</summary>
-            <div className="mt-3 space-y-3">
-              <Input label="XPadding Bytes" value={formValues.xPaddingBytes} onChange={(e) => setValue('xPaddingBytes', e.target.value)} />
-              <Checkbox
-                label="XPadding Obfs Mode"
-                checked={formValues.xPaddingObfsMode}
-                onCheckedChange={(checked) => setValue('xPaddingObfsMode', !!checked)}
-              />
-              <Input label="XPadding Key" value={formValues.xPaddingKey} onChange={(e) => setValue('xPaddingKey', e.target.value)} />
-              <Input label="XPadding Header" value={formValues.xPaddingHeader} onChange={(e) => setValue('xPaddingHeader', e.target.value)} />
-              <Select
-                label="XPadding Placement"
-                data={XHTTP_PADDING_PLACEMENT_OPTIONS}
-                value={formValues.xPaddingPlacement || undefined}
-                onChange={(val) => setValue('xPaddingPlacement', val || '')}
-              />
-              <Select
-                label="XPadding Method"
-                data={XHTTP_PADDING_METHOD_OPTIONS}
-                value={formValues.xPaddingMethod || undefined}
-                onChange={(val) => setValue('xPaddingMethod', val || '')}
-              />
-
-              <Checkbox
-                label="No SSE Header"
-                checked={formValues.noSSEHeader}
-                onCheckedChange={(checked) => setValue('noSSEHeader', !!checked)}
-              />
-              <Input label="ScMaxEachPostBytes" value={formValues.scMaxEachPostBytes} onChange={(e) => setValue('scMaxEachPostBytes', e.target.value)} />
-              <Input label="ScMinPostsIntervalMs" value={formValues.scMinPostsIntervalMs} onChange={(e) => setValue('scMinPostsIntervalMs', e.target.value)} />
-              <NumberInput
-                label="ScMaxBufferedPosts"
-                min={0}
-                value={formValues.scMaxBufferedPosts}
-                onChange={(val) => setValue('scMaxBufferedPosts', Number(val) || 0)}
-              />
-              <Input label="Uplink HTTP Method" value={formValues.uplinkHTTPMethod} onChange={(e) => setValue('uplinkHTTPMethod', e.target.value)} />
-              <Select
-                label="Session Placement"
-                data={XHTTP_PLACEMENT_OPTIONS}
-                value={formValues.sessionPlacement || undefined}
-                onChange={(val) => setValue('sessionPlacement', val || '')}
-              />
-              <Input label="Session Key" value={formValues.sessionKey} onChange={(e) => setValue('sessionKey', e.target.value)} />
-              <Select
-                label="Seq Placement"
-                data={XHTTP_PLACEMENT_OPTIONS}
-                value={formValues.seqPlacement || undefined}
-                onChange={(val) => setValue('seqPlacement', val || '')}
-              />
-              <Input label="Seq Key" value={formValues.seqKey} onChange={(e) => setValue('seqKey', e.target.value)} />
-              <Select
-                label="Uplink Data Placement"
-                data={XHTTP_UPLINK_DATA_PLACEMENT_OPTIONS}
-                value={formValues.uplinkDataPlacement || undefined}
-                onChange={(val) => setValue('uplinkDataPlacement', val || '')}
-              />
-              <Input label="Uplink Data Key" value={formValues.uplinkDataKey} onChange={(e) => setValue('uplinkDataKey', e.target.value)} />
-              <Input label="Uplink Chunk Size" value={formValues.uplinkChunkSize} onChange={(e) => setValue('uplinkChunkSize', e.target.value)} />
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Raw Extra JSON</label>
-                <Textarea value={formValues.xhttpExtra} onChange={(e) => setValue('xhttpExtra', e.target.value)} />
-              </div>
-            </div>
-          </details>
         </div>
       )}
 
