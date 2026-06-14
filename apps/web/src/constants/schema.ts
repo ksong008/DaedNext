@@ -1,138 +1,153 @@
 import { z } from 'zod'
+import { validateXhttpFormFields } from '~/utils/xhttp'
 
-export const v2raySchema = z.object({
-  ps: z.string(),
-  add: z.string().nonempty(),
-  port: z.number().min(0).max(65535),
-  id: z.string().nonempty(),
-  aid: z.number().min(0).max(65535),
-  net: z.enum(['tcp', 'kcp', 'ws', 'http', 'h2', 'grpc', 'httpupgrade', 'xhttp']),
-  type: z.enum(['none', 'http', 'srtp', 'utp', 'wechat-video', 'dtls', 'wireguard']),
-  host: z.string(),
-  path: z.string(),
-  // gRPC specific
-  grpcMode: z.enum(['gun', 'multi', 'guna']),
-  grpcAuthority: z.string(),
-  // XHTTP specific
-  xhttpMode: z.string(),
-  xhttpExtra: z.string(),
-  xPaddingBytes: z.string(),
-  xPaddingObfsMode: z.boolean(),
-  xPaddingKey: z.string(),
-  xPaddingHeader: z.string(),
-  xPaddingPlacement: z.string(),
-  xPaddingMethod: z.string(),
-  noSSEHeader: z.boolean(),
-  scMaxEachPostBytes: z.string(),
-  scMinPostsIntervalMs: z.string(),
-  scMaxBufferedPosts: z.number().min(0),
-  uplinkHTTPMethod: z.string(),
-  sessionPlacement: z.string(),
-  sessionKey: z.string(),
-  seqPlacement: z.string(),
-  seqKey: z.string(),
-  uplinkDataPlacement: z.string(),
-  uplinkDataKey: z.string(),
-  uplinkChunkSize: z.string(),
-  downloadSettingsRaw: z.string(),
-  xmuxRaw: z.string(),
-  // TLS fields (xtls is deprecated, use reality instead)
-  tls: z.enum(['none', 'tls', 'reality']),
-  flow: z.enum(['none', 'xtls-rprx-vision', 'xtls-rprx-vision-udp443']),
-  alpn: z.string(),
-  ech: z.string(), // Encrypted Client Hello
-  scy: z.enum(['auto', 'aes-128-gcm', 'chacha20-poly1305', 'none', 'zero']),
-  v: z.string(),
-  allowInsecure: z.boolean(),
-  sni: z.string(),
-  // Reality-specific fields
-  pbk: z.string(), // public key
-  fp: z.string(), // fingerprint
-  sid: z.string(), // short ID
-  spx: z.string(), // spider x (path)
-  pqv: z.string(), // ML-DSA-65 public key (mldsa65Verify)
-})
+export const v2raySchema = z
+  .object({
+    ps: z.string(),
+    add: z.string().nonempty(),
+    port: z.number().min(0).max(65535),
+    id: z.string().nonempty(),
+    aid: z.number().min(0).max(65535),
+    net: z.enum(['tcp', 'kcp', 'ws', 'http', 'h2', 'grpc', 'httpupgrade', 'xhttp']),
+    type: z.enum(['none', 'http', 'srtp', 'utp', 'wechat-video', 'dtls', 'wireguard']),
+    host: z.string(),
+    path: z.string(),
+    // gRPC specific
+    grpcMode: z.enum(['gun', 'multi', 'guna']),
+    grpcAuthority: z.string(),
+    // XHTTP specific
+    xhttpMode: z.string(),
+    xhttpExtra: z.string(),
+    xPaddingBytes: z.string(),
+    xPaddingObfsMode: z.boolean(),
+    xPaddingKey: z.string(),
+    xPaddingHeader: z.string(),
+    xPaddingPlacement: z.string(),
+    xPaddingMethod: z.string(),
+    noSSEHeader: z.boolean(),
+    scMaxEachPostBytes: z.string(),
+    scMinPostsIntervalMs: z.string(),
+    scMaxBufferedPosts: z.number().min(0),
+    uplinkHTTPMethod: z.string(),
+    sessionPlacement: z.string(),
+    sessionKey: z.string(),
+    seqPlacement: z.string(),
+    seqKey: z.string(),
+    uplinkDataPlacement: z.string(),
+    uplinkDataKey: z.string(),
+    uplinkChunkSize: z.string(),
+    downloadSettingsRaw: z.string(),
+    xmuxRaw: z.string(),
+    // TLS fields (xtls is deprecated, use reality instead)
+    tls: z.enum(['none', 'tls', 'reality']),
+    flow: z.enum(['none', 'xtls-rprx-vision', 'xtls-rprx-vision-udp443']),
+    alpn: z.string(),
+    ech: z.string(), // Encrypted Client Hello
+    scy: z.enum(['auto', 'aes-128-gcm', 'chacha20-poly1305', 'none', 'zero']),
+    v: z.string(),
+    allowInsecure: z.boolean(),
+    sni: z.string(),
+    // Reality-specific fields
+    pbk: z.string(), // public key
+    fp: z.string(), // fingerprint
+    sid: z.string(), // short ID
+    spx: z.string(), // spider x (path)
+    pqv: z.string(), // ML-DSA-65 public key (mldsa65Verify)
+  })
+  .superRefine((data, ctx) => {
+    if (data.net !== 'xhttp') return
 
-export const ssSchema = z.object({
-  type: z.enum(['ss', 'ss2022']),
-  method: z.enum([
-    'aes-128-gcm',
-    'aes-256-gcm',
-    'chacha20-poly1305',
-    'chacha20-ietf-poly1305',
-    'plain',
-    'none',
-    '2022-blake3-aes-128-gcm',
-    '2022-blake3-aes-256-gcm',
-    '2022-blake3-chacha20-poly1305',
-  ]),
-  plugin: z.enum(['', 'simple-obfs', 'v2ray-plugin']),
-  obfs: z.enum(['http', 'tls']),
-  tls: z.enum(['', 'tls']),
-  path: z.string(),
-  mode: z.string(),
-  host: z.string(),
-  password: z.string().nonempty(),
-  server: z.string().nonempty(),
-  port: z.number().min(0).max(65535),
-  name: z.string(),
-  impl: z.enum(['', 'chained', 'transport']),
-}).superRefine((data, ctx) => {
-  const isSS2022Method = data.method.startsWith('2022-blake3-')
-  if (data.type === 'ss' && isSS2022Method) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['method'],
-      message: 'SS methods cannot use SS2022 ciphers',
-    })
-  }
-  if (data.type === 'ss2022' && !isSS2022Method) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['method'],
-      message: 'SS2022 requires a 2022-blake3-* cipher',
-    })
-  }
-  if (data.type === 'ss2022' && data.plugin !== '') {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['plugin'],
-      message: 'SS2022 does not support Shadowsocks plugins here',
-    })
-  }
-  if (data.type === 'ss2022') {
-    const expectedLen = data.method === '2022-blake3-aes-128-gcm' ? 16 : 32
-    const pskParts = data.password.split(':')
-    if (pskParts.some((part) => part.length === 0)) {
+    for (const issue of validateXhttpFormFields(data)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['password'],
-        message: 'PSK list must not contain empty segments',
+        path: [issue.path],
+        message: issue.message,
       })
-    } else {
-      for (const part of pskParts) {
-        try {
-          const decoded = atob(part)
-          if (decoded.length !== expectedLen) {
+    }
+  })
+
+export const ssSchema = z
+  .object({
+    type: z.enum(['ss', 'ss2022']),
+    method: z.enum([
+      'aes-128-gcm',
+      'aes-256-gcm',
+      'chacha20-poly1305',
+      'chacha20-ietf-poly1305',
+      'plain',
+      'none',
+      '2022-blake3-aes-128-gcm',
+      '2022-blake3-aes-256-gcm',
+      '2022-blake3-chacha20-poly1305',
+    ]),
+    plugin: z.enum(['', 'simple-obfs', 'v2ray-plugin']),
+    obfs: z.enum(['http', 'tls']),
+    tls: z.enum(['', 'tls']),
+    path: z.string(),
+    mode: z.string(),
+    host: z.string(),
+    password: z.string().nonempty(),
+    server: z.string().nonempty(),
+    port: z.number().min(0).max(65535),
+    name: z.string(),
+    impl: z.enum(['', 'chained', 'transport']),
+  })
+  .superRefine((data, ctx) => {
+    const isSS2022Method = data.method.startsWith('2022-blake3-')
+    if (data.type === 'ss' && isSS2022Method) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['method'],
+        message: 'SS methods cannot use SS2022 ciphers',
+      })
+    }
+    if (data.type === 'ss2022' && !isSS2022Method) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['method'],
+        message: 'SS2022 requires a 2022-blake3-* cipher',
+      })
+    }
+    if (data.type === 'ss2022' && data.plugin !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['plugin'],
+        message: 'SS2022 does not support Shadowsocks plugins here',
+      })
+    }
+    if (data.type === 'ss2022') {
+      const expectedLen = data.method === '2022-blake3-aes-128-gcm' ? 16 : 32
+      const pskParts = data.password.split(':')
+      if (pskParts.some((part) => part.length === 0)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['password'],
+          message: 'PSK list must not contain empty segments',
+        })
+      } else {
+        for (const part of pskParts) {
+          try {
+            const decoded = atob(part)
+            if (decoded.length !== expectedLen) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['password'],
+                message: `Each PSK must decode to ${expectedLen} bytes`,
+              })
+              break
+            }
+          } catch {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
               path: ['password'],
-              message: `Each PSK must decode to ${expectedLen} bytes`,
+              message: 'Each PSK must be valid base64',
             })
             break
           }
-        } catch {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['password'],
-            message: 'Each PSK must be valid base64',
-          })
-          break
         }
       }
     }
-  }
-})
+  })
 
 export const ssrSchema = z.object({
   method: z.enum([
