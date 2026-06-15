@@ -9,6 +9,7 @@ import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import { useTrafficOverviewQuery } from '~/apis'
 import { Card, CardContent, CardTitle } from '~/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/ui/chart'
+import { cn } from '~/lib/utils'
 import { computeTrafficChartDomain, filterTrafficChartDataByDomain } from './traffic_chart'
 
 const REALTIME_TRAFFIC_WINDOW_SECONDS = 60
@@ -157,7 +158,7 @@ function OverviewMetricCard({
   )
 }
 
-function IOSDateTime() {
+function useCurrentTime() {
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
@@ -165,15 +166,17 @@ function IOSDateTime() {
     return () => window.clearInterval(timer)
   }, [])
 
+  return now
+}
+
+function CurrentTimeText({ now, className }: { now: Date; className?: string }) {
   return (
-    <div className="inline-flex min-w-[136px] flex-col items-start rounded-[16px] border border-primary/12 bg-background/45 px-3 py-1.5 text-left shadow-none backdrop-blur-sm sm:items-end">
-      <span className="text-[10px] font-medium leading-none text-muted-foreground sm:text-[11px]">
-        {dayjs(now).format('YYYY年M月D日')}
-      </span>
-      <span className="mt-1 text-base font-semibold leading-none text-foreground tabular-nums sm:text-lg">
-        {dayjs(now).format('HH:mm:ss')}
-      </span>
-    </div>
+    <time
+      dateTime={now.toISOString()}
+      className={cn('text-sm font-semibold leading-none text-muted-foreground tabular-nums sm:text-base', className)}
+    >
+      {dayjs(now).format('HH:mm:ss')}
+    </time>
   )
 }
 
@@ -182,8 +185,101 @@ function toNumber(value: string | number | undefined | null) {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-export function TrafficOverview() {
+function formatRuntimeToken(value: string | null | undefined) {
+  const token = value?.trim()
+  if (!token) return '—'
+
+  switch (token.toLowerCase()) {
+    case 'tcx':
+      return 'TCX'
+    case 'tc':
+    case 'tc-netlink':
+    case 'tc_netlink':
+    case 'tc-command-fallback':
+    case 'tc_command_fallback':
+      return 'TC'
+    case 'tcx+tc':
+    case 'tcx-tc':
+    case 'mixed':
+      return 'TCX+TC'
+    case 'netkit':
+      return 'Netkit'
+    case 'veth':
+      return 'Veth'
+    default:
+      return token
+  }
+}
+
+function formatRuntimeDuration(
+  ms: number,
+  units: {
+    days: string
+    hours: string
+    minutes: string
+    seconds: string
+  },
+) {
+  if (!Number.isFinite(ms) || ms < 0) return '—'
+
+  const totalSeconds = Math.floor(ms / 1000)
+  const days = Math.floor(totalSeconds / 86_400)
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600)
+  const minutes = Math.floor((totalSeconds % 3_600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (days > 0) return `${days}${units.days} ${hours}${units.hours}`
+  if (hours > 0) return `${hours}${units.hours} ${minutes}${units.minutes}`
+  if (minutes > 0) return `${minutes}${units.minutes}`
+  return `${seconds}${units.seconds}`
+}
+
+function parseRuntimeStartMs(startedAt?: string | null, lastTransitionAt?: string | null) {
+  const timestamp = startedAt || lastTransitionAt
+  if (!timestamp) return null
+
+  const parsed = Date.parse(timestamp)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function StatusBadge({ running, label }: { running?: boolean; label: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1 sm:text-sm',
+        running
+          ? 'border-primary/12 bg-primary/8 text-primary'
+          : 'border-muted-foreground/16 bg-muted/50 text-muted-foreground',
+      )}
+    >
+      {label}
+    </span>
+  )
+}
+
+function HeaderChip({ label, value, className }: { label: string; value: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/10 bg-background/45 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-none sm:text-xs',
+        className,
+      )}
+    >
+      <span className="shrink-0">{label}</span>
+      <strong className="min-w-0 truncate font-semibold text-foreground">{value}</strong>
+    </span>
+  )
+}
+
+interface TrafficOverviewProps {
+  nodeCount?: number
+  subscriptionCount?: number
+  minLatencyMs?: number
+}
+
+export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs }: TrafficOverviewProps) {
   const { t } = useTranslation()
+  const now = useCurrentTime()
 
   const chartConfig = useMemo(
     () =>
@@ -239,11 +335,30 @@ export function TrafficOverview() {
     [chartWindowDomain, combinedChartData],
   )
   const chartRateDomain = useMemo(() => computeDynamicRateDomain(visibleChartData), [visibleChartData])
+  const runtime = runtimeOverview?.runtime
+  const runtimeDurationUnits = useMemo(
+    () => ({
+      days: t('trafficOverview.durationDays'),
+      hours: t('trafficOverview.durationHours'),
+      minutes: t('trafficOverview.durationMinutes'),
+      seconds: t('trafficOverview.durationSeconds'),
+    }),
+    [t],
+  )
+  const runtimeStartMs = parseRuntimeStartMs(runtime?.startedAt, runtime?.lastTransitionAt)
+  const runtimeDurationLabel =
+    runtime?.running && runtimeStartMs !== null
+      ? formatRuntimeDuration(now.getTime() - runtimeStartMs, runtimeDurationUnits)
+      : '—'
+  const runtimeStatusLabel =
+    typeof runtime?.running === 'boolean' ? (runtime.running ? t('shell.running') : t('shell.stopped')) : '—'
+  const minLatencyLabel =
+    typeof minLatencyMs === 'number' && Number.isFinite(minLatencyMs) ? `${minLatencyMs} ms` : t('latency.unavailable')
 
   return (
     <Card withBorder shadow="sm" padding="none" className="overflow-hidden backdrop-blur-sm" style={runtimeStatusStyle}>
       <CardContent className="border-b border-border/55 px-3 py-2.5 sm:px-5 sm:py-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
             <div className="rounded-full border border-primary/12 bg-primary/7 p-1.5 text-primary sm:p-2">
               <Activity className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
@@ -251,11 +366,19 @@ export function TrafficOverview() {
             <CardTitle className="truncate text-base text-foreground sm:text-lg">
               {t('trafficOverview.title')}
             </CardTitle>
-            <span className="inline-flex items-center rounded-full border border-primary/12 bg-primary/8 px-2.5 py-0.5 text-xs font-semibold text-primary sm:px-3 sm:py-1 sm:text-sm">
-              {t('shell.live')}
-            </span>
+            <StatusBadge running={runtime?.running} label={runtimeStatusLabel} />
           </div>
-          <IOSDateTime />
+          <CurrentTimeText now={now} className="justify-self-end lg:col-start-3 lg:row-start-1" />
+          <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-1.5 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:flex-nowrap lg:overflow-hidden">
+            <HeaderChip label={t('trafficOverview.runtimeDuration')} value={runtimeDurationLabel} />
+            <HeaderChip label={t('trafficOverview.attachBackend')} value={formatRuntimeToken(runtime?.attachBackend)} />
+            <HeaderChip label={t('trafficOverview.linkMode')} value={formatRuntimeToken(runtime?.netnsLinkMode)} />
+            <HeaderChip label={t('trafficOverview.minLatency')} value={minLatencyLabel} />
+            <HeaderChip
+              label={t('trafficOverview.resourceCount')}
+              value={`${t('trafficOverview.subscriptions')} ${subscriptionCount ?? '—'} · ${t('trafficOverview.nodes')} ${nodeCount ?? '—'}`}
+            />
+          </div>
         </div>
       </CardContent>
 

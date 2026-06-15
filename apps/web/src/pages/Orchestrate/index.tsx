@@ -216,6 +216,28 @@ export function OrchestratePage() {
       .sort()
     return testedAtList.at(-1) ?? null
   }, [nodeLatencies])
+  const totalNodeCount = useMemo(() => {
+    const nodeIds = new Set<string>()
+
+    for (const node of nodes) {
+      nodeIds.add(node.id)
+    }
+
+    for (const subscription of subscriptions) {
+      for (const node of subscription.nodes.items) {
+        nodeIds.add(node.id)
+      }
+    }
+
+    return nodeIds.size
+  }, [nodes, subscriptions])
+  const minLatencyMs = useMemo(() => {
+    const latencies = Object.values(nodeLatencies)
+      .map((result) => result.latencyMs)
+      .filter((latency): latency is number => typeof latency === 'number' && Number.isFinite(latency))
+
+    return latencies.length > 0 ? Math.min(...latencies) : undefined
+  }, [nodeLatencies])
 
   const mergeNodeLatencyResults = useCallback(
     (results: NodeLatencyProbeResult[]) => {
@@ -1004,7 +1026,11 @@ export function OrchestratePage() {
       ) : (
         <>
           <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
-            <TrafficOverview />
+            <TrafficOverview
+              nodeCount={totalNodeCount}
+              subscriptionCount={subscriptions.length}
+              minLatencyMs={minLatencyMs}
+            />
           </section>
 
           <WorkspaceSummaryCards
