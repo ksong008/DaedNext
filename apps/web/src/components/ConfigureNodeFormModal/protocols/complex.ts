@@ -400,6 +400,7 @@ function generateHysteria2Link(data: Hysteria2FormValues): string {
     obfs: data.obfs,
     obfsPassword: data.obfsPassword,
     sni: data.sni,
+    ports: data.ports || '',
     insecure: data.allowInsecure ? 1 : 0,
     pinSHA256: data.pinSHA256,
   }
