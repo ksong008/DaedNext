@@ -371,7 +371,6 @@
     "attachBackend": "Attach",
     "linkMode": "Link",
     "minLatency": "Lowest",
-    "resourceCount": "Default exit",
     "subscriptions": "Subs",
     "nodes": "Nodes",
     "durationDays": "d",

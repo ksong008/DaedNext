@@ -173,7 +173,7 @@ function CurrentTimeText({ now, className }: { now: Date; className?: string }) 
   return (
     <time
       dateTime={now.toISOString()}
-      className={cn('text-sm font-semibold leading-none text-muted-foreground tabular-nums sm:text-base', className)}
+      className={cn('text-sm font-semibold leading-none text-foreground tabular-nums sm:text-base', className)}
     >
       {dayjs(now).format('HH:mm:ss')}
     </time>
@@ -191,23 +191,67 @@ function formatRuntimeToken(value: string | null | undefined) {
 
   switch (token.toLowerCase()) {
     case 'tcx':
-      return 'TCX'
+      return 'Tcx'
     case 'tc':
     case 'tc-netlink':
     case 'tc_netlink':
     case 'tc-command-fallback':
     case 'tc_command_fallback':
-      return 'TC'
+      return 'Tc'
     case 'tcx+tc':
     case 'tcx-tc':
     case 'mixed':
-      return 'TCX+TC'
+      return 'Tcx+Tc'
     case 'netkit':
       return 'Netkit'
     case 'veth':
       return 'Veth'
     default:
       return token
+  }
+}
+
+type HeaderChipTone = 'neutral' | 'tcx' | 'tc' | 'netkit' | 'veth' | 'latency' | 'resource'
+
+function runtimeTokenTone(value: string) {
+  switch (value) {
+    case 'Tcx':
+      return 'tcx'
+    case 'Tc':
+      return 'tc'
+    case 'Tcx+Tc':
+      return 'tcx'
+    case 'Netkit':
+      return 'netkit'
+    case 'Veth':
+      return 'veth'
+    default:
+      return 'neutral'
+  }
+}
+
+function createHeaderChipStyle(): CSSProperties {
+  return {
+    backgroundColor: 'var(--shell-control)',
+    borderColor: 'var(--shell-line)',
+    color: 'var(--muted-foreground)',
+  }
+}
+
+function createHeaderChipValueStyle(tone: HeaderChipTone): CSSProperties {
+  const accentByTone: Record<HeaderChipTone, string> = {
+    neutral: 'var(--foreground)',
+    tcx: 'var(--chart-1)',
+    tc: 'var(--chart-5)',
+    netkit: 'var(--chart-2)',
+    veth: 'var(--chart-4)',
+    latency: 'var(--chart-3)',
+    resource: 'var(--foreground)',
+  }
+  const accent = accentByTone[tone]
+
+  return {
+    color: `color-mix(in oklab, ${accent} 84%, var(--foreground))`,
   }
 }
 
@@ -257,16 +301,32 @@ function StatusBadge({ running, label }: { running?: boolean; label: string }) {
   )
 }
 
-function HeaderChip({ label, value, className }: { label: string; value: string; className?: string }) {
+function HeaderChip({
+  label,
+  value,
+  tone = 'neutral',
+  className,
+}: {
+  label?: string
+  value: string
+  tone?: HeaderChipTone
+  className?: string
+}) {
   return (
     <span
       className={cn(
-        'inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/10 bg-background/45 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-none sm:text-xs',
+        'inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium shadow-none transition-colors sm:text-xs',
         className,
       )}
+      style={createHeaderChipStyle()}
     >
-      <span className="shrink-0">{label}</span>
-      <strong className="min-w-0 truncate font-semibold text-foreground">{value}</strong>
+      {label ? <span className="shrink-0 text-muted-foreground">{label}</span> : null}
+      <strong
+        className={cn('min-w-0 truncate font-semibold', !label && 'tracking-normal')}
+        style={createHeaderChipValueStyle(tone)}
+      >
+        {value}
+      </strong>
     </span>
   )
 }
@@ -352,6 +412,8 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs }: 
       : '—'
   const runtimeStatusLabel =
     typeof runtime?.running === 'boolean' ? (runtime.running ? t('shell.running') : t('shell.stopped')) : '—'
+  const attachBackendLabel = formatRuntimeToken(runtime?.attachBackend)
+  const linkModeLabel = formatRuntimeToken(runtime?.netnsLinkMode)
   const minLatencyLabel =
     typeof minLatencyMs === 'number' && Number.isFinite(minLatencyMs) ? `${minLatencyMs} ms` : t('latency.unavailable')
 
@@ -371,12 +433,24 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs }: 
           <CurrentTimeText now={now} className="justify-self-end lg:col-start-3 lg:row-start-1" />
           <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-1.5 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:flex-nowrap lg:overflow-hidden">
             <HeaderChip label={t('trafficOverview.runtimeDuration')} value={runtimeDurationLabel} />
-            <HeaderChip label={t('trafficOverview.attachBackend')} value={formatRuntimeToken(runtime?.attachBackend)} />
-            <HeaderChip label={t('trafficOverview.linkMode')} value={formatRuntimeToken(runtime?.netnsLinkMode)} />
-            <HeaderChip label={t('trafficOverview.minLatency')} value={minLatencyLabel} />
             <HeaderChip
-              label={t('trafficOverview.resourceCount')}
+              label={t('trafficOverview.attachBackend')}
+              value={attachBackendLabel}
+              tone={runtimeTokenTone(attachBackendLabel)}
+            />
+            <HeaderChip
+              label={t('trafficOverview.linkMode')}
+              value={linkModeLabel}
+              tone={runtimeTokenTone(linkModeLabel)}
+            />
+            <HeaderChip
+              label={t('trafficOverview.minLatency')}
+              value={minLatencyLabel}
+              tone={typeof minLatencyMs === 'number' && Number.isFinite(minLatencyMs) ? 'latency' : 'neutral'}
+            />
+            <HeaderChip
               value={`${t('trafficOverview.subscriptions')} ${subscriptionCount ?? '—'} · ${t('trafficOverview.nodes')} ${nodeCount ?? '—'}`}
+              tone="resource"
             />
           </div>
         </div>

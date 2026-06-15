@@ -371,7 +371,6 @@
     "attachBackend": "Attach",
     "linkMode": "Link",
     "minLatency": "最低延迟",
-    "resourceCount": "默认出口",
     "subscriptions": "订阅",
     "nodes": "节点",
     "durationDays": "天",
