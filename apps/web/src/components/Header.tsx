@@ -110,6 +110,7 @@ const mobileHeaderButtonClassName =
   'h-[30px] w-[30px] shrink-0 rounded-lg border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 p-0 shadow-none transition-colors hover:bg-[color:var(--shell-surface-soft)]/72'
 
 const desktopHeaderIconButtonClassName = 'rounded-lg border-border/75 bg-background/72'
+const showHeaderRuntimeStatus = false
 
 function MobileRuntimeHealthStrip({ running }: { running?: boolean }) {
   const { t } = useTranslation()
@@ -570,7 +571,7 @@ export function HeaderWithActions() {
           </div>
         )}
 
-        {!matchSmallScreen && (
+        {!matchSmallScreen && showHeaderRuntimeStatus && (
           <div className="flex min-w-0 items-center">
             <RuntimeHealthStrip running={generalQuery?.general.dae.running} />
           </div>
@@ -580,7 +581,7 @@ export function HeaderWithActions() {
           className={cn(
             'flex items-center',
             matchSmallScreen
-              ? 'min-w-0 flex-1 justify-start gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+              ? 'min-w-0 flex-1 justify-end gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
               : 'justify-end gap-2',
           )}
         >
@@ -601,7 +602,11 @@ export function HeaderWithActions() {
 
           {!matchSmallScreen && <ProfileSwitcher />}
 
-          {matchSmallScreen && <MobileRuntimeHealthStrip running={generalQuery?.general.dae.running} />}
+          {matchSmallScreen && showHeaderRuntimeStatus && (
+            <div className="mr-auto flex shrink-0 items-center">
+              <MobileRuntimeHealthStrip running={generalQuery?.general.dae.running} />
+            </div>
+          )}
 
           {(needsReload || reloadRuntimeMutation.isPending) && (
             <Button
