@@ -6,8 +6,8 @@ export interface Upstream {
 
 export interface RoutingRule {
   id: string
-  matcher: string // e.g. "qname(geosite:cn)"
-  target: string // e.g. "alidns"
+  matcher: string
+  target: string
 }
 
 export interface DNSConfig {
