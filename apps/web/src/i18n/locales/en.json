@@ -544,7 +544,7 @@
     "unparsedDesc": "Some content (e.g. global settings or comments) could not be parsed visually and will be preserved as-is. Switch to Advanced Mode to view or edit them.",
     "noUpstreams": "No upstreams defined.",
     "noRules": "No rules defined.",
-    "matcherPlaceholder": "Matcher (e.g. qname(geosite:cn))",
+    "matcherPlaceholder": "Matcher",
     "targetPlaceholder": "Target",
     "upstreamNamePlaceholder": "Name (e.g. alidns)",
     "upstreamLinkPlaceholder": "Link (e.g. udp://223.5.5.5:53)"

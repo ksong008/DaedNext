@@ -544,7 +544,7 @@
     "unparsedDesc": "某些内容（如全局设置或注释）在可视化模式下被隐藏但已保留。切换到高级模式以查看或编辑它们。",
     "noUpstreams": "未定义上游。",
     "noRules": "未定义规则。",
-    "matcherPlaceholder": "匹配规则 (如 qname(geosite:cn))",
+    "matcherPlaceholder": "匹配规则",
     "targetPlaceholder": "目标",
     "upstreamNamePlaceholder": "名称 (如 alidns)",
     "upstreamLinkPlaceholder": "链接 (如 udp://223.5.5.5:53)"

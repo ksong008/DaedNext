@@ -12,8 +12,13 @@ interface Props {
   onChange: (rules: RoutingRule[]) => void
 }
 
+const REQUEST_MATCHER_SUGGESTIONS = ['qtype(A)', 'qtype(AAAA)']
+
+const RESPONSE_MATCHER_SUGGESTIONS = [...REQUEST_MATCHER_SUGGESTIONS, 'upstream(asis)']
+
 export function RoutingList({ type, rules, upstreams, onChange }: Props) {
   const { t } = useTranslation()
+  const matcherSuggestions = type === 'request' ? REQUEST_MATCHER_SUGGESTIONS : RESPONSE_MATCHER_SUGGESTIONS
 
   const handleAdd = () => {
     onChange([
@@ -85,11 +90,11 @@ export function RoutingList({ type, rules, upstreams, onChange }: Props) {
               />
               {rule.matcher !== 'fallback' && (
                 <datalist id={`matcher-list-${type}`}>
-                  <option value="qname(geosite:cn)" />
-                  <option value="qname(geosite:gfw)" />
-                  <option value="qname(geosite:private)" />
-                  <option value="qtype(A)" />
-                  <option value="qtype(AAAA)" />
+                  {matcherSuggestions.map((value) => (
+                    <option key={value} value={value} />
+                  ))}
+                  {type === 'response' &&
+                    upstreams.map((u) => <option key={`upstream-${u.id}`} value={`upstream(${u.name})`} />)}
                 </datalist>
               )}
             </div>
