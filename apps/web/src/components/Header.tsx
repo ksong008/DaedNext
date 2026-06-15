@@ -75,21 +75,6 @@ const accountSettingsSchema = z.object({
   name: z.string().min(1),
 })
 
-function RuntimeModeIndicator({
-  running,
-  stoppedLabel,
-  runningLabel,
-}: {
-  running?: boolean
-  stoppedLabel: string
-  runningLabel: string
-}) {
-  if (typeof running !== 'boolean') {
-    return <span>—</span>
-  }
-  return <span>{running ? runningLabel : stoppedLabel}</span>
-}
-
 const passwordChangeSchema = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),
@@ -103,39 +88,44 @@ const passwordChangeSchema = z
 
 function RuntimeHealthStrip({ running }: { running?: boolean }) {
   const { t } = useTranslation()
+  const label = typeof running === 'boolean' ? (running ? t('shell.running') : t('shell.stopped')) : '—'
 
   return (
-    <div className="hidden w-full max-w-[240px] items-center gap-2 overflow-hidden text-sm font-medium md:flex">
+    <div className="hidden shrink-0 items-center overflow-hidden md:flex" aria-label={label} title={label}>
       <div
         className={cn(
-          'flex shrink-0 items-center gap-2 font-semibold',
-          running ? 'text-primary' : 'text-muted-foreground',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-control)]',
+          running === true && 'text-primary',
+          running === false && 'text-destructive',
+          typeof running !== 'boolean' && 'text-muted-foreground',
         )}
       >
-        {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
-        <RuntimeModeIndicator running={running} stoppedLabel={t('shell.stopped')} runningLabel={t('shell.running')} />
+        {running ? <Power className="h-4 w-4 shrink-0" /> : <PowerOff className="h-4 w-4 shrink-0" />}
       </div>
     </div>
   )
 }
 
 const mobileHeaderButtonClassName =
-  'h-[30px] w-[30px] rounded-lg border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 p-0 shadow-none transition-colors hover:bg-[color:var(--shell-surface-soft)]/72'
+  'h-[30px] w-[30px] shrink-0 rounded-lg border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 p-0 shadow-none transition-colors hover:bg-[color:var(--shell-surface-soft)]/72'
 
 const desktopHeaderIconButtonClassName = 'rounded-lg border-border/75 bg-background/72'
 
 function MobileRuntimeHealthStrip({ running }: { running?: boolean }) {
   const { t } = useTranslation()
+  const label = typeof running === 'boolean' ? (running ? t('shell.running') : t('shell.stopped')) : '—'
 
   return (
-    <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[10.5px] font-semibold text-muted-foreground sm:text-xs">
+    <div className="flex shrink-0 items-center whitespace-nowrap" aria-label={label} title={label}>
       <span
-        className={cn('inline-flex min-w-0 items-center gap-1', running ? 'text-primary' : 'text-muted-foreground')}
+        className={cn(
+          'inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50',
+          running === true && 'text-primary',
+          running === false && 'text-destructive',
+          typeof running !== 'boolean' && 'text-muted-foreground',
+        )}
       >
         {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
-        <span className="min-w-0 truncate">
-          <RuntimeModeIndicator running={running} stoppedLabel={t('shell.stopped')} runningLabel={t('shell.running')} />
-        </span>
       </span>
     </div>
   )
@@ -536,18 +526,42 @@ export function HeaderWithActions() {
     }
   }
 
+  const runtimeSwitchControl = (
+    <SimpleTooltip label={t('actions.switchRunning')}>
+      <div
+        className={cn(
+          'flex items-center justify-center border',
+          matchSmallScreen
+            ? 'h-[30px] min-w-[50px] shrink-0 rounded-[14px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 px-2 shadow-none'
+            : 'rounded-xl border-border/75 bg-background/72 px-2 py-1 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
+        )}
+      >
+        <Switch
+          size={matchSmallScreen ? 'xs' : 'md'}
+          onLabel={<Power className="h-3 w-3" />}
+          offLabel={<PowerOff className="h-3 w-3" />}
+          disabled={runtimeMutationPending}
+          checked={generalQuery?.general.dae.running ?? false}
+          onCheckedChange={(checked) => {
+            setRuntimeRunning(checked)
+          }}
+        />
+      </div>
+    </SimpleTooltip>
+  )
+
   return (
     <header className="sticky top-0 z-40 border-b border-[color:var(--shell-line)] bg-[color:var(--shell-page)]/82 backdrop-blur-[24px] supports-[backdrop-filter]:bg-[color:var(--shell-page)]/78">
       <div
         className={cn(
           'mx-auto w-full max-w-[1480px]',
           matchSmallScreen
-            ? 'grid min-h-[78px] grid-cols-[48px_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-2 gap-y-1 px-3 py-2'
+            ? 'flex min-h-[60px] items-center gap-2 px-3 py-2'
             : 'grid min-h-[74px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-5 lg:px-7',
         )}
       >
         {matchSmallScreen && (
-          <div className="row-span-2 flex h-full items-center justify-center">
+          <div className="flex h-full shrink-0 items-center justify-center">
             <img
               src="/logo.webp"
               alt="DAED"
@@ -556,19 +570,17 @@ export function HeaderWithActions() {
           </div>
         )}
 
-        <div className={cn('flex min-w-0 items-center', matchSmallScreen && 'col-start-2 row-start-1 w-full self-end')}>
-          {matchSmallScreen ? (
-            <MobileRuntimeHealthStrip running={generalQuery?.general.dae.running} />
-          ) : (
+        {!matchSmallScreen && (
+          <div className="flex min-w-0 items-center">
             <RuntimeHealthStrip running={generalQuery?.general.dae.running} />
-          )}
-        </div>
+          </div>
+        )}
 
         <div
           className={cn(
             'flex items-center',
             matchSmallScreen
-              ? 'col-start-2 row-start-2 w-full justify-start gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+              ? 'min-w-0 flex-1 justify-start gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
               : 'justify-end gap-2',
           )}
         >
@@ -588,6 +600,8 @@ export function HeaderWithActions() {
           />
 
           {!matchSmallScreen && <ProfileSwitcher />}
+
+          {matchSmallScreen && <MobileRuntimeHealthStrip running={generalQuery?.general.dae.running} />}
 
           {(needsReload || reloadRuntimeMutation.isPending) && (
             <Button
@@ -660,27 +674,7 @@ export function HeaderWithActions() {
             triggerIconClassName="h-4 w-4"
           />
 
-          <SimpleTooltip label={t('actions.switchRunning')}>
-            <div
-              className={cn(
-                'flex items-center justify-center border',
-                matchSmallScreen
-                  ? 'h-[30px] min-w-[50px] rounded-[14px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 px-2 shadow-none'
-                  : 'rounded-xl border-border/75 bg-background/72 px-2 py-1 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)]',
-              )}
-            >
-              <Switch
-                size={matchSmallScreen ? 'xs' : 'md'}
-                onLabel={<Power className="h-3 w-3" />}
-                offLabel={<PowerOff className="h-3 w-3" />}
-                disabled={runtimeMutationPending}
-                checked={generalQuery?.general.dae.running ?? false}
-                onCheckedChange={(checked) => {
-                  setRuntimeRunning(checked)
-                }}
-              />
-            </div>
-          </SimpleTooltip>
+          {runtimeSwitchControl}
 
           <DropdownMenu open={userMenuOpened} onOpenChange={setUserMenuOpened}>
             <DropdownMenuTrigger asChild>
@@ -689,7 +683,7 @@ export function HeaderWithActions() {
                 className={cn(
                   'flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-colors',
                   matchSmallScreen
-                    ? 'h-[30px] rounded-[14px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 px-2 py-0 shadow-none hover:bg-[color:var(--shell-surface-soft)]/72'
+                    ? 'h-[30px] shrink-0 rounded-[14px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)]/50 px-2 py-0 shadow-none hover:bg-[color:var(--shell-surface-soft)]/72'
                     : 'border-border/75 bg-background/75 shadow-[0_4px_10px_color-mix(in_oklab,var(--foreground)_5%,transparent)] hover:bg-background',
                   userMenuOpened && 'border-border bg-background',
                 )}
