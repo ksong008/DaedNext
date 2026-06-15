@@ -15,7 +15,7 @@ import {
   Upload,
   UserPen,
 } from 'lucide-react'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
@@ -26,12 +26,9 @@ import {
   useGeneralQuery,
   useImportDAEBundleMutation,
   useImportDAEConfigFileMutation,
-  useNodeLatenciesQuery,
-  useNodesQuery,
   usePreviewDAEConfigFileMutation,
   useReloadRuntimeMutation,
   useStopRuntimeMutation,
-  useSubscriptionsQuery,
   useUpdateAvatarMutation,
   useUpdateNameMutation,
   useUpdatePasswordMutation,
@@ -78,105 +75,19 @@ const accountSettingsSchema = z.object({
   name: z.string().min(1),
 })
 
-function normalizedRuntimeLinkMode(netnsLinkMode?: string) {
-  const mode = netnsLinkMode?.trim().toLowerCase()
-  return mode === 'netkit' || mode === 'veth' ? mode : ''
-}
-
-function normalizedRuntimeAttachBackend(attachBackend?: string) {
-  const backend = attachBackend?.trim().toLowerCase()
-  if (backend === 'tcx') {
-    return 'tcx'
-  }
-  if (backend === 'tcx+tc' || backend === 'tcx-tc' || backend === 'mixed') {
-    return 'tcx+tc'
-  }
-  if (
-    backend === 'tc' ||
-    backend === 'tc-netlink' ||
-    backend === 'tc_netlink' ||
-    backend === 'tc-command-fallback' ||
-    backend === 'tc_command_fallback'
-  ) {
-    return 'tc'
-  }
-  return ''
-}
-
-function runtimeAttachBackendClassName(attachBackend?: string) {
-  switch (normalizedRuntimeAttachBackend(attachBackend) || 'tc') {
-    case 'tcx':
-      return 'text-violet-600 dark:text-violet-300'
-    case 'tcx+tc':
-      return ''
-    case 'tc':
-    default:
-      return 'text-amber-600 dark:text-amber-400'
-  }
-}
-
-function runtimeLinkModeClassName(netnsLinkMode?: string) {
-  switch (normalizedRuntimeLinkMode(netnsLinkMode)) {
-    case 'netkit':
-      return 'text-emerald-600 dark:text-emerald-400'
-    case 'veth':
-      return 'text-sky-600 dark:text-sky-400'
-    default:
-      return 'text-primary'
-  }
-}
-
-function RuntimeAttachBackendValue({ attachBackend }: { attachBackend?: string }) {
-  const backend = normalizedRuntimeAttachBackend(attachBackend) || 'tc'
-  if (backend === 'tcx+tc') {
-    return (
-      <span className="inline-flex shrink-0 items-baseline font-bold">
-        <span className="text-violet-600 dark:text-violet-300">tcx</span>
-        <span className="px-0.5 text-muted-foreground/70">+</span>
-        <span className="text-amber-600 dark:text-amber-400">tc</span>
-      </span>
-    )
-  }
-  return <span className={cn('shrink-0 font-bold', runtimeAttachBackendClassName(backend))}>{backend}</span>
-}
-
 function RuntimeModeIndicator({
   running,
-  netnsLinkMode,
-  attachBackend,
   stoppedLabel,
   runningLabel,
-  compact = false,
 }: {
   running?: boolean
-  netnsLinkMode?: string
-  attachBackend?: string
   stoppedLabel: string
   runningLabel: string
-  compact?: boolean
 }) {
   if (typeof running !== 'boolean') {
     return <span>—</span>
   }
-  if (!running) {
-    return <span>{stoppedLabel}</span>
-  }
-  const linkMode = normalizedRuntimeLinkMode(netnsLinkMode)
-  const backend = normalizedRuntimeAttachBackend(attachBackend)
-  if (!linkMode && !backend) {
-    return <span>{runningLabel}</span>
-  }
-  return (
-    <span className={cn('inline-flex min-w-0 items-center font-semibold', compact ? 'gap-0.5' : 'gap-1')}>
-      <RuntimeAttachBackendValue attachBackend={backend} />
-      {linkMode ? (
-        <>
-          <span className={cn('shrink-0 text-muted-foreground/60', compact ? 'px-0.5' : 'px-1')}>·</span>
-          <span className={cn('shrink-0 font-bold', runtimeLinkModeClassName(linkMode))}>{linkMode}</span>
-        </>
-      ) : null}
-    </span>
-  )
+  return <span>{running ? runningLabel : stoppedLabel}</span>
 }
 
 const passwordChangeSchema = z
@@ -190,26 +101,11 @@ const passwordChangeSchema = z
     path: ['confirmPassword'],
   })
 
-function RuntimeHealthStrip({
-  running,
-  netnsLinkMode,
-  attachBackend,
-  fastestLatencyMs,
-  subscriptionCount,
-  nodeCount,
-}: {
-  running?: boolean
-  netnsLinkMode?: string
-  attachBackend?: string
-  fastestLatencyMs?: number
-  subscriptionCount?: number
-  nodeCount?: number
-}) {
+function RuntimeHealthStrip({ running }: { running?: boolean }) {
   const { t } = useTranslation()
-  const fastestLatencyLabel = typeof fastestLatencyMs === 'number' ? `${fastestLatencyMs} ms` : t('latency.unavailable')
 
   return (
-    <div className="hidden w-full max-w-[620px] items-center gap-2 overflow-hidden text-sm font-medium md:flex">
+    <div className="hidden w-full max-w-[240px] items-center gap-2 overflow-hidden text-sm font-medium md:flex">
       <div
         className={cn(
           'flex shrink-0 items-center gap-2 font-semibold',
@@ -217,34 +113,7 @@ function RuntimeHealthStrip({
         )}
       >
         {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
-        <RuntimeModeIndicator
-          running={running}
-          netnsLinkMode={netnsLinkMode}
-          attachBackend={attachBackend}
-          stoppedLabel={t('shell.stopped')}
-          runningLabel={t('shell.running')}
-        />
-      </div>
-
-      <span className="shrink-0 text-muted-foreground/70">·</span>
-
-      <div className="min-w-0 truncate">
-        <span className="text-muted-foreground">{t('shell.fastestNode')}</span>
-        <span className="ml-1.5 font-semibold text-foreground">{fastestLatencyLabel}</span>
-      </div>
-
-      <span className="hidden shrink-0 text-muted-foreground/70 lg:inline">·</span>
-
-      <div className="hidden shrink-0 lg:block">
-        <span className="text-muted-foreground">{t('shell.subscriptions')}</span>
-        <span className="ml-1.5 font-semibold text-foreground">{subscriptionCount ?? '—'}</span>
-      </div>
-
-      <span className="hidden shrink-0 text-muted-foreground/70 lg:inline">·</span>
-
-      <div className="hidden shrink-0 lg:block">
-        <span className="text-muted-foreground">{t('shell.nodes')}</span>
-        <span className="ml-1.5 font-semibold text-foreground">{nodeCount ?? '—'}</span>
+        <RuntimeModeIndicator running={running} stoppedLabel={t('shell.stopped')} runningLabel={t('shell.running')} />
       </div>
     </div>
   )
@@ -255,23 +124,8 @@ const mobileHeaderButtonClassName =
 
 const desktopHeaderIconButtonClassName = 'rounded-lg border-border/75 bg-background/72'
 
-function MobileRuntimeHealthStrip({
-  running,
-  netnsLinkMode,
-  attachBackend,
-  fastestLatencyMs,
-  subscriptionCount,
-  nodeCount,
-}: {
-  running?: boolean
-  netnsLinkMode?: string
-  attachBackend?: string
-  fastestLatencyMs?: number
-  subscriptionCount?: number
-  nodeCount?: number
-}) {
+function MobileRuntimeHealthStrip({ running }: { running?: boolean }) {
   const { t } = useTranslation()
-  const fastestLatencyLabel = typeof fastestLatencyMs === 'number' ? `${fastestLatencyMs} ms` : t('latency.unavailable')
 
   return (
     <div className="flex w-full min-w-0 items-center gap-1.5 overflow-hidden text-[10.5px] font-semibold text-muted-foreground sm:text-xs">
@@ -280,27 +134,8 @@ function MobileRuntimeHealthStrip({
       >
         {running ? <Power className="h-3.5 w-3.5 shrink-0" /> : <PowerOff className="h-3.5 w-3.5 shrink-0" />}
         <span className="min-w-0 truncate">
-          <RuntimeModeIndicator
-            running={running}
-            netnsLinkMode={netnsLinkMode}
-            attachBackend={attachBackend}
-            stoppedLabel={t('shell.stopped')}
-            runningLabel={t('shell.running')}
-            compact
-          />
+          <RuntimeModeIndicator running={running} stoppedLabel={t('shell.stopped')} runningLabel={t('shell.running')} />
         </span>
-      </span>
-      <span className="shrink-0 text-muted-foreground/60">·</span>
-      <span className="shrink-0 text-muted-foreground">
-        {t('shell.fastestNodeShort')} <span className="font-bold text-foreground/90">{fastestLatencyLabel}</span>
-      </span>
-      <span className="shrink-0 text-muted-foreground/60">·</span>
-      <span className="shrink-0 text-muted-foreground">
-        {t('shell.subscriptionsShort')} <span className="font-bold text-foreground">{subscriptionCount ?? '—'}</span>
-      </span>
-      <span className="shrink-0 text-muted-foreground/60">·</span>
-      <span className="shrink-0 text-muted-foreground">
-        {t('shell.nodesShort')} <span className="font-bold text-foreground">{nodeCount ?? '—'}</span>
       </span>
     </div>
   )
@@ -329,32 +164,6 @@ export function HeaderWithActions() {
   const [openedBundlePreview, { open: openBundlePreview, close: closeBundlePreview }] = useDisclosure(false)
   const { data: userQuery } = useUserQuery()
   const { data: generalQuery } = useGeneralQuery()
-  const { data: nodesQuery } = useNodesQuery()
-  const { data: subscriptionsQuery } = useSubscriptionsQuery()
-  const nodeLatenciesQuery = useNodeLatenciesQuery(30_000, true)
-  const fastestLatencyMs = useMemo(() => {
-    const latencies =
-      nodeLatenciesQuery.data
-        ?.map((result) => result.latencyMs)
-        .filter((latency): latency is number => typeof latency === 'number' && Number.isFinite(latency)) ?? []
-
-    return latencies.length > 0 ? Math.min(...latencies) : undefined
-  }, [nodeLatenciesQuery.data])
-  const totalNodeCount = useMemo(() => {
-    const nodeIds = new Set<string>()
-
-    for (const node of nodesQuery?.nodes.items ?? []) {
-      nodeIds.add(node.id)
-    }
-
-    for (const subscription of subscriptionsQuery?.subscriptions ?? []) {
-      for (const node of subscription.nodes.items) {
-        nodeIds.add(node.id)
-      }
-    }
-
-    return nodeIds.size
-  }, [nodesQuery?.nodes.items, subscriptionsQuery?.subscriptions])
   const reloadRuntimeMutation = useReloadRuntimeMutation()
   const stopRuntimeMutation = useStopRuntimeMutation()
   const runtimeMutationPending = reloadRuntimeMutation.isPending || stopRuntimeMutation.isPending
@@ -749,23 +558,9 @@ export function HeaderWithActions() {
 
         <div className={cn('flex min-w-0 items-center', matchSmallScreen && 'col-start-2 row-start-1 w-full self-end')}>
           {matchSmallScreen ? (
-            <MobileRuntimeHealthStrip
-              running={generalQuery?.general.dae.running}
-              netnsLinkMode={generalQuery?.general.dae.netnsLinkMode}
-              attachBackend={generalQuery?.general.dae.attachBackend}
-              fastestLatencyMs={fastestLatencyMs}
-              subscriptionCount={subscriptionsQuery?.subscriptions.length}
-              nodeCount={totalNodeCount}
-            />
+            <MobileRuntimeHealthStrip running={generalQuery?.general.dae.running} />
           ) : (
-            <RuntimeHealthStrip
-              running={generalQuery?.general.dae.running}
-              netnsLinkMode={generalQuery?.general.dae.netnsLinkMode}
-              attachBackend={generalQuery?.general.dae.attachBackend}
-              fastestLatencyMs={fastestLatencyMs}
-              subscriptionCount={subscriptionsQuery?.subscriptions.length}
-              nodeCount={totalNodeCount}
-            />
+            <RuntimeHealthStrip running={generalQuery?.general.dae.running} />
           )}
         </div>
 
