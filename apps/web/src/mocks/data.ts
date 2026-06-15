@@ -84,6 +84,16 @@ interface MockRuntimeOverviewResponse {
   rssBytes: string
   heapAllocBytes: string
   goroutines: number
+  runtime: {
+    running: boolean
+    state: string
+    attachBackend: string
+    netnsLinkMode: string
+    startedAt: string
+    lastTransitionAt: string
+    reloadCount: number
+    stopCount: number
+  }
   samples: MockRuntimeOverviewSample[]
 }
 
@@ -142,6 +152,16 @@ export function getMockRuntimeOverview(windowSec = 60, maxPoints = 240): MockRun
     rssBytes: String(Math.round(96.2 * 1024 ** 2)),
     heapAllocBytes: String(Math.round(31.4 * 1024 ** 2)),
     goroutines: 42,
+    runtime: {
+      running: true,
+      state: 'running',
+      attachBackend: 'tcx',
+      netnsLinkMode: 'netkit',
+      startedAt: new Date(Date.now() - 12 * 60 * 60 * 1000 - 48 * 60 * 1000).toISOString(),
+      lastTransitionAt: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+      reloadCount: 3,
+      stopCount: 0,
+    },
     samples,
   }
 }

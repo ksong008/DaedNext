@@ -78,6 +78,14 @@ describe('mergeRuntimeOverviewDelta', () => {
       rssBytes: '30',
       heapAllocBytes: '40',
       goroutines: 5,
+      runtime: {
+        running: true,
+        state: 'running',
+        attachBackend: 'tcx',
+        netnsLinkMode: 'netkit',
+        lastTransitionAt: '2026-05-03T12:00:00.000Z',
+        reloadCount: 1,
+      },
       samples: [
         { timestamp: '2026-05-03T12:59:58.000Z', uploadRate: 10, downloadRate: 20 },
         { timestamp: '2026-05-03T12:59:59.000Z', uploadRate: 11, downloadRate: 21 },
@@ -110,6 +118,7 @@ describe('mergeRuntimeOverviewDelta', () => {
     expect(merged.downloadTotal).toBe('27')
     expect(merged.activeConnections).toBe(8)
     expect(merged.cpuUsagePercent).toBe(12.5)
+    expect(merged.runtime).toEqual(previousData.runtime)
     expect(merged.samples).toHaveLength(3)
     expect(merged.samples[2]).toEqual({
       timestamp: '2026-05-03T13:00:01.000Z',

@@ -1,4 +1,4 @@
-import type { TrafficOverviewQueryData } from './types'
+import type { RuntimeOverviewRuntimeState, TrafficOverviewQueryData } from './types'
 
 interface RuntimeOverviewAPI {
   updatedAt: string
@@ -12,6 +12,7 @@ interface RuntimeOverviewAPI {
   rssBytes?: string
   heapAllocBytes?: string
   goroutines?: number
+  runtime?: RuntimeOverviewRuntimeState
   samples?: Array<{
     timestamp: string
     uploadRate: string
@@ -64,6 +65,7 @@ export function adaptRuntimeOverview(data: RuntimeOverviewAPI): TrafficOverviewQ
     rssBytes: data.rssBytes || '0',
     heapAllocBytes: data.heapAllocBytes || '0',
     goroutines: data.goroutines ?? 0,
+    runtime: data.runtime,
     samples: (data.samples ?? []).map((sample) => ({
       timestamp: sample.timestamp,
       uploadRate: Number(sample.uploadRate),
@@ -100,6 +102,7 @@ export function mergeRuntimeOverviewDelta(
     rssBytes: delta.rssBytes || previousData.rssBytes || '0',
     heapAllocBytes: delta.heapAllocBytes || previousData.heapAllocBytes || '0',
     goroutines: delta.goroutines ?? previousData.goroutines ?? 0,
+    runtime: delta.runtime ?? previousData.runtime,
     samples: trimRuntimeOverviewSamples(
       [...previousData.samples, ...deltaSamples],
       delta.updatedAt,

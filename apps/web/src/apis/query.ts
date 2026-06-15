@@ -17,6 +17,7 @@ import type {
   NodeResource,
   RoutingListView,
   RoutingView,
+  RuntimeOverviewRuntimeState,
   SubscriptionListView,
   SubscriptionResource,
   TrafficOverviewQueryData,
@@ -88,7 +89,8 @@ interface RuntimeOverviewAPI {
   rssBytes?: string
   heapAllocBytes?: string
   goroutines?: number
-  samples: Array<{
+  runtime?: RuntimeOverviewRuntimeState
+  samples?: Array<{
     timestamp: string
     uploadRate: string
     downloadRate: string

@@ -296,6 +296,19 @@ export interface GeneralStateView {
   }
 }
 
+export interface RuntimeOverviewRuntimeState {
+  running?: boolean
+  state?: string
+  attachBackend?: string | null
+  netnsLinkMode?: string | null
+  fakeRuntime?: boolean
+  residentRuntimeStarted?: boolean
+  startedAt?: string | null
+  lastTransitionAt?: string | null
+  reloadCount?: number
+  stopCount?: number
+}
+
 export interface TrafficOverviewQueryData {
   updatedAt: string
   uploadRate: number
@@ -308,6 +321,7 @@ export interface TrafficOverviewQueryData {
   rssBytes: string
   heapAllocBytes: string
   goroutines: number
+  runtime?: RuntimeOverviewRuntimeState
   samples: Array<{
     timestamp: string
     uploadRate: number
