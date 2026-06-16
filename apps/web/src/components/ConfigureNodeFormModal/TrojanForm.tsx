@@ -21,23 +21,35 @@ function generateTrojanLink(data: TrojanFormValues): string {
   if (data.peer !== '') {
     query.sni = data.peer
   }
+  if (data.alpn !== '') {
+    query.alpn = data.alpn
+  }
 
   let protocol = 'trojan'
 
   if (data.method !== 'origin' || data.obfs !== 'none') {
     protocol = 'trojan-go'
-    query.type = data.obfs === 'none' ? 'original' : 'ws'
+    query.type =
+      data.obfs === 'websocket'
+        ? 'ws'
+        : data.obfs === 'httpupgrade'
+          ? 'httpupgrade'
+          : data.obfs === 'grpc'
+            ? 'grpc'
+            : 'original'
 
     if (data.method === 'shadowsocks') {
       query.encryption = `ss;${data.ssCipher};${data.ssPassword}`
     }
 
-    if (query.type === 'ws') {
+    if (query.type === 'ws' || query.type === 'httpupgrade') {
       query.host = data.host || ''
       query.path = data.path || '/'
     }
-
-    delete query.allowInsecure
+    if (query.type === 'grpc') {
+      query.host = data.host || ''
+      query.serviceName = data.path || ''
+    }
   }
 
   return generateURL({
@@ -99,7 +111,13 @@ export function TrojanForm({ onLinkGeneration, initialValues, actionsPortal }: N
           { label: 'shadowsocks', value: 'shadowsocks' },
         ]}
         value={formValues.method}
-        onChange={(val) => setValue('method', (val || 'origin') as TrojanFormValues['method'])}
+        onChange={(val) => {
+          const method = (val || 'origin') as TrojanFormValues['method']
+          setValue('method', method)
+          if (method === 'shadowsocks') {
+            setValue('obfs', 'websocket')
+          }
+        }}
       />
 
       {formValues.method === 'shadowsocks' && (
@@ -128,34 +146,40 @@ export function TrojanForm({ onLinkGeneration, initialValues, actionsPortal }: N
 
       <Checkbox
         label={t('allowInsecure')}
-        disabled={formValues.method !== 'origin' || formValues.obfs !== 'none'}
         checked={formValues.allowInsecure}
         onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
       />
 
       <Input label="SNI(Peer)" value={formValues.peer} onChange={(e) => setValue('peer', e.target.value)} />
+      <Input label="ALPN" value={formValues.alpn} onChange={(e) => setValue('alpn', e.target.value)} />
 
       <Select
-        label="Obfs"
-        data={[
-          { label: t('configureNode.noObfuscation'), value: 'none' },
-          { label: 'websocket', value: 'websocket' },
-        ]}
+        label="Transport"
+        data={
+          formValues.method === 'shadowsocks'
+            ? [{ label: 'websocket', value: 'websocket' }]
+            : [
+                { label: t('configureNode.noObfuscation'), value: 'none' },
+                { label: 'websocket', value: 'websocket' },
+                { label: 'httpupgrade', value: 'httpupgrade' },
+                { label: 'grpc', value: 'grpc' },
+              ]
+        }
         value={formValues.obfs}
         onChange={(val) => setValue('obfs', (val || 'none') as TrojanFormValues['obfs'])}
       />
 
-      {formValues.obfs === 'websocket' && (
+      {(formValues.obfs === 'websocket' || formValues.obfs === 'httpupgrade' || formValues.obfs === 'grpc') && (
         <Input
-          label={t('configureNode.websocketHost')}
+          label={formValues.obfs === 'grpc' ? 'gRPC Host' : t('configureNode.websocketHost')}
           value={formValues.host}
           onChange={(e) => setValue('host', e.target.value)}
         />
       )}
 
-      {formValues.obfs === 'websocket' && (
+      {(formValues.obfs === 'websocket' || formValues.obfs === 'httpupgrade' || formValues.obfs === 'grpc') && (
         <Input
-          label={t('configureNode.websocketPath')}
+          label={formValues.obfs === 'grpc' ? 'ServiceName' : t('configureNode.websocketPath')}
           value={formValues.path}
           onChange={(e) => setValue('path', e.target.value)}
         />

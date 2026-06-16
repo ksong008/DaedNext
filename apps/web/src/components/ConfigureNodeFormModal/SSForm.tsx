@@ -14,6 +14,8 @@ import { useNodeForm } from '~/hooks'
 export type SSFormValues = z.infer<typeof ssSchema>
 
 function generateSSLink(data: SSFormValues): string {
+  const plugin = buildSSPlugin(data)
+
   if (data.type === 'ss2022') {
     return generateURL({
       protocol: 'ss',
@@ -22,60 +24,51 @@ function generateSSLink(data: SSFormValues): string {
       host: data.server,
       port: data.port,
       hash: data.name,
+      params: plugin ? { plugin } : undefined,
     })
   }
 
   /* ss://BASE64(method:password)@server:port#name */
   let link = `ss://${Base64.encode(`${data.method}:${data.password}`)}@${data.server}:${data.port}/`
 
-  if (data.plugin) {
-    const plugin: string[] = [data.plugin]
-
-    if (data.plugin === 'v2ray-plugin') {
-      if (data.tls) {
-        plugin.push('tls')
-      }
-
-      if (data.mode !== 'websocket') {
-        plugin.push(`mode=${data.mode}`)
-      }
-
-      if (data.host) {
-        plugin.push(`host=${data.host}`)
-      }
-
-      let path = data.path
-
-      if (path) {
-        if (!path.startsWith('/')) {
-          path = `/${path}`
-        }
-
-        plugin.push(`path=${path}`)
-      }
-
-      if (data.impl) {
-        plugin.push(`impl=${data.impl}`)
-      }
-    } else {
-      plugin.push(`obfs=${data.obfs}`)
-      plugin.push(`obfs-host=${data.host}`)
-
-      if (data.obfs === 'http') {
-        plugin.push(`obfs-path=${data.path}`)
-      }
-
-      if (data.impl) {
-        plugin.push(`impl=${data.impl}`)
-      }
-    }
-
-    link += `?plugin=${encodeURIComponent(plugin.join(';'))}`
-  }
+  if (plugin) link += `?plugin=${encodeURIComponent(plugin)}`
 
   link += data.name.length ? `#${encodeURIComponent(data.name)}` : ''
 
   return link
+}
+
+function buildSSPlugin(data: SSFormValues): string {
+  if (!data.plugin) return ''
+
+  const plugin: string[] = [data.plugin]
+
+  if (data.plugin === 'v2ray-plugin') {
+    plugin.push('tls')
+
+    if (data.host) {
+      plugin.push(`host=${data.host}`)
+    }
+
+    let path = data.path
+
+    if (path) {
+      if (!path.startsWith('/')) {
+        path = `/${path}`
+      }
+
+      plugin.push(`path=${path}`)
+    }
+  } else {
+    plugin.push(`obfs=${data.obfs}`)
+    if (data.host) plugin.push(`obfs-host=${data.host}`)
+
+    if (data.obfs === 'http' && data.path) {
+      plugin.push(`obfs-path=${data.path}`)
+    }
+  }
+
+  return plugin.join(';')
 }
 
 export function SSForm({ onLinkGeneration, initialValues, actionsPortal }: NodeFormProps<SSFormValues>) {
@@ -161,52 +154,58 @@ export function SSForm({ onLinkGeneration, initialValues, actionsPortal }: NodeF
                 { label: 'aes-256-gcm', value: 'aes-256-gcm' },
                 { label: 'chacha20-poly1305', value: 'chacha20-poly1305' },
                 { label: 'chacha20-ietf-poly1305', value: 'chacha20-ietf-poly1305' },
-                { label: 'plain', value: 'plain' },
-                { label: 'none', value: 'none' },
               ]
         }
         value={formValues.method}
         onChange={(val) =>
           setValue(
             'method',
-            (val || (formValues.type === 'ss2022' ? '2022-blake3-aes-128-gcm' : 'aes-128-gcm')) as SSFormValues['method'],
+            (val ||
+              (formValues.type === 'ss2022' ? '2022-blake3-aes-128-gcm' : 'aes-128-gcm')) as SSFormValues['method'],
           )
         }
       />
 
-      {formValues.type === 'ss' && (
-        <Select
-          label="Plugin"
-          data={[
-            { label: 'off', value: '' },
-            { label: 'simple-obfs', value: 'simple-obfs' },
-            { label: 'v2ray-plugin', value: 'v2ray-plugin' },
-          ]}
-          value={formValues.plugin}
-          onChange={(val) => setValue('plugin', (val || '') as SSFormValues['plugin'])}
-        />
-      )}
+      <Select
+        label="Plugin"
+        data={
+          formValues.type === 'ss2022'
+            ? [
+                { label: 'off', value: '' },
+                { label: 'simple-obfs', value: 'simple-obfs' },
+              ]
+            : [
+                { label: 'off', value: '' },
+                { label: 'simple-obfs', value: 'simple-obfs' },
+                { label: 'v2ray-plugin', value: 'v2ray-plugin' },
+              ]
+        }
+        value={formValues.plugin}
+        onChange={(val) => {
+          const plugin = (val || '') as SSFormValues['plugin']
+          setValue('plugin', plugin)
+          if (plugin === 'v2ray-plugin') {
+            setValue('tls', 'tls')
+            setValue('mode', 'websocket')
+            setValue('obfs', 'http')
+          }
+          if (formValues.type === 'ss2022') {
+            setValue('obfs', 'http')
+          }
+        }}
+      />
 
-      {formValues.type === 'ss' && (formValues.plugin === 'simple-obfs' || formValues.plugin === 'v2ray-plugin') && (
-        <Select
-          label="Impl"
-          data={[
-            { label: 'Keep Default', value: '' },
-            { label: 'chained', value: 'chained' },
-            { label: 'transport', value: 'transport' },
-          ]}
-          value={formValues.impl}
-          onChange={(val) => setValue('impl', (val || '') as SSFormValues['impl'])}
-        />
-      )}
-
-      {formValues.type === 'ss' && formValues.plugin === 'simple-obfs' && (
+      {formValues.plugin === 'simple-obfs' && (
         <Select
           label="Obfs"
-          data={[
-            { label: 'http', value: 'http' },
-            { label: 'tls', value: 'tls' },
-          ]}
+          data={
+            formValues.type === 'ss2022'
+              ? [{ label: 'http', value: 'http' }]
+              : [
+                  { label: 'http', value: 'http' },
+                  { label: 'tls', value: 'tls' },
+                ]
+          }
           value={formValues.obfs}
           onChange={(val) => setValue('obfs', (val || 'http') as SSFormValues['obfs'])}
         />
@@ -216,31 +215,26 @@ export function SSForm({ onLinkGeneration, initialValues, actionsPortal }: NodeF
         <Select
           label="Mode"
           data={[{ label: 'websocket', value: 'websocket' }]}
-          value={formValues.mode}
-          onChange={(val) => setValue('mode', val || '')}
+          value={formValues.mode || 'websocket'}
+          onChange={(val) => setValue('mode', val || 'websocket')}
         />
       )}
 
       {formValues.type === 'ss' && formValues.plugin === 'v2ray-plugin' && (
         <Select
           label="TLS"
-          data={[
-            { label: 'off', value: '' },
-            { label: 'tls', value: 'tls' },
-          ]}
+          data={[{ label: 'tls', value: 'tls' }]}
           value={formValues.tls}
-          onChange={(val) => setValue('tls', (val || '') as SSFormValues['tls'])}
+          onChange={(val) => setValue('tls', (val || 'tls') as SSFormValues['tls'])}
         />
       )}
 
-      {formValues.type === 'ss' &&
-        ((formValues.plugin === 'simple-obfs' && (formValues.obfs === 'http' || formValues.obfs === 'tls')) ||
+      {((formValues.plugin === 'simple-obfs' && (formValues.obfs === 'http' || formValues.obfs === 'tls')) ||
         formValues.plugin === 'v2ray-plugin') && (
         <Input label="Host" value={formValues.host} onChange={(e) => setValue('host', e.target.value)} />
       )}
 
-      {formValues.type === 'ss' &&
-        ((formValues.plugin === 'simple-obfs' && formValues.obfs === 'http') ||
+      {((formValues.plugin === 'simple-obfs' && formValues.obfs === 'http') ||
         formValues.plugin === 'v2ray-plugin') && (
         <Input label="Path" value={formValues.path} onChange={(e) => setValue('path', e.target.value)} />
       )}

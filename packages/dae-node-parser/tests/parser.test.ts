@@ -20,11 +20,21 @@ describe('parseHTTPUrl', () => {
       username: '',
       password: '',
       name: 'my-proxy',
+      sni: '',
+      allowInsecure: false,
+      transport: false,
+      transportHost: '',
+      transportPath: '',
+      tlsImplementation: 'tls',
+      alpn: '',
+      utlsImitate: '',
     })
   })
 
   it('should parse HTTPS URL with auth', () => {
-    const result = parseHTTPUrl('https://user:pass@example.com:443#proxy')
+    const result = parseHTTPUrl(
+      'https://user:pass@example.com:443/tunnel?sni=sni.example&allowInsecure=1&transport=true&host=front.example&tlsImplementation=utls&utlsImitate=chrome&alpn=h2%2Chttp%2F1.1#proxy',
+    )
     expect(result).toEqual({
       protocol: 'https',
       host: 'example.com',
@@ -32,6 +42,14 @@ describe('parseHTTPUrl', () => {
       username: 'user',
       password: 'pass',
       name: 'proxy',
+      sni: 'sni.example',
+      allowInsecure: true,
+      transport: true,
+      transportHost: 'front.example',
+      transportPath: '/tunnel',
+      tlsImplementation: 'utls',
+      alpn: 'h2,http/1.1',
+      utlsImitate: 'chrome',
     })
   })
 
@@ -108,6 +126,33 @@ describe('parseTrojanUrl', () => {
       obfs: 'none',
     })
   })
+
+  it('should parse Trojan-Go HTTPUpgrade and gRPC transports', () => {
+    expect(
+      parseTrojanUrl(
+        'trojan-go://password@example.com:443?type=httpupgrade&host=front.example&path=%2Fup&sni=sni.example&allowInsecure=1&alpn=h2#trojan-hu',
+      ),
+    ).toMatchObject({
+      method: 'origin',
+      obfs: 'httpupgrade',
+      host: 'front.example',
+      path: '/up',
+      peer: 'sni.example',
+      allowInsecure: true,
+      alpn: 'h2',
+    })
+
+    expect(
+      parseTrojanUrl(
+        'trojan-go://password@example.com:443?type=grpc&serviceName=GunService&host=front.example#trojan-grpc',
+      ),
+    ).toMatchObject({
+      method: 'origin',
+      obfs: 'grpc',
+      host: 'front.example',
+      path: 'GunService',
+    })
+  })
 })
 
 describe('parseHysteria2Url', () => {
@@ -132,6 +177,21 @@ describe('parseHysteria2Url', () => {
   })
 
   it('should parse Hysteria2 with ports (hopping)', () => {
+    const result = parseHysteria2Url(
+      'hysteria2://auth@example.com:10000-20000,443?pinSHA256=abcd&maxTx=4096&maxRx=8192#hopping',
+    )
+    expect(result).toMatchObject({
+      auth: 'auth',
+      server: 'example.com',
+      port: 10000,
+      ports: '10000-20000,443',
+      pinSHA256: 'abcd',
+      maxTx: '4096',
+      maxRx: '8192',
+    })
+  })
+
+  it('should still import legacy Hysteria2 ports query for migration', () => {
     const result = parseHysteria2Url('hysteria2://auth@example.com:443/?ports=10000-20000#hopping')
     expect(result).toMatchObject({
       auth: 'auth',
@@ -285,6 +345,19 @@ describe('parseV2rayUrl', () => {
       net: 'httpupgrade',
       host: 'example.com',
       path: '/upgrade',
+    })
+  })
+
+  it('should parse VLESS with Meek and mux', () => {
+    const result = parseV2rayUrl(
+      'vless://uuid@example.com:443?type=meek&security=tls&url=https%3A%2F%2Ffront.example%2Fmeek&mux=1#meek-vless',
+    )
+    expect(result).toMatchObject({
+      protocol: 'vless',
+      net: 'meek',
+      tls: 'tls',
+      path: 'https://front.example/meek',
+      mux: true,
     })
   })
 

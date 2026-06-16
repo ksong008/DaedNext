@@ -117,6 +117,7 @@ export const DEFAULT_V2RAY_FORM_VALUES: z.infer<typeof v2raySchema> = {
   add: '',
   aid: 0,
   allowInsecure: false,
+  mux: false,
   alpn: '',
   ech: '',
   flow: 'none',
@@ -180,7 +181,7 @@ export const DEFAULT_SS_FORM_VALUES: z.infer<typeof ssSchema> = {
 export const DEFAULT_SSR_FORM_VALUES: z.infer<typeof ssrSchema> = {
   method: 'aes-128-cfb',
   proto: 'origin',
-  obfs: 'plain',
+  obfs: 'http_simple',
   name: '',
   obfsParam: '',
   password: '',
@@ -193,6 +194,7 @@ export const DEFAULT_TROJAN_FORM_VALUES: z.infer<typeof trojanSchema> = {
   method: 'origin',
   obfs: 'none',
   allowInsecure: false,
+  alpn: '',
   host: '',
   name: '',
   password: '',
@@ -235,12 +237,12 @@ export const DEFAULT_HYSTERIA2_FORM_VALUES: z.infer<typeof hysteria2Schema> = {
   port: 443,
   server: '',
   auth: '',
-  obfs: '',
-  obfsPassword: '',
   sni: '',
   ports: '',
   allowInsecure: false,
   pinSHA256: '',
+  maxTx: '',
+  maxRx: '',
 }
 
 export const DEFAULT_ANYTLS_FORM_VALUES: z.infer<typeof anytlsSchema> = {
@@ -253,11 +255,19 @@ export const DEFAULT_ANYTLS_FORM_VALUES: z.infer<typeof anytlsSchema> = {
 }
 
 export const DEFAULT_HTTP_FORM_VALUES: z.infer<typeof httpSchema> = {
+  alpn: '',
+  allowInsecure: false,
   host: '',
   name: '',
   password: '',
   port: 0,
+  sni: '',
+  tlsImplementation: 'tls',
+  transport: false,
+  transportHost: '',
+  transportPath: '',
   username: '',
+  utlsImitate: '',
 }
 
 export const DEFAULT_SOCKS5_FORM_VALUES: z.infer<typeof socks5Schema> = {

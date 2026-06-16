@@ -1,3 +1,4 @@
+import type { z } from 'zod'
 import type { ProtocolConfig } from './types'
 import {
   generateAnytlsURL,
@@ -13,7 +14,6 @@ import {
   parseV2rayUrl,
 } from '@daeuniverse/dae-node-parser'
 import { Base64 } from 'js-base64'
-import { z } from 'zod'
 
 import {
   anytlsSchema,
@@ -31,7 +31,7 @@ import {
   ssSchema,
   trojanSchema,
   tuicSchema,
-  v2raySchema,
+  v2rayProtocolSchema,
 } from '~/constants'
 import { buildSupportedXhttpExtra } from '~/utils/xhttp'
 
@@ -48,9 +48,7 @@ import { V2rayForm } from '../V2rayForm'
 // V2Ray Protocol (VMess/VLESS)
 // ============================================================================
 
-const v2rayFormSchema = v2raySchema.extend({
-  protocol: z.enum(['vmess', 'vless']),
-})
+const v2rayFormSchema = v2rayProtocolSchema
 
 type V2rayFormValues = z.infer<typeof v2rayFormSchema>
 
@@ -83,6 +81,7 @@ function generateV2rayLink(data: V2rayFormValues): string {
     grpcMode,
     grpcAuthority,
     xhttpMode,
+    mux,
   } = data
 
   if (protocol === 'vless') {
@@ -95,23 +94,24 @@ function generateV2rayLink(data: V2rayFormValues): string {
       allowInsecure,
     }
 
-    if (net !== 'xhttp' && flow !== 'none') params.flow = flow
+    if (net === 'tcp' && flow !== 'none') params.flow = flow
 
     // Path handling based on network type
     if (net === 'grpc') {
       params.serviceName = path
       if (grpcMode !== 'gun') params.mode = grpcMode
       if (grpcAuthority) params.authority = grpcAuthority
-    } else if (net === 'kcp') {
-      params.seed = path
     } else if (net === 'xhttp') {
       params.path = path
       if (xhttpMode) params.mode = xhttpMode
       const extra = buildXhttpExtra(data)
       if (extra) params.extra = extra
+    } else if (net === 'meek') {
+      params.url = path
     } else {
       params.path = path
     }
+    if (mux) params.mux = 1
 
     if (alpn !== '') params.alpn = alpn
     if (ech !== '') params.ech = ech
@@ -138,29 +138,20 @@ function generateV2rayLink(data: V2rayFormValues): string {
   if (protocol === 'vmess') {
     const body: Record<string, unknown> = structuredClone(data)
 
-    switch (net) {
-      case 'kcp':
-      case 'tcp':
-      default:
-        body.type = ''
-    }
+    body.aid = 0
+    body.type = ''
 
     switch (body.net) {
       case 'ws':
       case 'httpupgrade':
-      case 'xhttp':
-        break
-      case 'h2':
       case 'grpc':
-      case 'kcp':
+        break
       default:
-        if (body.net === 'tcp' && body.type === 'http') {
-          break
-        }
         body.path = ''
     }
 
     delete body.flow
+    delete body.mux
 
     return `vmess://${Base64.encode(JSON.stringify(body))}`
   }
@@ -188,6 +179,8 @@ export const v2rayProtocol: ProtocolConfig<V2rayFormValues> = {
 type SSFormValues = z.infer<typeof ssSchema>
 
 function generateSSLink(data: SSFormValues): string {
+  const plugin = buildSSPlugin(data)
+
   if (data.type === 'ss2022') {
     return generateURL({
       protocol: 'ss',
@@ -196,38 +189,39 @@ function generateSSLink(data: SSFormValues): string {
       host: data.server,
       port: data.port,
       hash: data.name,
+      params: plugin ? { plugin } : undefined,
     })
   }
 
   let link = `ss://${Base64.encode(`${data.method}:${data.password}`)}@${data.server}:${data.port}/`
 
-  if (data.plugin) {
-    const plugin: string[] = [data.plugin]
-
-    if (data.plugin === 'v2ray-plugin') {
-      if (data.tls) plugin.push('tls')
-      if (data.mode !== 'websocket') plugin.push(`mode=${data.mode}`)
-      if (data.host) plugin.push(`host=${data.host}`)
-
-      let path = data.path
-      if (path) {
-        if (!path.startsWith('/')) path = `/${path}`
-        plugin.push(`path=${path}`)
-      }
-
-      if (data.impl) plugin.push(`impl=${data.impl}`)
-    } else {
-      plugin.push(`obfs=${data.obfs}`)
-      plugin.push(`obfs-host=${data.host}`)
-      if (data.obfs === 'http') plugin.push(`obfs-path=${data.path}`)
-      if (data.impl) plugin.push(`impl=${data.impl}`)
-    }
-
-    link += `?plugin=${encodeURIComponent(plugin.join(';'))}`
-  }
+  if (plugin) link += `?plugin=${encodeURIComponent(plugin)}`
 
   link += data.name.length ? `#${encodeURIComponent(data.name)}` : ''
   return link
+}
+
+function buildSSPlugin(data: SSFormValues): string {
+  if (!data.plugin) return ''
+
+  const plugin: string[] = [data.plugin]
+
+  if (data.plugin === 'v2ray-plugin') {
+    plugin.push('tls')
+    if (data.host) plugin.push(`host=${data.host}`)
+
+    let path = data.path
+    if (path) {
+      if (!path.startsWith('/')) path = `/${path}`
+      plugin.push(`path=${path}`)
+    }
+  } else {
+    plugin.push(`obfs=${data.obfs}`)
+    if (data.host) plugin.push(`obfs-host=${data.host}`)
+    if (data.obfs === 'http' && data.path) plugin.push(`obfs-path=${data.path}`)
+  }
+
+  return plugin.join(';')
 }
 
 export const ssProtocol: ProtocolConfig<SSFormValues> = {
@@ -278,23 +272,33 @@ function generateTrojanLink(data: TrojanFormValues): string {
   }
 
   if (data.peer !== '') query.sni = data.peer
+  if (data.alpn !== '') query.alpn = data.alpn
 
   let protocol = 'trojan'
 
   if (data.method !== 'origin' || data.obfs !== 'none') {
     protocol = 'trojan-go'
-    query.type = data.obfs === 'none' ? 'original' : 'ws'
+    query.type =
+      data.obfs === 'websocket'
+        ? 'ws'
+        : data.obfs === 'httpupgrade'
+          ? 'httpupgrade'
+          : data.obfs === 'grpc'
+            ? 'grpc'
+            : 'original'
 
     if (data.method === 'shadowsocks') {
       query.encryption = `ss;${data.ssCipher};${data.ssPassword}`
     }
 
-    if (query.type === 'ws') {
+    if (query.type === 'ws' || query.type === 'httpupgrade') {
       query.host = data.host || ''
       query.path = data.path || '/'
     }
-
-    delete query.allowInsecure
+    if (query.type === 'grpc') {
+      query.host = data.host || ''
+      query.serviceName = data.path || ''
+    }
   }
 
   return generateURL({
@@ -397,12 +401,11 @@ type Hysteria2FormValues = z.infer<typeof hysteria2Schema>
 
 function generateHysteria2Link(data: Hysteria2FormValues): string {
   const query = {
-    obfs: data.obfs,
-    obfsPassword: data.obfsPassword,
     sni: data.sni,
     ports: data.ports || '',
-    insecure: data.allowInsecure ? 1 : 0,
     pinSHA256: data.pinSHA256,
+    maxTx: data.maxTx,
+    maxRx: data.maxRx,
   }
 
   return generateHysteria2URL({
@@ -411,6 +414,7 @@ function generateHysteria2Link(data: Hysteria2FormValues): string {
     host: data.server,
     port: data.port,
     params: query,
+    hash: data.name,
   })
 }
 
@@ -442,6 +446,7 @@ export function generateAnytlsLink(data: AnytlsFormValues): string {
     host: data.server,
     port: data.port,
     params: query,
+    hash: data.name,
   })
 }
 
