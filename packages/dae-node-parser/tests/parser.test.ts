@@ -200,6 +200,17 @@ describe('parseHysteria2Url', () => {
       ports: '10000-20000',
     })
   })
+
+  it('should parse Hysteria2 salamander obfs', () => {
+    const result = parseHysteria2Url('hysteria2://auth@example.com:443?obfs=salamander&obfs-password=secret#hy2-obfs')
+    expect(result).toMatchObject({
+      auth: 'auth',
+      server: 'example.com',
+      port: 443,
+      obfs: 'salamander',
+      obfsPassword: 'secret',
+    })
+  })
 })
 
 describe('parseV2rayUrl', () => {
@@ -320,6 +331,24 @@ describe('parseV2rayUrl', () => {
       tls: 'tls',
       host: 'example.com',
       path: '/ws',
+      scy: 'auto',
+    })
+  })
+
+  it('should parse VMess standard URL with HTTP/2', () => {
+    const result = parseV2rayUrl(
+      'vmess://uuid-here@example.com:443?type=http&security=tls&host=example.com&path=%2Fh2&encryption=auto#vmess-h2',
+    )
+    expect(result).toMatchObject({
+      protocol: 'vmess',
+      id: 'uuid-here',
+      add: 'example.com',
+      port: 443,
+      ps: 'vmess-h2',
+      net: 'h2',
+      tls: 'tls',
+      host: 'example.com',
+      path: '/h2',
       scy: 'auto',
     })
   })

@@ -26,6 +26,29 @@ describe('manual node protocol registry', () => {
     expect(link).not.toContain('ports=')
   })
 
+  it('generates Hysteria2 salamander obfs settings', async () => {
+    vi.stubGlobal('location', {
+      hostname: '127.0.0.1',
+      origin: 'http://127.0.0.1',
+      protocol: 'http:',
+    })
+
+    const { hysteria2Protocol } = await import('./complex')
+    const link = hysteria2Protocol.generateLink({
+      ...hysteria2Protocol.defaultValues,
+      server: 'example.com',
+      port: 443,
+      auth: 'secret',
+      obfs: 'salamander',
+      obfsPassword: 'obfs-secret',
+      pinSHA256: 'abcd',
+    })
+    const parsed = new URL(link)
+
+    expect(parsed.searchParams.get('obfs')).toBe('salamander')
+    expect(parsed.searchParams.get('obfs-password')).toBe('obfs-secret')
+  })
+
   it('generates resident Trojan-Go grpc settings', async () => {
     vi.stubGlobal('location', {
       hostname: '127.0.0.1',
@@ -86,6 +109,46 @@ describe('manual node protocol registry', () => {
 
     expect(new URL(meekLink).searchParams.get('url')).toBe('https://front.example/meek')
     expect(new URL(muxLink).searchParams.get('mux')).toBe('1')
+  })
+
+  it('generates resident VLESS and VMess h2 settings with official http transport names', async () => {
+    vi.stubGlobal('location', {
+      hostname: '127.0.0.1',
+      origin: 'http://127.0.0.1',
+      protocol: 'http:',
+    })
+
+    const { v2rayProtocol } = await import('./complex')
+    const vlessLink = v2rayProtocol.generateLink({
+      ...v2rayProtocol.defaultValues,
+      protocol: 'vless',
+      id: 'uuid',
+      add: 'example.com',
+      port: 443,
+      net: 'h2',
+      tls: 'tls',
+      host: 'front.example',
+      path: '/h2',
+    })
+    const vmessLink = v2rayProtocol.generateLink({
+      ...v2rayProtocol.defaultValues,
+      protocol: 'vmess',
+      id: 'uuid',
+      add: 'example.com',
+      port: 443,
+      net: 'h2',
+      tls: 'tls',
+      host: 'front.example',
+      path: '/h2',
+    })
+    const vmessBody = JSON.parse(atob(vmessLink.slice('vmess://'.length)))
+
+    expect(new URL(vlessLink).searchParams.get('type')).toBe('http')
+    expect(new URL(vlessLink).searchParams.get('host')).toBe('front.example')
+    expect(new URL(vlessLink).searchParams.get('path')).toBe('/h2')
+    expect(vmessBody.net).toBe('http')
+    expect(vmessBody.host).toBe('front.example')
+    expect(vmessBody.path).toBe('/h2')
   })
 
   it('generates resident HTTPS proxy advanced settings', async () => {

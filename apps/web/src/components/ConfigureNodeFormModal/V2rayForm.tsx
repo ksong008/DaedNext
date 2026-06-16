@@ -41,6 +41,7 @@ const XHTTP_MODE_OPTIONS = [
 const VMESS_NETWORK_OPTIONS = [
   { label: 'TCP', value: 'tcp' },
   { label: 'WebSocket', value: 'ws' },
+  { label: 'HTTP/2', value: 'h2' },
   { label: 'gRPC', value: 'grpc' },
   { label: 'HTTPUpgrade', value: 'httpupgrade' },
 ]
@@ -48,6 +49,7 @@ const VMESS_NETWORK_OPTIONS = [
 const VLESS_NETWORK_OPTIONS = [
   { label: 'TCP', value: 'tcp' },
   { label: 'WebSocket', value: 'ws' },
+  { label: 'HTTP/2', value: 'h2' },
   { label: 'gRPC', value: 'grpc' },
   { label: 'HTTPUpgrade', value: 'httpupgrade' },
   { label: 'XHTTP', value: 'xhttp' },
@@ -92,7 +94,7 @@ function generateV2rayLink(data: V2rayFormValues): string {
 
   if (protocol === 'vless') {
     const params: Record<string, unknown> = {
-      type: net,
+      type: net === 'h2' ? 'http' : net,
       security: tls,
       host,
       headerType: type,
@@ -149,6 +151,7 @@ function generateV2rayLink(data: V2rayFormValues): string {
 
     switch (body.net) {
       case 'ws':
+      case 'h2':
       case 'httpupgrade':
       case 'grpc':
         // No operation, skip
@@ -156,6 +159,7 @@ function generateV2rayLink(data: V2rayFormValues): string {
       default:
         body.path = ''
     }
+    if (body.net === 'h2') body.net = 'http'
 
     delete body.flow
     delete body.mux
@@ -210,7 +214,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
       setValue('mux', false)
       setValue('type', 'none')
     }
-    if (formValues.protocol === 'vmess' && net === 'grpc') {
+    if (formValues.protocol === 'vmess' && (net === 'grpc' || net === 'h2')) {
       setValue('tls', 'tls')
     }
     if (formValues.protocol === 'vless' && net !== 'tcp' && formValues.tls === 'none') {
@@ -403,6 +407,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
       )}
 
       {(formValues.net === 'ws' ||
+        formValues.net === 'h2' ||
         formValues.net === 'httpupgrade' ||
         formValues.net === 'grpc' ||
         formValues.net === 'xhttp') && (
@@ -452,6 +457,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
       )}
 
       {(formValues.net === 'ws' ||
+        formValues.net === 'h2' ||
         formValues.net === 'httpupgrade' ||
         formValues.net === 'xhttp' ||
         formValues.net === 'meek') && (

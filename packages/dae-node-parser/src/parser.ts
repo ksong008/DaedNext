@@ -436,6 +436,8 @@ export function parseHysteria2Url(url: string): Partial<Hysteria2Config> | null 
       name: decodeURIComponent(rawName || ''),
       sni: params.get('sni') || '',
       ports: ports || params.get('ports') || params.get('mport') || '',
+      obfs: (params.get('obfs') || '') as Hysteria2Config['obfs'],
+      obfsPassword: params.get('obfs-password') || params.get('obfsPassword') || '',
       allowInsecure: parseBoolParam(params.get('insecure')),
       pinSHA256: params.get('pinSHA256') || '',
       maxTx: params.get('maxTx') || '',

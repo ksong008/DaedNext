@@ -75,11 +75,11 @@ export const v2rayProtocolSchema = v2raySchema
   })
   .superRefine((data, ctx) => {
     if (data.protocol === 'vmess') {
-      if (!['tcp', 'ws', 'grpc', 'httpupgrade'].includes(data.net)) {
+      if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'h2'].includes(data.net)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['net'],
-          message: 'Resident VMess supports tcp, websocket, httpupgrade, and grpc only',
+          message: 'Resident VMess supports tcp, websocket, httpupgrade, grpc, and h2 only',
         })
       }
       if (data.tls === 'reality') {
@@ -89,11 +89,11 @@ export const v2rayProtocolSchema = v2raySchema
           message: 'Reality is VLESS-only',
         })
       }
-      if (data.net === 'grpc' && data.tls !== 'tls') {
+      if ((data.net === 'grpc' || data.net === 'h2') && data.tls !== 'tls') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['tls'],
-          message: 'Resident VMess gRPC requires TLS',
+          message: 'Resident VMess gRPC and h2 require TLS',
         })
       }
       if (data.aid !== 0) {
@@ -120,11 +120,11 @@ export const v2rayProtocolSchema = v2raySchema
       return
     }
 
-    if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp', 'meek'].includes(data.net)) {
+    if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'h2', 'xhttp', 'meek'].includes(data.net)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['net'],
-        message: 'Resident VLESS supports tcp, websocket, httpupgrade, grpc, xhttp, and meek only',
+        message: 'Resident VLESS supports tcp, websocket, httpupgrade, grpc, h2, xhttp, and meek only',
       })
     }
     if (data.tls === 'none' && (data.net !== 'tcp' || data.mux || data.flow !== 'none')) {
@@ -139,6 +139,13 @@ export const v2rayProtocolSchema = v2raySchema
         code: z.ZodIssueCode.custom,
         path: ['flow'],
         message: 'Resident VLESS wrapped transports require empty flow',
+      })
+    }
+    if (data.net === 'h2' && data.tls !== 'tls') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tls'],
+        message: 'Resident VLESS h2 requires standard TLS',
       })
     }
     if (data.net === 'tcp' && data.type !== 'none') {
@@ -378,6 +385,8 @@ export const hysteria2Schema = z
     auth: z.string().nonempty(),
     sni: z.string(),
     ports: z.string().optional(),
+    obfs: z.enum(['', 'salamander']),
+    obfsPassword: z.string(),
     allowInsecure: z.boolean(),
     pinSHA256: z.string().nonempty(),
     maxTx: z.string(),
@@ -406,6 +415,13 @@ export const hysteria2Schema = z
           message: 'Hysteria2 bandwidth values must be unsigned integers',
         })
       }
+    }
+    if (data.obfs === 'salamander' && data.obfsPassword === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['obfsPassword'],
+        message: 'Hysteria2 salamander obfs requires an obfs password',
+      })
     }
   })
 

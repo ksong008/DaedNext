@@ -183,6 +183,8 @@ export interface Hysteria2Config {
   auth: string
   sni: string
   ports?: string
+  obfs: '' | 'salamander'
+  obfsPassword: string
   allowInsecure: boolean
   pinSHA256: string
   maxTx: string

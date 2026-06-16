@@ -239,6 +239,8 @@ export const DEFAULT_HYSTERIA2_FORM_VALUES: z.infer<typeof hysteria2Schema> = {
   auth: '',
   sni: '',
   ports: '',
+  obfs: '',
+  obfsPassword: '',
   allowInsecure: false,
   pinSHA256: '',
   maxTx: '',
