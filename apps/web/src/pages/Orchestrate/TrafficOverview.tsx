@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import type { TrafficOverviewQueryData } from '~/apis/types'
 import type { ChartConfig } from '~/components/ui/chart'
 import dayjs from 'dayjs'
 import { Activity } from 'lucide-react'
@@ -6,14 +7,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
-import { useTrafficOverviewQuery } from '~/apis'
 import { Card, CardContent, CardTitle } from '~/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/ui/chart'
 import { cn } from '~/lib/utils'
 import { computeTrafficChartDomain, filterTrafficChartDataByDomain } from './traffic_chart'
 
-const REALTIME_TRAFFIC_WINDOW_SECONDS = 60
-const REALTIME_TRAFFIC_MAX_POINTS = 240
+export const REALTIME_TRAFFIC_WINDOW_SECONDS = 60
+export const REALTIME_TRAFFIC_MAX_POINTS = 240
 
 const runtimeStatusStyle = {
   background: 'color-mix(in oklab, var(--card) 97%, var(--primary) 3%)',
@@ -335,9 +335,10 @@ interface TrafficOverviewProps {
   nodeCount?: number
   subscriptionCount?: number
   minLatencyMs?: number
+  runtimeOverview?: TrafficOverviewQueryData
 }
 
-export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs }: TrafficOverviewProps) {
+export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, runtimeOverview }: TrafficOverviewProps) {
   const { t } = useTranslation()
   const now = useCurrentTime()
 
@@ -350,8 +351,6 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs }: 
     [t],
   )
 
-  const trafficOverviewQuery = useTrafficOverviewQuery(REALTIME_TRAFFIC_WINDOW_SECONDS, REALTIME_TRAFFIC_MAX_POINTS)
-  const runtimeOverview = trafficOverviewQuery.data
   const chartWindowEnd = useMemo(
     () => parseChartTimestampMs(runtimeOverview?.updatedAt) ?? Date.now(),
     [runtimeOverview?.updatedAt],

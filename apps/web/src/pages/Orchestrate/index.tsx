@@ -22,6 +22,7 @@ import {
   useNodesQuery,
   useSubscriptionsQuery,
   useTestNodeLatenciesMutation,
+  useTrafficOverviewQuery,
 } from '~/apis'
 import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
@@ -43,7 +44,7 @@ import { LogResource } from './Logs'
 import { NODE_DROPPABLE_ID, NodeResource } from './Node'
 import { Routing } from './Routing'
 import { SubscriptionResource } from './Subscription'
-import { TrafficOverview } from './TrafficOverview'
+import { REALTIME_TRAFFIC_MAX_POINTS, REALTIME_TRAFFIC_WINDOW_SECONDS, TrafficOverview } from './TrafficOverview'
 import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
 
 function arrayMove<T>(array: T[], from: number, to: number): T[] {
@@ -63,7 +64,8 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   return chunks
 }
 
-const MANUAL_LATENCY_PROBE_BATCH_SIZE = 12
+const MANUAL_LATENCY_PROBE_BATCH_SIZE_FALLBACK = 8
+const MANUAL_LATENCY_PROBE_BATCH_SIZE_MAX = 32
 const MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS = 8_000
 const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
 const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
@@ -93,6 +95,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   })
 }
 
+function manualLatencyProbeBatchSizeFromRuntime(runtime: ReturnType<typeof useTrafficOverviewQuery>['data']) {
+  const value = runtime?.runtime?.residentDataplane?.metrics?.resources?.manualProbe?.concurrency?.value
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return MANUAL_LATENCY_PROBE_BATCH_SIZE_FALLBACK
+  }
+  return Math.min(MANUAL_LATENCY_PROBE_BATCH_SIZE_MAX, Math.max(1, Math.floor(value)))
+}
+
 export function OrchestratePage() {
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -102,6 +112,8 @@ export function OrchestratePage() {
   const { data: nodesQuery } = useNodesQuery()
   const { data: groupsQuery } = useGroupsQuery()
   const { data: subscriptionsQuery } = useSubscriptionsQuery()
+  const trafficOverviewQuery = useTrafficOverviewQuery(REALTIME_TRAFFIC_WINDOW_SECONDS, REALTIME_TRAFFIC_MAX_POINTS)
+  const runtimeOverview = trafficOverviewQuery.data
 
   const groupAddNodesMutation = useGroupAddNodesMutation()
   const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
@@ -334,6 +346,10 @@ export function OrchestratePage() {
 
     return Array.from(nodeIDs)
   }, [sortedNodes, sortedSubscriptions])
+  const manualLatencyProbeBatchSize = useMemo(
+    () => manualLatencyProbeBatchSizeFromRuntime(runtimeOverview),
+    [runtimeOverview],
+  )
 
   const testAllNodeLatencies = useCallback(async () => {
     if (manualLatencyProbeProgress) return
@@ -348,7 +364,7 @@ export function OrchestratePage() {
 
     try {
       let completed = 0
-      for (const nodeIDChunk of chunkArray(nodeIDs, MANUAL_LATENCY_PROBE_BATCH_SIZE)) {
+      for (const nodeIDChunk of chunkArray(nodeIDs, manualLatencyProbeBatchSize)) {
         let results: NodeLatencyProbeResult[]
         try {
           results = await withTimeout(
@@ -376,15 +392,14 @@ export function OrchestratePage() {
       }
 
       void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
-      void nodeLatenciesQuery.refetch()
     } finally {
       setManualLatencyProbeProgress(null)
     }
   }, [
     allLatencyProbeNodeIds,
     manualLatencyProbeProgress,
+    manualLatencyProbeBatchSize,
     mergeNodeLatencyResults,
-    nodeLatenciesQuery,
     queryClient,
     testNodeLatenciesMutation,
   ])
@@ -1036,6 +1051,7 @@ export function OrchestratePage() {
         <>
           <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
             <TrafficOverview
+              runtimeOverview={runtimeOverview}
               nodeCount={totalNodeCount}
               subscriptionCount={subscriptions.length}
               minLatencyMs={minLatencyMs}
