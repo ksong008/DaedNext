@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import { z } from 'zod'
 
 import { FormActions } from '~/components/FormActions'
+import { Checkbox } from '~/components/ui/checkbox'
 import { Input } from '~/components/ui/input'
 import { NumberInput } from '~/components/ui/number-input'
 import { Select } from '~/components/ui/select'
@@ -23,11 +24,26 @@ const defaultValues: HTTPFormValues = {
 }
 
 function generateHTTPLink(data: HTTPFormValues): string {
+  const query: Record<string, unknown> = {}
+  if (data.transport) {
+    query.transport = true
+    query.host = data.transportHost
+  }
+  if (data.protocol === 'https') {
+    query.sni = data.sni
+    if (data.allowInsecure) query.allowInsecure = true
+    query.tlsImplementation = data.tlsImplementation
+    query.alpn = data.alpn
+    query.utlsImitate = data.utlsImitate
+  }
+
   const generateURLParams: GenerateURLParams = {
     protocol: data.protocol,
     host: data.host,
     port: data.port,
     hash: data.name,
+    path: data.transport ? data.transportPath : '',
+    params: query,
   }
 
   if (data.username && data.password) {
@@ -95,6 +111,53 @@ export function HTTPForm({ onLinkGeneration, initialValues, actionsPortal }: Nod
         value={formValues.password}
         onChange={(e) => setValue('password', e.target.value)}
       />
+
+      <Checkbox
+        label="HTTP Transport"
+        checked={formValues.transport}
+        onCheckedChange={(checked) => setValue('transport', !!checked)}
+      />
+
+      {formValues.transport && (
+        <>
+          <Input
+            label="Transport Host"
+            value={formValues.transportHost}
+            onChange={(e) => setValue('transportHost', e.target.value)}
+          />
+          <Input
+            label="Transport Path"
+            value={formValues.transportPath}
+            onChange={(e) => setValue('transportPath', e.target.value)}
+          />
+        </>
+      )}
+
+      {formValues.protocol === 'https' && (
+        <>
+          <Input label="SNI" value={formValues.sni} onChange={(e) => setValue('sni', e.target.value)} />
+          <Select
+            label="TLS Implementation"
+            data={[
+              { label: 'tls', value: 'tls' },
+              { label: 'utls', value: 'utls' },
+            ]}
+            value={formValues.tlsImplementation}
+            onChange={(val) => setValue('tlsImplementation', (val || 'tls') as HTTPFormValues['tlsImplementation'])}
+          />
+          <Input
+            label="uTLS Imitate"
+            value={formValues.utlsImitate}
+            onChange={(e) => setValue('utlsImitate', e.target.value)}
+          />
+          <Input label="ALPN" value={formValues.alpn} onChange={(e) => setValue('alpn', e.target.value)} />
+          <Checkbox
+            label="AllowInsecure"
+            checked={formValues.allowInsecure}
+            onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
+          />
+        </>
+      )}
 
       {actionsPortal ? (
         createPortal(

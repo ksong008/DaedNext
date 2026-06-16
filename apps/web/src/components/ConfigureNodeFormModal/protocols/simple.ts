@@ -16,11 +16,26 @@ const httpFormSchema = httpSchema.extend({
 export type HTTPFormValues = z.infer<typeof httpFormSchema>
 
 function generateHTTPLink(data: HTTPFormValues): string {
+  const query: Record<string, unknown> = {}
+  if (data.transport) {
+    query.transport = true
+    query.host = data.transportHost
+  }
+  if (data.protocol === 'https') {
+    query.sni = data.sni
+    if (data.allowInsecure) query.allowInsecure = true
+    query.tlsImplementation = data.tlsImplementation
+    query.alpn = data.alpn
+    query.utlsImitate = data.utlsImitate
+  }
+
   const params: GenerateURLParams = {
     protocol: data.protocol,
     host: data.host,
     port: data.port,
     hash: data.name,
+    path: data.transport ? data.transportPath : '',
+    params: query,
   }
 
   if (data.username && data.password) {
@@ -79,6 +94,57 @@ export const httpProtocol: ProtocolConfig<HTTPFormValues> = {
       name: 'password',
       label: 'configureNode.password',
       type: 'text',
+    },
+    {
+      name: 'transport',
+      label: 'HTTP Transport',
+      type: 'checkbox',
+    },
+    {
+      name: 'transportHost',
+      label: 'Transport Host',
+      type: 'text',
+      visible: (values) => values.transport === true,
+    },
+    {
+      name: 'transportPath',
+      label: 'Transport Path',
+      type: 'text',
+      visible: (values) => values.transport === true,
+    },
+    {
+      name: 'sni',
+      label: 'SNI',
+      type: 'text',
+      visible: (values) => values.protocol === 'https',
+    },
+    {
+      name: 'tlsImplementation',
+      label: 'TLS Implementation',
+      type: 'select',
+      options: [
+        { label: 'tls', value: 'tls' },
+        { label: 'utls', value: 'utls' },
+      ],
+      visible: (values) => values.protocol === 'https',
+    },
+    {
+      name: 'utlsImitate',
+      label: 'uTLS Imitate',
+      type: 'text',
+      visible: (values) => values.protocol === 'https',
+    },
+    {
+      name: 'alpn',
+      label: 'ALPN',
+      type: 'text',
+      visible: (values) => values.protocol === 'https',
+    },
+    {
+      name: 'allowInsecure',
+      label: 'AllowInsecure',
+      type: 'checkbox',
+      visible: (values) => values.protocol === 'https',
     },
   ],
 }

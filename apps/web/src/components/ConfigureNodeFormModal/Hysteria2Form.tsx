@@ -4,7 +4,6 @@ import { generateHysteria2URL, parseHysteria2Url } from '@daeuniverse/dae-node-p
 import { createPortal } from 'react-dom'
 
 import { FormActions } from '~/components/FormActions'
-import { Checkbox } from '~/components/ui/checkbox'
 import { Input } from '~/components/ui/input'
 import { NumberInput } from '~/components/ui/number-input'
 import { DEFAULT_HYSTERIA2_FORM_VALUES, hysteria2Schema } from '~/constants'
@@ -15,12 +14,11 @@ export type Hysteria2FormValues = z.infer<typeof hysteria2Schema>
 function generateHysteria2Link(data: Hysteria2FormValues): string {
   /* hysteria2://[auth@]hostname[:port]/?[key=value]&[key=value]... */
   const query = {
-    obfs: data.obfs,
-    obfsPassword: data.obfsPassword,
     sni: data.sni,
     ports: data.ports || '',
-    insecure: data.allowInsecure ? 1 : 0,
     pinSHA256: data.pinSHA256,
+    maxTx: data.maxTx,
+    maxRx: data.maxRx,
   }
 
   return generateHysteria2URL({
@@ -29,6 +27,7 @@ function generateHysteria2Link(data: Hysteria2FormValues): string {
     host: data.server,
     port: data.port,
     params: query,
+    hash: data.name,
   })
 }
 
@@ -71,12 +70,14 @@ export function Hysteria2Form({ onLinkGeneration, initialValues, actionsPortal }
       />
       <Input label="Auth" withAsterisk value={formValues.auth} onChange={(e) => setValue('auth', e.target.value)} />
       <Input label="SNI" value={formValues.sni} onChange={(e) => setValue('sni', e.target.value)} />
-      <Input label="Pin SHA256" value={formValues.pinSHA256} onChange={(e) => setValue('pinSHA256', e.target.value)} />
-      <Checkbox
-        label={t('allowInsecure')}
-        checked={formValues.allowInsecure}
-        onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
+      <Input
+        label="Pin SHA256"
+        withAsterisk
+        value={formValues.pinSHA256}
+        onChange={(e) => setValue('pinSHA256', e.target.value)}
       />
+      <Input label="MaxTx" value={formValues.maxTx} onChange={(e) => setValue('maxTx', e.target.value)} />
+      <Input label="MaxRx" value={formValues.maxRx} onChange={(e) => setValue('maxRx', e.target.value)} />
       {actionsPortal ? (
         createPortal(
           <FormActions

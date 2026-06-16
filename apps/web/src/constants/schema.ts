@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { validateXhttpFormFields } from '~/utils/xhttp'
 
+const UNSIGNED_INTEGER_PATTERN = /^\d+$/
+
 export const v2raySchema = z
   .object({
     ps: z.string(),
@@ -8,7 +10,7 @@ export const v2raySchema = z
     port: z.number().min(0).max(65535),
     id: z.string().nonempty(),
     aid: z.number().min(0).max(65535),
-    net: z.enum(['tcp', 'kcp', 'ws', 'http', 'h2', 'grpc', 'httpupgrade', 'xhttp']),
+    net: z.enum(['tcp', 'kcp', 'ws', 'http', 'h2', 'grpc', 'httpupgrade', 'xhttp', 'meek']),
     type: z.enum(['none', 'http', 'srtp', 'utp', 'wechat-video', 'dtls', 'wireguard']),
     host: z.string(),
     path: z.string(),
@@ -46,6 +48,7 @@ export const v2raySchema = z
     scy: z.enum(['auto', 'aes-128-gcm', 'chacha20-poly1305', 'none', 'zero']),
     v: z.string(),
     allowInsecure: z.boolean(),
+    mux: z.boolean(),
     sni: z.string(),
     // Reality-specific fields
     pbk: z.string(), // public key
@@ -66,6 +69,115 @@ export const v2raySchema = z
     }
   })
 
+export const v2rayProtocolSchema = v2raySchema
+  .extend({
+    protocol: z.enum(['vmess', 'vless']),
+  })
+  .superRefine((data, ctx) => {
+    if (data.protocol === 'vmess') {
+      if (!['tcp', 'ws', 'grpc', 'httpupgrade'].includes(data.net)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['net'],
+          message: 'Resident VMess supports tcp, websocket, httpupgrade, and grpc only',
+        })
+      }
+      if (data.tls === 'reality') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['tls'],
+          message: 'Reality is VLESS-only',
+        })
+      }
+      if (data.net === 'grpc' && data.tls !== 'tls') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['tls'],
+          message: 'Resident VMess gRPC requires TLS',
+        })
+      }
+      if (data.aid !== 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['aid'],
+          message: 'Resident VMess supports AEAD only; AlterID must be 0',
+        })
+      }
+      if (data.flow !== 'none') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['flow'],
+          message: 'VMess does not support VLESS flow',
+        })
+      }
+      if (data.mux) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['mux'],
+          message: 'Resident VMess mux is not supported from manual nodes',
+        })
+      }
+      return
+    }
+
+    if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp', 'meek'].includes(data.net)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['net'],
+        message: 'Resident VLESS supports tcp, websocket, httpupgrade, grpc, xhttp, and meek only',
+      })
+    }
+    if (data.tls === 'none' && (data.net !== 'tcp' || data.mux || data.flow !== 'none')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tls'],
+        message: 'Resident VLESS security=none admits native tcp with empty flow only',
+      })
+    }
+    if (data.net !== 'tcp' && data.flow !== 'none') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['flow'],
+        message: 'Resident VLESS wrapped transports require empty flow',
+      })
+    }
+    if (data.net === 'tcp' && data.type !== 'none') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['type'],
+        message: 'Resident VLESS TCP admits headerType=none only',
+      })
+    }
+    if (data.mux && (data.net !== 'tcp' || data.tls !== 'tls' || data.flow !== 'none')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['mux'],
+        message: 'Resident VLESS mux admits tcp + tls + empty flow only',
+      })
+    }
+    if (data.tls === 'reality' && data.pbk === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['pbk'],
+        message: 'Reality public key is required',
+      })
+    }
+    if (data.net === 'meek') {
+      try {
+        const url = new URL(data.path)
+        if (url.protocol !== 'https:') {
+          throw new Error('not https')
+        }
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['path'],
+          message: 'Resident VLESS meek requires a standard https URL',
+        })
+      }
+    }
+  })
+
 export const ssSchema = z
   .object({
     type: z.enum(['ss', 'ss2022']),
@@ -74,8 +186,6 @@ export const ssSchema = z
       'aes-256-gcm',
       'chacha20-poly1305',
       'chacha20-ietf-poly1305',
-      'plain',
-      'none',
       '2022-blake3-aes-128-gcm',
       '2022-blake3-aes-256-gcm',
       '2022-blake3-chacha20-poly1305',
@@ -108,11 +218,41 @@ export const ssSchema = z
         message: 'SS2022 requires a 2022-blake3-* cipher',
       })
     }
-    if (data.type === 'ss2022' && data.plugin !== '') {
+    if (data.impl !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['impl'],
+        message: 'Resident Shadowsocks does not support selecting a plugin implementation',
+      })
+    }
+    if (data.plugin === 'v2ray-plugin') {
+      if (data.tls !== 'tls') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['tls'],
+          message: 'Resident v2ray-plugin requires TLS',
+        })
+      }
+      if (data.mode !== '' && data.mode !== 'websocket') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['mode'],
+          message: 'Resident v2ray-plugin only supports WebSocket mode',
+        })
+      }
+    }
+    if (data.type === 'ss2022' && data.plugin !== '' && !(data.plugin === 'simple-obfs' && data.obfs === 'http')) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['plugin'],
-        message: 'SS2022 does not support Shadowsocks plugins here',
+        message: 'SS2022 supports no plugin or simple-obfs http only',
+      })
+    }
+    if (data.type === 'ss2022' && data.plugin === 'simple-obfs' && data.obfs !== 'http') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['obfs'],
+        message: 'SS2022 simple-obfs supports http only',
       })
     }
     if (data.type === 'ss2022') {
@@ -149,63 +289,60 @@ export const ssSchema = z
     }
   })
 
-export const ssrSchema = z.object({
-  method: z.enum([
-    'aes-128-cfb',
-    'aes-192-cfb',
-    'aes-256-cfb',
-    'aes-128-ctr',
-    'aes-192-ctr',
-    'aes-256-ctr',
-    'aes-128-ofb',
-    'aes-192-ofb',
-    'aes-256-ofb',
-    'des-cfb',
-    'bf-cfb',
-    'cast5-cfb',
-    'rc4-md5',
-    'chacha20-ietf',
-    'salsa20',
-    'camellia-128-cfb',
-    'camellia-192-cfb',
-    'camellia-256-cfb',
-    'idea-cfb',
-    'rc2-cfb',
-    'seed-cfb',
-    'none',
-  ]),
-  password: z.string().nonempty(),
-  server: z.string().nonempty(),
-  port: z.number().min(0).max(65535).positive(),
-  name: z.string(),
-  proto: z.enum([
-    'origin',
-    'verify_sha1',
-    'auth_sha1_v4',
-    'auth_aes128_md5',
-    'auth_aes128_sha1',
-    'auth_chain_a',
-    'auth_chain_b',
-  ]),
-  protoParam: z.string(),
-  obfs: z.enum(['plain', 'http_simple', 'http_post', 'random_head', 'tls1.2_ticket_auth']),
-  obfsParam: z.string(),
-})
+export const ssrSchema = z
+  .object({
+    method: z.enum(['aes-128-cfb', 'aes-192-cfb', 'aes-256-cfb']),
+    password: z.string().nonempty(),
+    server: z.string().nonempty(),
+    port: z.number().min(0).max(65535).positive(),
+    name: z.string(),
+    proto: z.enum(['origin']),
+    protoParam: z.string(),
+    obfs: z.enum(['http_simple']),
+    obfsParam: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.protoParam !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['protoParam'],
+        message: 'Resident ShadowsocksR admits empty protocol parameter only',
+      })
+    }
+  })
 
-export const trojanSchema = z.object({
-  name: z.string(),
-  server: z.string().nonempty(),
-  peer: z.string(),
-  host: z.string(),
-  path: z.string(),
-  allowInsecure: z.boolean(),
-  port: z.number().min(0).max(65535),
-  password: z.string().nonempty(),
-  method: z.enum(['origin', 'shadowsocks']),
-  ssCipher: z.enum(['aes-128-gcm', 'aes-256-gcm', 'chacha20-poly1305', 'chacha20-ietf-poly1305']),
-  ssPassword: z.string(),
-  obfs: z.enum(['none', 'websocket']),
-})
+export const trojanSchema = z
+  .object({
+    name: z.string(),
+    server: z.string().nonempty(),
+    peer: z.string(),
+    alpn: z.string(),
+    host: z.string(),
+    path: z.string(),
+    allowInsecure: z.boolean(),
+    port: z.number().min(0).max(65535),
+    password: z.string().nonempty(),
+    method: z.enum(['origin', 'shadowsocks']),
+    ssCipher: z.enum(['aes-128-gcm', 'aes-256-gcm', 'chacha20-poly1305', 'chacha20-ietf-poly1305']),
+    ssPassword: z.string(),
+    obfs: z.enum(['none', 'websocket', 'httpupgrade', 'grpc']),
+  })
+  .superRefine((data, ctx) => {
+    if (data.method === 'shadowsocks' && data.obfs !== 'websocket') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['obfs'],
+        message: 'Trojan inner Shadowsocks is resident-supported on WebSocket only',
+      })
+    }
+    if (data.method === 'shadowsocks' && data.ssPassword === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ssPassword'],
+        message: 'Trojan inner Shadowsocks requires a password',
+      })
+    }
+  })
 
 export const tuicSchema = z.object({
   name: z.string(),
@@ -233,18 +370,44 @@ export const juicitySchema = z.object({
   congestion_control: z.string(),
 })
 
-export const hysteria2Schema = z.object({
-  name: z.string(),
-  server: z.string().nonempty(),
-  port: z.number().min(0).max(65535),
-  auth: z.string(),
-  obfs: z.string(),
-  obfsPassword: z.string(),
-  sni: z.string(),
-  ports: z.string().optional(),
-  allowInsecure: z.boolean(),
-  pinSHA256: z.string(),
-})
+export const hysteria2Schema = z
+  .object({
+    name: z.string(),
+    server: z.string().nonempty(),
+    port: z.number().min(0).max(65535),
+    auth: z.string().nonempty(),
+    sni: z.string(),
+    ports: z.string().optional(),
+    allowInsecure: z.boolean(),
+    pinSHA256: z.string().nonempty(),
+    maxTx: z.string(),
+    maxRx: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.allowInsecure) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['allowInsecure'],
+        message: 'Resident Hysteria2 does not admit insecure mode',
+      })
+    }
+    if ((data.maxTx === '') !== (data.maxRx === '')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: data.maxTx === '' ? ['maxTx'] : ['maxRx'],
+        message: 'Hysteria2 maxTx and maxRx must be set together',
+      })
+    }
+    for (const field of ['maxTx', 'maxRx'] as const) {
+      if (data[field] !== '' && !UNSIGNED_INTEGER_PATTERN.test(data[field])) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: 'Hysteria2 bandwidth values must be unsigned integers',
+        })
+      }
+    }
+  })
 
 export const anytlsSchema = z.object({
   name: z.string(),
@@ -261,6 +424,14 @@ export const httpSchema = z.object({
   host: z.string().nonempty(),
   port: z.number().min(0).max(65535),
   name: z.string(),
+  sni: z.string(),
+  allowInsecure: z.boolean(),
+  transport: z.boolean(),
+  transportHost: z.string(),
+  transportPath: z.string(),
+  tlsImplementation: z.enum(['tls', 'utls']),
+  alpn: z.string(),
+  utlsImitate: z.string(),
 })
 
 export const socks5Schema = z.object({

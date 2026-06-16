@@ -16,6 +16,10 @@ import { Base64 } from 'js-base64'
 const TRAILING_SLASH_PATTERN = /\/$/
 const BASE64_CONTENT_PATTERN = /^[A-Z0-9+/=]+$/i
 
+function parseBoolParam(value: string | null): boolean {
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on'
+}
+
 /**
  * Parse HTTP/HTTPS protocol URL
  * Format: http://[username:password@]host:port#name
@@ -35,6 +39,17 @@ export function parseHTTPUrl(url: string): (Partial<HTTPConfig> & { protocol: 'h
       username: decodeURIComponent(parsed.username || ''),
       password: decodeURIComponent(parsed.password || ''),
       name: decodeURIComponent(parsed.hash.slice(1) || ''),
+      sni: parsed.searchParams.get('sni') || '',
+      allowInsecure:
+        parseBoolParam(parsed.searchParams.get('allowInsecure')) ||
+        parseBoolParam(parsed.searchParams.get('allow_insecure')) ||
+        parseBoolParam(parsed.searchParams.get('skipVerify')),
+      transport: parseBoolParam(parsed.searchParams.get('transport')),
+      transportHost: parsed.searchParams.get('host') || '',
+      transportPath: parsed.pathname && parsed.pathname !== '/' ? parsed.pathname : '',
+      tlsImplementation: (parsed.searchParams.get('tlsImplementation') || 'tls') as HTTPConfig['tlsImplementation'],
+      alpn: parsed.searchParams.get('alpn') || '',
+      utlsImitate: parsed.searchParams.get('utlsImitate') || '',
     }
   } catch {
     return null
@@ -243,7 +258,7 @@ export function parseSSRUrl(url: string): Partial<SSRConfig> | null {
     }
 
     // Server might contain ':' in IPv6
-    const password = Base64.decode(parts.at(-1))
+    const password = Base64.decode(parts.at(-1) || '')
     const obfs = parts[parts.length - 2]
     const method = parts[parts.length - 3]
     const proto = parts[parts.length - 4]
@@ -294,17 +309,23 @@ export function parseTrojanUrl(url: string): Partial<TrojanConfig> | null {
       port: parsed.port ? Number.parseInt(parsed.port, 10) : 443,
       name: decodeURIComponent(parsed.hash.slice(1) || ''),
       peer: params.get('sni') || params.get('peer') || '',
+      alpn: params.get('alpn') || '',
       allowInsecure: params.get('allowInsecure') === '1' || params.get('allowInsecure') === 'true',
     }
 
     // Trojan-Go specific fields
     if (isTrojanGo) {
       const type = params.get('type') || 'original'
-      result.obfs = type === 'ws' ? 'websocket' : 'none'
+      result.obfs =
+        type === 'ws' ? 'websocket' : type === 'httpupgrade' ? 'httpupgrade' : type === 'grpc' ? 'grpc' : 'none'
 
-      if (result.obfs === 'websocket') {
+      if (result.obfs === 'websocket' || result.obfs === 'httpupgrade') {
         result.host = params.get('host') || ''
         result.path = params.get('path') || '/'
+      }
+      if (result.obfs === 'grpc') {
+        result.host = params.get('host') || ''
+        result.path = params.get('serviceName') || params.get('path') || ''
       }
 
       const encryption = params.get('encryption')
@@ -398,23 +419,61 @@ export function parseHysteria2Url(url: string): Partial<Hysteria2Config> | null 
       return null
     }
 
-    const parsed = new URL(url)
-    const params = parsed.searchParams
+    const [, rest] = url.split('://')
+    const [withoutHash, rawName = ''] = rest.split('#')
+    const [authorityPath, rawQuery = ''] = withoutHash.split('?')
+    const authority = authorityPath.replace(TRAILING_SLASH_PATTERN, '')
+    const lastAtIndex = authority.lastIndexOf('@')
+    const rawAuth = lastAtIndex === -1 ? '' : authority.slice(0, lastAtIndex)
+    const rawServer = lastAtIndex === -1 ? authority : authority.slice(lastAtIndex + 1)
+    const { server, port, ports } = parseHysteria2Authority(rawServer)
+    const params = new URLSearchParams(rawQuery)
 
     return {
-      auth: decodeURIComponent(parsed.username),
-      server: parsed.hostname,
-      port: parsed.port ? Number.parseInt(parsed.port, 10) : 443,
-      name: decodeURIComponent(parsed.hash.slice(1) || ''),
-      obfs: params.get('obfs') || '',
-      obfsPassword: params.get('obfs-password') || params.get('obfsPassword') || '',
+      auth: decodeURIComponent(rawAuth),
+      server,
+      port,
+      name: decodeURIComponent(rawName || ''),
       sni: params.get('sni') || '',
-      ports: params.get('ports') || params.get('mport') || '',
-      allowInsecure: params.get('insecure') === '1' || params.get('insecure') === 'true',
+      ports: ports || params.get('ports') || params.get('mport') || '',
+      allowInsecure: parseBoolParam(params.get('insecure')),
       pinSHA256: params.get('pinSHA256') || '',
+      maxTx: params.get('maxTx') || '',
+      maxRx: params.get('maxRx') || '',
     }
   } catch {
     return null
+  }
+}
+
+function parseHysteria2Authority(rawServer: string): { server: string; port: number; ports: string } {
+  let server = rawServer
+  let portPart = ''
+
+  if (rawServer.startsWith('[')) {
+    const closeIndex = rawServer.indexOf(']')
+    if (closeIndex !== -1) {
+      server = rawServer.slice(1, closeIndex)
+      if (rawServer.slice(closeIndex + 1).startsWith(':')) {
+        portPart = rawServer.slice(closeIndex + 2)
+      }
+    }
+  } else {
+    const colonIndex = rawServer.lastIndexOf(':')
+    if (colonIndex !== -1) {
+      server = rawServer.slice(0, colonIndex)
+      portPart = rawServer.slice(colonIndex + 1)
+    }
+  }
+
+  const firstPort = portPart.split(',')[0]?.split('-')[0] || ''
+  const port = firstPort ? Number.parseInt(firstPort, 10) : 443
+  const ports = portPart.includes(',') || portPart.includes('-') ? portPart : ''
+
+  return {
+    server,
+    port: Number.isFinite(port) ? port : 443,
+    ports,
   }
 }
 
@@ -496,6 +555,7 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         fp: config.fp || '',
         scy: config.scy || 'auto',
         allowInsecure: config.allowInsecure === true || config.allowInsecure === 1 || config.allowInsecure === '1',
+        mux: false,
         flow: config.flow || 'none',
         v: config.v || '',
         // Reality fields (usually not in legacy format but support anyway)
@@ -590,6 +650,7 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
         params.get('allowInsecure') === 'true' ||
         params.get('allow_insecure') === '1' ||
         params.get('allow_insecure') === 'true',
+      mux: false,
       v: '',
     }
   } catch {
@@ -611,6 +672,7 @@ function normalizeNetworkType(type: string): V2rayConfig['net'] {
     grpc: 'grpc',
     httpupgrade: 'httpupgrade',
     xhttp: 'xhttp',
+    meek: 'meek',
   }
   return typeMap[type.toLowerCase()] || 'tcp'
 }
@@ -625,6 +687,8 @@ function getPathValue(params: URLSearchParams, netType: string): string {
       return params.get('serviceName') || ''
     case 'kcp':
       return params.get('seed') || ''
+    case 'meek':
+      return params.get('url') || ''
     default:
       return params.get('path') || ''
   }
@@ -767,6 +831,7 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         params.get('allowInsecure') === 'true' ||
         params.get('allow_insecure') === '1' ||
         params.get('allow_insecure') === 'true',
+      mux: parseBoolParam(params.get('mux')) || parseBoolParam(params.get('muxEnabled')),
       v: '',
     }
   } catch {

@@ -32,7 +32,7 @@ export interface V2rayConfig {
   aid: number // alterId (VMess only, deprecated for AEAD)
   scy: 'auto' | 'aes-128-gcm' | 'chacha20-poly1305' | 'none' | 'zero' // encryption
   // Transport fields (4.3)
-  net: 'tcp' | 'kcp' | 'ws' | 'http' | 'h2' | 'grpc' | 'httpupgrade' | 'xhttp' // type
+  net: 'tcp' | 'kcp' | 'ws' | 'http' | 'h2' | 'grpc' | 'httpupgrade' | 'xhttp' | 'meek' // type
   type: 'none' | 'http' | 'srtp' | 'utp' | 'wechat-video' | 'dtls' | 'wireguard' // headerType (mKCP/TCP)
   host: string // host (WebSocket/HTTP/2/3/HTTPUpgrade/XHTTP)
   path: string // path (WebSocket/HTTP/2/3/HTTPUpgrade/XHTTP) or serviceName (gRPC) or seed (mKCP)
@@ -77,6 +77,7 @@ export interface V2rayConfig {
   pqv: string // REALITY ML-DSA-65 public key (mldsa65Verify)
   // Other
   allowInsecure: boolean
+  mux: boolean // VLESS TCP TLS mux
   v: string // version (legacy)
 }
 
@@ -90,8 +91,6 @@ export interface SSConfig {
     | 'aes-256-gcm'
     | 'chacha20-poly1305'
     | 'chacha20-ietf-poly1305'
-    | 'plain'
-    | 'none'
     | '2022-blake3-aes-128-gcm'
     | '2022-blake3-aes-256-gcm'
     | '2022-blake3-chacha20-poly1305'
@@ -112,43 +111,14 @@ export interface SSConfig {
  * ShadowsocksR (SSR) schema
  */
 export interface SSRConfig {
-  method:
-    | 'aes-128-cfb'
-    | 'aes-192-cfb'
-    | 'aes-256-cfb'
-    | 'aes-128-ctr'
-    | 'aes-192-ctr'
-    | 'aes-256-ctr'
-    | 'aes-128-ofb'
-    | 'aes-192-ofb'
-    | 'aes-256-ofb'
-    | 'des-cfb'
-    | 'bf-cfb'
-    | 'cast5-cfb'
-    | 'rc4-md5'
-    | 'chacha20-ietf'
-    | 'salsa20'
-    | 'camellia-128-cfb'
-    | 'camellia-192-cfb'
-    | 'camellia-256-cfb'
-    | 'idea-cfb'
-    | 'rc2-cfb'
-    | 'seed-cfb'
-    | 'none'
+  method: 'aes-128-cfb' | 'aes-192-cfb' | 'aes-256-cfb'
   password: string
   server: string
   port: number
   name: string
-  proto:
-    | 'origin'
-    | 'verify_sha1'
-    | 'auth_sha1_v4'
-    | 'auth_aes128_md5'
-    | 'auth_aes128_sha1'
-    | 'auth_chain_a'
-    | 'auth_chain_b'
+  proto: 'origin'
   protoParam: string
-  obfs: 'plain' | 'http_simple' | 'http_post' | 'random_head' | 'tls1.2_ticket_auth'
+  obfs: 'http_simple'
   obfsParam: string
 }
 
@@ -159,6 +129,7 @@ export interface TrojanConfig {
   name: string
   server: string
   peer: string
+  alpn: string
   host: string
   path: string
   allowInsecure: boolean
@@ -167,7 +138,7 @@ export interface TrojanConfig {
   method: 'origin' | 'shadowsocks'
   ssCipher: 'aes-128-gcm' | 'aes-256-gcm' | 'chacha20-poly1305' | 'chacha20-ietf-poly1305'
   ssPassword: string
-  obfs: 'none' | 'websocket'
+  obfs: 'none' | 'websocket' | 'httpupgrade' | 'grpc'
 }
 
 /**
@@ -210,12 +181,12 @@ export interface Hysteria2Config {
   server: string
   port: number
   auth: string
-  obfs: string
-  obfsPassword: string
   sni: string
   ports?: string
   allowInsecure: boolean
   pinSHA256: string
+  maxTx: string
+  maxRx: string
 }
 
 /**
@@ -240,6 +211,14 @@ export interface HTTPConfig {
   host: string
   port: number
   name: string
+  sni: string
+  allowInsecure: boolean
+  transport: boolean
+  transportHost: string
+  transportPath: string
+  tlsImplementation: 'tls' | 'utls'
+  alpn: string
+  utlsImitate: string
 }
 
 /**
@@ -276,6 +255,7 @@ export interface GenerateHysteria2URLParams {
   host: string
   port: number
   params: Record<string, string | number | boolean>
+  hash?: string
 }
 
 /**
