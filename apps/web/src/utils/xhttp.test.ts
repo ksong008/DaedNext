@@ -1,6 +1,7 @@
 import {
   buildSupportedXhttpExtra,
   validateXhttpDownloadSettingsRaw,
+  validateXhttpExtraRaw,
   validateXhttpFormFields,
   validateXhttpXmuxRaw,
 } from './xhttp'
@@ -28,15 +29,46 @@ it('buildSupportedXhttpExtra emits only resident-supported xhttp extra fields', 
   expect(
     buildSupportedXhttpExtra({
       xhttpMode: 'packet-up',
+      xhttpExtra: JSON.stringify({
+        headers: { 'X-Test': '1' },
+        xPaddingBytes: '100-200',
+        xPaddingObfsMode: true,
+        xPaddingPlacement: 'header',
+        xPaddingMethod: 'tokenish',
+        uplinkHTTPMethod: 'GET',
+        sessionIDPlacement: 'header',
+        sessionIDKey: 'X-Session',
+        sessionIDTable: 'Base62',
+        sessionIDLength: { from: 8, to: 12 },
+        seqPlacement: 'query',
+        noGRPCHeader: true,
+        scStreamUpServerSecs: '20-30',
+        serverMaxHeaderBytes: 8192,
+      }),
       downloadSettingsRaw: DOWNLOAD_SETTINGS,
-      xmuxRaw: '{"maxConcurrency":"-1","hMaxReusableSecs":"9-3"}',
+      xmuxRaw: '{"maxConcurrency":"-1","hMaxReusableSecs":"9-3","hKeepAlivePeriod":15}',
     }),
   ).toBe(
     JSON.stringify({
+      headers: { 'X-Test': '1' },
+      xPaddingBytes: '100-200',
+      xPaddingObfsMode: true,
+      xPaddingPlacement: 'header',
+      xPaddingMethod: 'tokenish',
+      uplinkHTTPMethod: 'GET',
+      sessionIDPlacement: 'header',
+      sessionIDKey: 'X-Session',
+      sessionIDTable: 'Base62',
+      sessionIDLength: { from: 8, to: 12 },
+      seqPlacement: 'query',
+      noGRPCHeader: true,
+      scStreamUpServerSecs: '20-30',
+      serverMaxHeaderBytes: 8192,
       downloadSettings: JSON.parse(DOWNLOAD_SETTINGS),
       xmux: {
         maxConcurrency: '-1',
         hMaxReusableSecs: '9-3',
+        hKeepAlivePeriod: 15,
       },
     }),
   )
@@ -56,13 +88,14 @@ it('buildSupportedXhttpExtra does not emit unsupported raw xhttp json', () => {
   expect(
     buildSupportedXhttpExtra({
       xhttpMode: 'packet-up',
+      xhttpExtra: '{"unknown":true}',
       downloadSettingsRaw: '{"xPaddingBytes":"100-200"}',
-      xmuxRaw: '{"hKeepAlivePeriod":15}',
+      xmuxRaw: '{"unsupported":15}',
     }),
   ).toBe('')
 })
 
-it('validateXhttpXmuxRaw accepts official signed and reversed ranges', () => {
+it('validateXhttpXmuxRaw accepts official signed ranges and hKeepAlivePeriod', () => {
   expect(
     validateXhttpXmuxRaw(
       JSON.stringify({
@@ -70,16 +103,41 @@ it('validateXhttpXmuxRaw accepts official signed and reversed ranges', () => {
         cMaxReuseTimes: '',
         hMaxRequestTimes: '-5--3',
         hMaxReusableSecs: '9-3',
+        hKeepAlivePeriod: '15',
       }),
     ),
   ).toBeNull()
 })
 
 it('validateXhttpXmuxRaw blocks unsupported xmux fields and official conflicts', () => {
-  expect(validateXhttpXmuxRaw('{"hKeepAlivePeriod":15}')).toContain('unsupported fields')
+  expect(validateXhttpXmuxRaw('{"unsupported":15}')).toContain('unsupported fields')
   expect(validateXhttpXmuxRaw('{"maxConcurrency":8,"maxConnections":2}')).toContain(
     'cannot set maxConnections together with maxConcurrency',
   )
+})
+
+it('validateXhttpExtraRaw follows resident extended settings admission', () => {
+  expect(
+    validateXhttpExtraRaw(
+      JSON.stringify({
+        headers: { 'X-Test': '1' },
+        xPaddingBytes: '1-2',
+        sessionIDPlacement: 'cookie',
+        sessionIDKey: 'x_session',
+        seqPlacement: 'query',
+        uplinkDataPlacement: 'header',
+        noGRPCHeader: true,
+        noSSEHeader: true,
+        scMaxEachPostBytes: { from: 1024, to: 2048 },
+        scMinPostsIntervalMs: '10-20',
+        scMaxBufferedPosts: '3',
+        scStreamUpServerSecs: '20-30',
+        serverMaxHeaderBytes: 8192,
+        xmux: { hKeepAlivePeriod: 15 },
+      }),
+    ),
+  ).toBeNull()
+  expect(validateXhttpExtraRaw('{"sessionPlacement":"header"}')).toContain('unsupported fields')
 })
 
 it('validateXhttpDownloadSettingsRaw follows resident downloadSettings admission', () => {
@@ -94,12 +152,36 @@ it('validateXhttpDownloadSettingsRaw follows resident downloadSettings admission
         security: 'tls',
         xhttpSettings: {
           path: '/down',
+          xPaddingBytes: '1-2',
+          sessionIDPlacement: 'header',
+          seqPlacement: 'query',
+          noGRPCHeader: true,
           xmux: { maxConnections: 2 },
           extra: JSON.stringify({ xmux: { maxConnections: 4 } }),
         },
       }),
     ),
-  ).toContain('cannot contain xmux in both xmux and extra.xmux')
+  ).toBeNull()
+  expect(
+    validateXhttpDownloadSettingsRaw(
+      JSON.stringify({
+        address: 'download.example.com',
+        port: 443,
+        network: 'xhttp',
+        security: 'reality',
+        realitySettings: {
+          serverName: 'download.example.com',
+          alpn: ['h2'],
+          publicKey: 'public-key',
+          shortId: 'abcd',
+          spiderX: '/',
+        },
+        xhttpSettings: {
+          path: '/down',
+        },
+      }),
+    ),
+  ).toBeNull()
 })
 
 it('validateXhttpFormFields hides stream-one downloadSettings instead of blocking hidden state', () => {

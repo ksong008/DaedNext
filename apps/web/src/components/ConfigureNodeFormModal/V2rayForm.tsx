@@ -456,6 +456,16 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
               }}
             />
 
+            <div className="space-y-2">
+              <label className="text-sm font-medium">XHTTP Extra JSON</label>
+              <Textarea
+                value={formValues.xhttpExtra}
+                aria-invalid={!!errors.xhttpExtra}
+                onChange={(e) => setValue('xhttpExtra', e.target.value)}
+              />
+              {errors.xhttpExtra?.message && <p className="text-xs text-destructive">{errors.xhttpExtra.message}</p>}
+            </div>
+
             {formValues.xhttpMode !== 'stream-one' && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">DownloadSettings JSON</label>

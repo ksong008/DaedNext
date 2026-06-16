@@ -1,4 +1,4 @@
-export type XhttpValidationPath = 'xhttpMode' | 'downloadSettingsRaw' | 'xmuxRaw' | 'alpn'
+export type XhttpValidationPath = 'xhttpMode' | 'xhttpExtra' | 'downloadSettingsRaw' | 'xmuxRaw' | 'alpn'
 
 export interface XhttpValidationIssue {
   path: XhttpValidationPath
@@ -7,6 +7,25 @@ export interface XhttpValidationIssue {
 
 export interface XhttpExtraInput {
   xhttpMode?: string
+  xhttpExtra?: string
+  xPaddingBytes?: string
+  xPaddingObfsMode?: boolean
+  xPaddingKey?: string
+  xPaddingHeader?: string
+  xPaddingPlacement?: string
+  xPaddingMethod?: string
+  noSSEHeader?: boolean
+  scMaxEachPostBytes?: string
+  scMinPostsIntervalMs?: string
+  scMaxBufferedPosts?: number
+  uplinkHTTPMethod?: string
+  sessionPlacement?: string
+  sessionKey?: string
+  seqPlacement?: string
+  seqKey?: string
+  uplinkDataPlacement?: string
+  uplinkDataKey?: string
+  uplinkChunkSize?: string
   downloadSettingsRaw?: string
   xmuxRaw?: string
 }
@@ -26,13 +45,78 @@ const DOWNLOAD_SETTINGS_KEYS = [
   'network',
   'security',
   'tlsSettings',
+  'realitySettings',
   'xhttpSettings',
   'splithttpSettings',
 ]
+const XHTTP_SETTINGS_KEYS = [
+  'host',
+  'path',
+  'mode',
+  'headers',
+  'xPaddingBytes',
+  'xPaddingObfsMode',
+  'xPaddingKey',
+  'xPaddingHeader',
+  'xPaddingPlacement',
+  'xPaddingMethod',
+  'uplinkHTTPMethod',
+  'sessionIDPlacement',
+  'sessionIDKey',
+  'sessionIDTable',
+  'sessionIDLength',
+  'seqPlacement',
+  'seqKey',
+  'uplinkDataPlacement',
+  'uplinkDataKey',
+  'uplinkChunkSize',
+  'noGRPCHeader',
+  'noSSEHeader',
+  'scMaxEachPostBytes',
+  'scMinPostsIntervalMs',
+  'scMaxBufferedPosts',
+  'scStreamUpServerSecs',
+  'serverMaxHeaderBytes',
+  'xmux',
+  'downloadSettings',
+  'extra',
+]
 const TLS_SETTINGS_KEYS = ['allowInsecure', 'serverName', 'alpn']
-const DOWNLOAD_TRANSPORT_KEYS = ['host', 'path', 'mode', 'extra', 'xmux']
-const NESTED_EXTRA_KEYS = ['xmux']
-const XMUX_KEYS = ['maxConcurrency', 'maxConnections', 'cMaxReuseTimes', 'hMaxRequestTimes', 'hMaxReusableSecs']
+const REALITY_SETTINGS_KEYS = ['allowInsecure', 'serverName', 'alpn', 'publicKey', 'shortId', 'spiderX']
+const DOWNLOAD_TRANSPORT_KEYS = XHTTP_SETTINGS_KEYS
+const XMUX_KEYS = [
+  'maxConcurrency',
+  'maxConnections',
+  'cMaxReuseTimes',
+  'hMaxRequestTimes',
+  'hMaxReusableSecs',
+  'hKeepAlivePeriod',
+]
+const XHTTP_RANGE_KEYS = [
+  'xPaddingBytes',
+  'sessionIDLength',
+  'uplinkChunkSize',
+  'scMaxEachPostBytes',
+  'scMinPostsIntervalMs',
+  'scStreamUpServerSecs',
+]
+const XHTTP_STRING_KEYS = [
+  'host',
+  'path',
+  'xPaddingKey',
+  'xPaddingHeader',
+  'sessionIDKey',
+  'sessionIDTable',
+  'seqKey',
+  'uplinkDataKey',
+]
+const XHTTP_BOOL_KEYS = ['xPaddingObfsMode', 'noGRPCHeader', 'noSSEHeader']
+const PADDING_PLACEMENTS = new Set(['', 'queryInHeader', 'cookie', 'header', 'query'])
+const PADDING_METHODS = new Set(['', 'repeat-x', 'tokenish'])
+const META_PLACEMENTS = new Set(['', 'path', 'cookie', 'header', 'query'])
+const UPLINK_DATA_PLACEMENTS = new Set(['', 'auto', 'body', 'cookie', 'header'])
+const INVALID_HEADER_NAME_PATTERN = /[\r\n:]/
+const INVALID_HEADER_VALUE_PATTERN = /[\r\n]/
 const INTEGER_PATTERN = /^[+-]?\d+$/
 const I32_MIN = -2147483648
 const I32_MAX = 2147483647
@@ -156,6 +240,17 @@ function parsedRangeTo(range: ReturnType<typeof parseOptionalRange>): number {
   return range.ok ? range.value?.[1] || 0 : 0
 }
 
+function validateOptionalInteger(value: unknown, label: string): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) ? null : `${label} must be an integer`
+  }
+  if (typeof value === 'string') {
+    return INTEGER_PATTERN.test(value.trim()) ? null : `${label} must be an integer`
+  }
+  return `${label} must be an integer`
+}
+
 function validateXmuxValue(value: unknown, label: string): string | null {
   if (value === undefined || value === null) return null
   if (!isJsonObject(value)) return `${label} must be a JSON object`
@@ -181,6 +276,9 @@ function validateXmuxValue(value: unknown, label: string): string | null {
     return `${label} cannot set maxConnections together with maxConcurrency`
   }
 
+  const hKeepAlivePeriod = validateOptionalInteger(value.hKeepAlivePeriod, `${label}.hKeepAlivePeriod`)
+  if (hKeepAlivePeriod) return hKeepAlivePeriod
+
   return null
 }
 
@@ -192,7 +290,7 @@ export function validateXhttpXmuxRaw(raw: string): string | null {
   return validateXmuxValue(parsed.value, 'xmux')
 }
 
-function validateAlpnValue(value: unknown, label: string): string | null {
+function validateAlpnValue(value: unknown, label: string, reality = false): string | null {
   if (value === undefined || value === null) return null
   let alpn: string[]
   if (typeof value === 'string') {
@@ -208,7 +306,7 @@ function validateAlpnValue(value: unknown, label: string): string | null {
   } else {
     return `${label} must be a string or string array`
   }
-  return validateSupportedAlpn(alpn, label, false)
+  return validateSupportedAlpn(alpn, label, reality)
 }
 
 function validateSupportedAlpn(alpn: string[], label: string, reality: boolean): string | null {
@@ -242,60 +340,198 @@ function validateTlsSettings(value: unknown): string | null {
   return validateAlpnValue(value.alpn, 'downloadSettings.tlsSettings.alpn')
 }
 
-function validateNestedExtra(value: unknown, label: string): string | null {
+function validateRealitySettings(value: unknown): string | null {
+  if (value === undefined || value === null) return null
+  if (!isJsonObject(value)) return 'downloadSettings.realitySettings must be a JSON object'
+
+  const unsupported = unsupportedFieldsMessage('downloadSettings.realitySettings', value, REALITY_SETTINGS_KEYS)
+  if (unsupported) return unsupported
+
+  for (const key of ['serverName', 'publicKey', 'shortId', 'spiderX']) {
+    if (value[key] !== undefined && value[key] !== null && typeof value[key] !== 'string') {
+      return `downloadSettings.realitySettings.${key} must be a string`
+    }
+  }
+  if (value.allowInsecure !== undefined && value.allowInsecure !== null && typeof value.allowInsecure !== 'boolean') {
+    return 'downloadSettings.realitySettings.allowInsecure must be a boolean'
+  }
+  return validateAlpnValue(value.alpn, 'downloadSettings.realitySettings.alpn', true)
+}
+
+function parseSettingsExtra(value: unknown, label: string): JsonObject | string | null {
   if (value === undefined || value === null) return null
 
-  let object: JsonObject
   if (typeof value === 'string') {
     if (!value.trim()) return null
     const parsed = parseJson(value)
     if (!parsed.ok) return `${label} JSON is invalid: ${parsed.message}`
     if (!isJsonObject(parsed.value)) return `${label} must be a JSON object`
-    object = parsed.value
-  } else if (isJsonObject(value)) {
-    object = value
-  } else {
-    return `${label} must be a JSON object or JSON string`
+    return parsed.value
+  }
+  if (isJsonObject(value)) return value
+  return `${label} must be a JSON object or JSON string`
+}
+
+function validateStringFields(object: JsonObject, fields: string[], label: string): string | null {
+  for (const field of fields) {
+    if (object[field] !== undefined && object[field] !== null && typeof object[field] !== 'string') {
+      return `${label}.${field} must be a string`
+    }
+  }
+  return null
+}
+
+function validateBoolFields(object: JsonObject, fields: string[], label: string): string | null {
+  for (const field of fields) {
+    if (object[field] !== undefined && object[field] !== null && typeof object[field] !== 'boolean') {
+      return `${label}.${field} must be a boolean`
+    }
+  }
+  return null
+}
+
+function validateHeadersValue(value: unknown, label: string): string | null {
+  if (value === undefined || value === null) return null
+  if (!isJsonObject(value)) return `${label}.headers must be a JSON object`
+
+  for (const [name, headerValue] of Object.entries(value)) {
+    if (name.toLowerCase() === 'host') return `${label}.headers cannot contain host`
+    if (name.trim() === '' || INVALID_HEADER_NAME_PATTERN.test(name)) {
+      return `${label}.headers contains an invalid header name`
+    }
+    if (typeof headerValue !== 'string') return `${label}.headers.${name} must be a string`
+    if (INVALID_HEADER_VALUE_PATTERN.test(headerValue)) return `${label}.headers.${name} contains invalid line breaks`
+  }
+  return null
+}
+
+function validatePlacement(value: unknown, label: string, allowed: Set<string>): string | null {
+  if (value === undefined || value === null) return null
+  if (typeof value !== 'string') return `${label} must be a string`
+  return allowed.has(value) ? null : `${label} is not supported`
+}
+
+function validateXhttpSettingsObject(
+  object: JsonObject,
+  label: string,
+  options: { validateDownloadSettings: boolean },
+): string | null {
+  const unsupported = unsupportedFieldsMessage(label, object, XHTTP_SETTINGS_KEYS)
+  if (unsupported) return unsupported
+
+  const strings = validateStringFields(object, XHTTP_STRING_KEYS, label)
+  if (strings) return strings
+
+  const bools = validateBoolFields(object, XHTTP_BOOL_KEYS, label)
+  if (bools) return bools
+
+  const headers = validateHeadersValue(object.headers, label)
+  if (headers) return headers
+
+  if (object.mode !== undefined && object.mode !== null) {
+    if (typeof object.mode !== 'string') return `${label}.mode must be a string`
+    if (!isSupportedXhttpMode(object.mode)) return `${label}.mode is not supported`
   }
 
-  const unsupported = unsupportedFieldsMessage(label, object, NESTED_EXTRA_KEYS)
-  if (unsupported) return unsupported
-  return validateXmuxValue(object.xmux, `${label}.xmux`)
+  const xPaddingPlacement = validatePlacement(
+    object.xPaddingPlacement,
+    `${label}.xPaddingPlacement`,
+    PADDING_PLACEMENTS,
+  )
+  if (xPaddingPlacement) return xPaddingPlacement
+
+  const xPaddingMethod = validatePlacement(object.xPaddingMethod, `${label}.xPaddingMethod`, PADDING_METHODS)
+  if (xPaddingMethod) return xPaddingMethod
+
+  for (const key of ['sessionIDPlacement', 'seqPlacement']) {
+    const placement = validatePlacement(object[key], `${label}.${key}`, META_PLACEMENTS)
+    if (placement) return placement
+  }
+
+  const uplinkDataPlacement = validatePlacement(
+    object.uplinkDataPlacement,
+    `${label}.uplinkDataPlacement`,
+    UPLINK_DATA_PLACEMENTS,
+  )
+  if (uplinkDataPlacement) return uplinkDataPlacement
+
+  if (object.uplinkHTTPMethod !== undefined && object.uplinkHTTPMethod !== null) {
+    if (typeof object.uplinkHTTPMethod !== 'string') return `${label}.uplinkHTTPMethod must be a string`
+    const method = object.uplinkHTTPMethod.trim().toUpperCase()
+    if (method !== 'GET' && method !== 'POST') return `${label}.uplinkHTTPMethod must be GET or POST`
+  }
+
+  for (const key of XHTTP_RANGE_KEYS) {
+    const parsed = parseOptionalRange(object[key], `${label}.${key}`)
+    if (!parsed.ok) return parsed.message
+    if (key === 'xPaddingBytes' && parsed.value && (parsed.value[0] || parsed.value[1])) {
+      if (parsed.value[0] <= 0 || parsed.value[1] <= 0) {
+        return `${label}.xPaddingBytes cannot be disabled`
+      }
+    }
+  }
+
+  const scMaxBufferedPosts = validateOptionalInteger(object.scMaxBufferedPosts, `${label}.scMaxBufferedPosts`)
+  if (scMaxBufferedPosts) return scMaxBufferedPosts
+
+  if (object.serverMaxHeaderBytes !== undefined && object.serverMaxHeaderBytes !== null) {
+    const parsed = parseI32Value(object.serverMaxHeaderBytes, `${label}.serverMaxHeaderBytes`)
+    if (!parsed.ok) return parsed.message
+    if (parsed.value < 0) return `${label}.serverMaxHeaderBytes rejects negative values`
+  }
+
+  const xmux = validateXmuxValue(object.xmux, `${label}.xmux`)
+  if (xmux) return xmux
+
+  if (options.validateDownloadSettings) {
+    const downloadSettings = validateXhttpDownloadSettingsValue(object.downloadSettings, `${label}.downloadSettings`)
+    if (downloadSettings) return downloadSettings
+  }
+
+  const extra = parseSettingsExtra(object.extra, `${label}.extra`)
+  if (typeof extra === 'string') return extra
+  if (extra) return validateXhttpSettingsObject(extra, `${label}.extra`, options)
+
+  return null
 }
 
 function validateDownloadTransportSettings(settings: JsonObject, label: string): string | null {
   const unsupported = unsupportedFieldsMessage(label, settings, DOWNLOAD_TRANSPORT_KEYS)
   if (unsupported) return unsupported
+  return validateXhttpSettingsObject(settings, label, { validateDownloadSettings: false })
+}
 
-  if (settings.host !== undefined && settings.host !== null && typeof settings.host !== 'string') {
-    return `${label}.host must be a string`
-  }
-  if (settings.path !== undefined && settings.path !== null && typeof settings.path !== 'string') {
-    return `${label}.path must be a string`
-  }
-  if (settings.mode !== undefined && settings.mode !== null) {
-    if (typeof settings.mode !== 'string') return `${label}.mode must be a string`
-    if (!isSupportedXhttpMode(settings.mode)) return `${label}.mode is not supported`
-  }
+function validateXhttpDownloadSettingsValue(value: unknown, label: string): string | null {
+  if (value === undefined || value === null) return null
+  if (!isJsonObject(value)) return `${label} must be a JSON object`
 
-  const directXmux = validateXmuxValue(settings.xmux, `${label}.xmux`)
-  if (directXmux) return directXmux
-  const nestedXmux = validateNestedExtra(settings.extra, `${label}.extra`)
-  if (nestedXmux) return nestedXmux
-  if (
-    settings.xmux !== undefined &&
-    settings.xmux !== null &&
-    settings.extra !== undefined &&
-    settings.extra !== null
-  ) {
-    const extra =
-      typeof settings.extra === 'string' ? parseJson(settings.extra) : { ok: true as const, value: settings.extra }
-    if (extra.ok && isJsonObject(extra.value) && extra.value.xmux !== undefined && extra.value.xmux !== null) {
-      return `${label} cannot contain xmux in both xmux and extra.xmux`
-    }
-  }
+  const unsupported = unsupportedFieldsMessage(label, value, DOWNLOAD_SETTINGS_KEYS)
+  if (unsupported) return unsupported
 
-  return null
+  if (typeof value.address !== 'string' || value.address.trim() === '') {
+    return `${label}.address is required`
+  }
+  if (typeof value.port !== 'number' || !Number.isInteger(value.port) || value.port < 1 || value.port > 65535) {
+    return `${label}.port must be an integer in 1..=65535`
+  }
+  if (typeof value.network !== 'string' || !['xhttp', 'splithttp'].includes(value.network.trim().toLowerCase())) {
+    return `${label}.network must be xhttp or splithttp`
+  }
+  if (typeof value.security !== 'string') return `${label}.security must be tls or reality`
+  const security = value.security.trim().toLowerCase()
+  if (security !== 'tls' && security !== 'reality') return `${label}.security must be tls or reality`
+
+  const tlsSettings = validateTlsSettings(value.tlsSettings)
+  if (tlsSettings) return tlsSettings
+  const realitySettings = validateRealitySettings(value.realitySettings)
+  if (realitySettings) return realitySettings
+
+  const selectedKey = hasOwn(value, 'xhttpSettings') ? 'xhttpSettings' : 'splithttpSettings'
+  const selected = value[selectedKey]
+  if (!isJsonObject(selected)) {
+    return `${label}.${selectedKey} must be a JSON object`
+  }
+  return validateDownloadTransportSettings(selected, `${label}.${selectedKey}`)
 }
 
 export function validateXhttpDownloadSettingsRaw(raw: string): string | null {
@@ -306,32 +542,17 @@ export function validateXhttpDownloadSettingsRaw(raw: string): string | null {
   if (!parsed.ok) return `DownloadSettings JSON is invalid: ${parsed.message}`
   if (!isJsonObject(parsed.value)) return 'DownloadSettings must be a JSON object'
 
-  const value = parsed.value
-  const unsupported = unsupportedFieldsMessage('downloadSettings', value, DOWNLOAD_SETTINGS_KEYS)
-  if (unsupported) return unsupported
+  return validateXhttpDownloadSettingsValue(parsed.value, 'downloadSettings')
+}
 
-  if (typeof value.address !== 'string' || value.address.trim() === '') {
-    return 'downloadSettings.address is required'
-  }
-  if (typeof value.port !== 'number' || !Number.isInteger(value.port) || value.port < 1 || value.port > 65535) {
-    return 'downloadSettings.port must be an integer in 1..=65535'
-  }
-  if (typeof value.network !== 'string' || !['xhttp', 'splithttp'].includes(value.network.trim().toLowerCase())) {
-    return 'downloadSettings.network must be xhttp or splithttp'
-  }
-  if (typeof value.security !== 'string' || value.security.trim().toLowerCase() !== 'tls') {
-    return 'downloadSettings.security must be tls'
-  }
+export function validateXhttpExtraRaw(raw: string): string | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
 
-  const tlsSettings = validateTlsSettings(value.tlsSettings)
-  if (tlsSettings) return tlsSettings
-
-  const selectedKey = hasOwn(value, 'xhttpSettings') ? 'xhttpSettings' : 'splithttpSettings'
-  const selected = value[selectedKey]
-  if (!isJsonObject(selected)) {
-    return `downloadSettings.${selectedKey} must be a JSON object`
-  }
-  return validateDownloadTransportSettings(selected, `downloadSettings.${selectedKey}`)
+  const parsed = parseJson(trimmed)
+  if (!parsed.ok) return `XHTTP Extra JSON is invalid: ${parsed.message}`
+  if (!isJsonObject(parsed.value)) return 'XHTTP Extra must be a JSON object'
+  return validateXhttpSettingsObject(parsed.value, 'XHTTP Extra', { validateDownloadSettings: true })
 }
 
 export function validateXhttpFormFields(data: XhttpValidationInput): XhttpValidationIssue[] {
@@ -341,6 +562,8 @@ export function validateXhttpFormFields(data: XhttpValidationInput): XhttpValida
   if (!isSupportedXhttpMode(mode)) {
     issues.push({ path: 'xhttpMode', message: 'XHTTP mode is not supported' })
   }
+  const xhttpExtra = validateXhttpExtraRaw(data.xhttpExtra || '')
+  if (xhttpExtra) issues.push({ path: 'xhttpExtra', message: xhttpExtra })
   if (mode !== 'stream-one') {
     const downloadSettings = validateXhttpDownloadSettingsRaw(data.downloadSettingsRaw || '')
     if (downloadSettings) issues.push({ path: 'downloadSettingsRaw', message: downloadSettings })
@@ -358,9 +581,51 @@ export function validateXhttpFormFields(data: XhttpValidationInput): XhttpValida
   return issues
 }
 
+function assignString(object: JsonObject, key: string, value: string | undefined): void {
+  const trimmed = value?.trim() || ''
+  if (trimmed) object[key] = trimmed
+}
+
+function buildStructuredXhttpSettings(data: XhttpExtraInput): JsonObject {
+  const extra: JsonObject = {}
+
+  assignString(extra, 'xPaddingBytes', data.xPaddingBytes)
+  if (data.xPaddingObfsMode) extra.xPaddingObfsMode = true
+  assignString(extra, 'xPaddingKey', data.xPaddingKey)
+  assignString(extra, 'xPaddingHeader', data.xPaddingHeader)
+  assignString(extra, 'xPaddingPlacement', data.xPaddingPlacement)
+  assignString(extra, 'xPaddingMethod', data.xPaddingMethod)
+  if (data.noSSEHeader) extra.noSSEHeader = true
+  assignString(extra, 'scMaxEachPostBytes', data.scMaxEachPostBytes)
+  assignString(extra, 'scMinPostsIntervalMs', data.scMinPostsIntervalMs)
+  if (typeof data.scMaxBufferedPosts === 'number' && data.scMaxBufferedPosts > 0) {
+    extra.scMaxBufferedPosts = data.scMaxBufferedPosts
+  }
+  assignString(extra, 'uplinkHTTPMethod', data.uplinkHTTPMethod)
+  assignString(extra, 'sessionIDPlacement', data.sessionPlacement)
+  assignString(extra, 'sessionIDKey', data.sessionKey)
+  assignString(extra, 'seqPlacement', data.seqPlacement)
+  assignString(extra, 'seqKey', data.seqKey)
+  assignString(extra, 'uplinkDataPlacement', data.uplinkDataPlacement)
+  assignString(extra, 'uplinkDataKey', data.uplinkDataKey)
+  assignString(extra, 'uplinkChunkSize', data.uplinkChunkSize)
+
+  return extra
+}
+
 export function buildSupportedXhttpExtra(data: XhttpExtraInput): string {
   const extra: JsonObject = {}
   const mode = normalizeMode(data.xhttpMode)
+
+  const rawExtra = data.xhttpExtra?.trim() || ''
+  if (rawExtra && !validateXhttpExtraRaw(rawExtra)) {
+    const parsed = parseJson(rawExtra)
+    if (parsed.ok && isJsonObject(parsed.value)) {
+      Object.assign(extra, parsed.value)
+    }
+  }
+
+  Object.assign(extra, buildStructuredXhttpSettings(data))
 
   if (mode !== 'stream-one') {
     const downloadRaw = data.downloadSettingsRaw?.trim() || ''

@@ -67,7 +67,9 @@ describe('parseSSUrl', () => {
   })
 
   it('should parse SS2022 URL with plain userinfo', () => {
-    const result = parseSSUrl('ss://2022-blake3-aes-128-gcm:%2BmPWWGB%2F%2FPLkjgiXVeWszg%3D%3D@example.com:8388#my-ss2022')
+    const result = parseSSUrl(
+      'ss://2022-blake3-aes-128-gcm:%2BmPWWGB%2F%2FPLkjgiXVeWszg%3D%3D@example.com:8388#my-ss2022',
+    )
     expect(result).toMatchObject({
       type: 'ss2022',
       method: '2022-blake3-aes-128-gcm',
@@ -79,7 +81,9 @@ describe('parseSSUrl', () => {
   })
 
   it('should parse SS2022 chacha20 URL with plain userinfo', () => {
-    const result = parseSSUrl('ss://2022-blake3-chacha20-poly1305:MTIzNDU2Nzg5MDEyMzQ1NjEyMzQ1Njc4OTAxMjM0NTY%3D@example.com:8388#my-ss2022')
+    const result = parseSSUrl(
+      'ss://2022-blake3-chacha20-poly1305:MTIzNDU2Nzg5MDEyMzQ1NjEyMzQ1Njc4OTAxMjM0NTY%3D@example.com:8388#my-ss2022',
+    )
     expect(result).toMatchObject({
       type: 'ss2022',
       method: '2022-blake3-chacha20-poly1305',
@@ -300,7 +304,8 @@ describe('parseV2rayUrl', () => {
         xPaddingPlacement: 'header',
         xPaddingMethod: 'tokenish',
         uplinkHTTPMethod: 'PUT',
-        sessionPlacement: 'header',
+        sessionIDPlacement: 'header',
+        sessionIDKey: 'X-Session',
         seqPlacement: 'query',
         uplinkDataPlacement: 'cookie',
         uplinkDataKey: 'x_data',
@@ -332,6 +337,7 @@ describe('parseV2rayUrl', () => {
       xPaddingMethod: 'tokenish',
       uplinkHTTPMethod: 'PUT',
       sessionPlacement: 'header',
+      sessionKey: 'X-Session',
       seqPlacement: 'query',
       uplinkDataPlacement: 'cookie',
       uplinkDataKey: 'x_data',
@@ -342,6 +348,7 @@ describe('parseV2rayUrl', () => {
 
     expect(result?.downloadSettingsRaw).toContain('"address": "example.net"')
     expect(result?.xmuxRaw).toContain('"maxConcurrency": "8-16"')
+    expect(result?.xhttpExtra).toContain('sessionIDPlacement')
   })
 
   it('should keep xhttp mode out of grpc mode for form validation', () => {
