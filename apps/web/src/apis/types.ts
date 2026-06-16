@@ -307,6 +307,21 @@ export interface RuntimeOverviewRuntimeState {
   lastTransitionAt?: string | null
   reloadCount?: number
   stopCount?: number
+  residentDataplane?: {
+    metrics?: {
+      resources?: {
+        manualProbe?: {
+          concurrency?: {
+            value?: number
+            source?: string
+            default?: number
+            min?: number
+            max?: number
+          }
+        }
+      }
+    }
+  }
 }
 
 export interface TrafficOverviewQueryData {
