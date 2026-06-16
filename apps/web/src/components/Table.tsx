@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '~/components/ui/button'
@@ -29,6 +29,22 @@ interface Props<T> {
   rowExpansion?: DataTableRowExpansionProps<T>
 }
 
+type ResolvedDataTableColumn<T> = DataTableColumn<T> & {
+  accessorParts: readonly string[]
+}
+
+function getNestedValue(obj: Record<string, unknown>, pathParts: readonly string[]): unknown {
+  let current: unknown = obj
+
+  for (const part of pathParts) {
+    if (!current || typeof current !== 'object') return undefined
+
+    current = (current as Record<string, unknown>)[part]
+  }
+
+  return current
+}
+
 export function Table<Data extends Record<string, unknown>>({
   fetching,
   columns,
@@ -44,6 +60,14 @@ export function Table<Data extends Record<string, unknown>>({
   const [opened, setOpened] = useState(false)
   const [removing, setRemoving] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<number>>(() => new Set())
+  const resolvedColumns = useMemo<ResolvedDataTableColumn<Data>[]>(
+    () =>
+      columns.map((column) => ({
+        ...column,
+        accessorParts: column.accessor.split('.'),
+      })),
+    [columns],
+  )
 
   const toggleRowSelection = (record: Data, index: number) => {
     if (isRecordSelectable && !isRecordSelectable(record, index)) return
@@ -71,16 +95,6 @@ export function Table<Data extends Record<string, unknown>>({
 
       return newSet
     })
-  }
-
-  const getNestedValue = (obj: Record<string, unknown>, path: string): unknown => {
-    return path.split('.').reduce((acc: unknown, part: string) => {
-      if (acc && typeof acc === 'object') {
-        return (acc as Record<string, unknown>)[part]
-      }
-
-      return undefined
-    }, obj)
   }
 
   return (
@@ -125,7 +139,7 @@ export function Table<Data extends Record<string, unknown>>({
                     }}
                   />
                 </th>
-                {columns.map((col, idx) => (
+                {resolvedColumns.map((col, idx) => (
                   <th
                     key={idx}
                     className={cn(
@@ -178,7 +192,7 @@ export function Table<Data extends Record<string, unknown>>({
                             onCheckedChange={() => toggleRowSelection(record, index)}
                           />
                         </td>
-                        {columns.map((col, colIdx) => (
+                        {resolvedColumns.map((col, colIdx) => (
                           <td
                             key={colIdx}
                             className={cn(
@@ -189,7 +203,7 @@ export function Table<Data extends Record<string, unknown>>({
                           >
                             {col.render
                               ? col.render(record, index)
-                              : String(getNestedValue(record, col.accessor) ?? '')}
+                              : String(getNestedValue(record, col.accessorParts) ?? '')}
                           </td>
                         ))}
                       </tr>

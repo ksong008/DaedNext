@@ -210,11 +210,15 @@ export function OrchestratePage() {
     }
   }, [manualLatencyProbeOverrides, nodeLatenciesQuery.data])
   const lastLatencyProbeAt = useMemo(() => {
-    const testedAtList = Object.values(nodeLatencies)
-      .map((item) => item.testedAt)
-      .filter(Boolean)
-      .sort()
-    return testedAtList.at(-1) ?? null
+    let latestTestedAt: string | null = null
+
+    for (const item of Object.values(nodeLatencies)) {
+      if (item.testedAt && (!latestTestedAt || item.testedAt > latestTestedAt)) {
+        latestTestedAt = item.testedAt
+      }
+    }
+
+    return latestTestedAt
   }, [nodeLatencies])
   const totalNodeCount = useMemo(() => {
     const nodeIds = new Set<string>()
@@ -232,11 +236,16 @@ export function OrchestratePage() {
     return nodeIds.size
   }, [nodes, subscriptions])
   const minLatencyMs = useMemo(() => {
-    const latencies = Object.values(nodeLatencies)
-      .map((result) => result.latencyMs)
-      .filter((latency): latency is number => typeof latency === 'number' && Number.isFinite(latency))
+    let minLatencyMs: number | undefined
 
-    return latencies.length > 0 ? Math.min(...latencies) : undefined
+    for (const result of Object.values(nodeLatencies)) {
+      const { latencyMs } = result
+      if (typeof latencyMs !== 'number' || !Number.isFinite(latencyMs)) continue
+
+      minLatencyMs = minLatencyMs === undefined ? latencyMs : Math.min(minLatencyMs, latencyMs)
+    }
+
+    return minLatencyMs
   }, [nodeLatencies])
 
   const mergeNodeLatencyResults = useCallback(
