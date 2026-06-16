@@ -86,7 +86,7 @@ function generateV2rayLink(data: V2rayFormValues): string {
 
   if (protocol === 'vless') {
     const params: Record<string, unknown> = {
-      type: net,
+      type: net === 'h2' ? 'http' : net,
       security: tls,
       host,
       headerType: type,
@@ -143,12 +143,14 @@ function generateV2rayLink(data: V2rayFormValues): string {
 
     switch (body.net) {
       case 'ws':
+      case 'h2':
       case 'httpupgrade':
       case 'grpc':
         break
       default:
         body.path = ''
     }
+    if (body.net === 'h2') body.net = 'http'
 
     delete body.flow
     delete body.mux
@@ -403,6 +405,8 @@ function generateHysteria2Link(data: Hysteria2FormValues): string {
   const query = {
     sni: data.sni,
     ports: data.ports || '',
+    obfs: data.obfs,
+    'obfs-password': data.obfs === 'salamander' ? data.obfsPassword : '',
     pinSHA256: data.pinSHA256,
     maxTx: data.maxTx,
     maxRx: data.maxRx,

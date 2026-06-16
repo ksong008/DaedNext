@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { FormActions } from '~/components/FormActions'
 import { Input } from '~/components/ui/input'
 import { NumberInput } from '~/components/ui/number-input'
+import { Select } from '~/components/ui/select'
 import { DEFAULT_HYSTERIA2_FORM_VALUES, hysteria2Schema } from '~/constants'
 import { useNodeForm } from '~/hooks'
 
@@ -16,6 +17,8 @@ function generateHysteria2Link(data: Hysteria2FormValues): string {
   const query = {
     sni: data.sni,
     ports: data.ports || '',
+    obfs: data.obfs,
+    'obfs-password': data.obfs === 'salamander' ? data.obfsPassword : '',
     pinSHA256: data.pinSHA256,
     maxTx: data.maxTx,
     maxRx: data.maxRx,
@@ -69,6 +72,27 @@ export function Hysteria2Form({ onLinkGeneration, initialValues, actionsPortal }
         onChange={(e) => setValue('ports', e.target.value)}
       />
       <Input label="Auth" withAsterisk value={formValues.auth} onChange={(e) => setValue('auth', e.target.value)} />
+      <Select
+        label="Obfs"
+        data={[
+          { label: 'none', value: '' },
+          { label: 'salamander', value: 'salamander' },
+        ]}
+        value={formValues.obfs || ''}
+        onChange={(val) => {
+          const obfs = (val || '') as Hysteria2FormValues['obfs']
+          setValue('obfs', obfs)
+          if (obfs === '') setValue('obfsPassword', '')
+        }}
+      />
+      {formValues.obfs === 'salamander' && (
+        <Input
+          label={t('configureNode.obfsPassword')}
+          withAsterisk
+          value={formValues.obfsPassword}
+          onChange={(e) => setValue('obfsPassword', e.target.value)}
+        />
+      )}
       <Input label="SNI" value={formValues.sni} onChange={(e) => setValue('sni', e.target.value)} />
       <Input
         label="Pin SHA256"
