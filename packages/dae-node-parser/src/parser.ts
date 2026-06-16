@@ -13,6 +13,9 @@ import type {
 
 import { Base64 } from 'js-base64'
 
+const TRAILING_SLASH_PATTERN = /\/$/
+const BASE64_CONTENT_PATTERN = /^[A-Z0-9+/=]+$/i
+
 /**
  * Parse HTTP/HTTPS protocol URL
  * Format: http://[username:password@]host:port#name
@@ -124,7 +127,7 @@ export function parseSSUrl(url: string): Partial<SSConfig> | null {
       }
 
       // Remove trailing slash if present
-      const cleanHostPort = hostPortPart.replace(/\/$/, '')
+      const cleanHostPort = hostPortPart.replace(TRAILING_SLASH_PATTERN, '')
       const colonIndex = cleanHostPort.lastIndexOf(':')
 
       if (colonIndex === -1) {
@@ -240,7 +243,7 @@ export function parseSSRUrl(url: string): Partial<SSRConfig> | null {
     }
 
     // Server might contain ':' in IPv6
-    const password = Base64.decode(parts[parts.length - 1])
+    const password = Base64.decode(parts.at(-1))
     const obfs = parts[parts.length - 2]
     const method = parts[parts.length - 3]
     const proto = parts[parts.length - 4]
@@ -462,7 +465,7 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
     const mainContent = hashIndex !== -1 ? content.slice(0, hashIndex) : content
 
     // If content contains @ and doesn't look like base64, try URL format first
-    if (mainContent.includes('@') && !mainContent.match(/^[A-Z0-9+/=]+$/i)) {
+    if (mainContent.includes('@') && !BASE64_CONTENT_PATTERN.test(mainContent)) {
       const result = parseVMessStandardUrl(url)
 
       if (result) {
@@ -491,8 +494,8 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         sni: config.sni || '',
         alpn: config.alpn || '',
         fp: config.fp || '',
-      scy: config.scy || 'auto',
-      allowInsecure: config.allowInsecure === true || config.allowInsecure === 1 || config.allowInsecure === '1',
+        scy: config.scy || 'auto',
+        allowInsecure: config.allowInsecure === true || config.allowInsecure === 1 || config.allowInsecure === '1',
         flow: config.flow || 'none',
         v: config.v || '',
         // Reality fields (usually not in legacy format but support anyway)
@@ -659,7 +662,10 @@ function parseXhttpExtra(extraRaw: string): Partial<V2rayConfig> {
     const extra = JSON.parse(extraRaw) as Record<string, unknown>
     return {
       ...defaults,
-      xPaddingBytes: typeof extra.xPaddingBytes === 'string' ? extra.xPaddingBytes : '',
+      xPaddingBytes:
+        typeof extra.xPaddingBytes === 'string' || typeof extra.xPaddingBytes === 'number'
+          ? String(extra.xPaddingBytes)
+          : '',
       xPaddingObfsMode: extra.xPaddingObfsMode === true,
       xPaddingKey: typeof extra.xPaddingKey === 'string' ? extra.xPaddingKey : '',
       xPaddingHeader: typeof extra.xPaddingHeader === 'string' ? extra.xPaddingHeader : '',
@@ -676,8 +682,18 @@ function parseXhttpExtra(extraRaw: string): Partial<V2rayConfig> {
           : '',
       scMaxBufferedPosts: typeof extra.scMaxBufferedPosts === 'number' ? extra.scMaxBufferedPosts : 0,
       uplinkHTTPMethod: typeof extra.uplinkHTTPMethod === 'string' ? extra.uplinkHTTPMethod : '',
-      sessionPlacement: typeof extra.sessionPlacement === 'string' ? extra.sessionPlacement : '',
-      sessionKey: typeof extra.sessionKey === 'string' ? extra.sessionKey : '',
+      sessionPlacement:
+        typeof extra.sessionIDPlacement === 'string'
+          ? extra.sessionIDPlacement
+          : typeof extra.sessionPlacement === 'string'
+            ? extra.sessionPlacement
+            : '',
+      sessionKey:
+        typeof extra.sessionIDKey === 'string'
+          ? extra.sessionIDKey
+          : typeof extra.sessionKey === 'string'
+            ? extra.sessionKey
+            : '',
       seqPlacement: typeof extra.seqPlacement === 'string' ? extra.seqPlacement : '',
       seqKey: typeof extra.seqKey === 'string' ? extra.seqKey : '',
       uplinkDataPlacement: typeof extra.uplinkDataPlacement === 'string' ? extra.uplinkDataPlacement : '',
