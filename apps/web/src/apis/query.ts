@@ -44,7 +44,7 @@ import { useAPIClient } from '~/contexts'
 
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
-import { buildAPIURL, normalizeEndpointURL } from './client'
+import { buildEventStreamURL, subscribeEventStream } from './event_stream'
 import { resolveNodeTransport } from './node_transport'
 import { adaptRuntimeOverview, mergeRuntimeOverviewDelta } from './runtime_overview'
 
@@ -209,19 +209,17 @@ function trafficOverviewQueryKey(windowSec: number, maxPoints: number) {
   return [...QUERY_KEY_TRAFFIC, windowSec, maxPoints]
 }
 
-function buildRuntimeEventsURL(endpointURL: string, token: string, windowSec: number, maxPoints: number) {
-  return buildAPIURL(normalizeEndpointURL(endpointURL), '/events/runtime', {
+export function buildRuntimeEventsURL(endpointURL: string, windowSec: number, maxPoints: number) {
+  return buildEventStreamURL(endpointURL, '/events/runtime', {
     windowSec,
     maxPoints,
-    access_token: token,
   }).toString()
 }
 
-export function buildLogEventsURL(endpointURL: string, token: string, level: string, query: string) {
-  return buildAPIURL(normalizeEndpointURL(endpointURL), '/events/logs', {
+export function buildLogEventsURL(endpointURL: string, level: string, query: string) {
+  return buildEventStreamURL(endpointURL, '/events/logs', {
     level,
     q: query,
-    access_token: token,
   }).toString()
 }
 
@@ -309,11 +307,11 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   const token = useStore(tokenAtom)
   const [isStreamLive, setIsStreamLive] = useState(false)
   const queryEnabled = isMockMode() || !!token
-  const streamEnabled = !isMockMode() && !!token && typeof EventSource !== 'undefined'
+  const streamEnabled = !isMockMode() && !!token && typeof fetch !== 'undefined'
   const queryKey = useMemo(() => trafficOverviewQueryKey(windowSec, maxPoints), [windowSec, maxPoints])
   const streamURL = useMemo(
-    () => (streamEnabled ? buildRuntimeEventsURL(endpointURL, token, windowSec, maxPoints) : null),
-    [endpointURL, maxPoints, streamEnabled, token, windowSec],
+    () => (streamEnabled ? buildRuntimeEventsURL(endpointURL, windowSec, maxPoints) : null),
+    [endpointURL, maxPoints, streamEnabled, windowSec],
   )
 
   useEffect(() => {
@@ -324,19 +322,18 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
 
     setIsStreamLive(false)
 
-    const eventSource = new EventSource(streamURL)
-    const handleOverview = (event: MessageEvent) => {
+    const handleOverview = (data: string) => {
       try {
-        const payload = JSON.parse(event.data) as RuntimeOverviewAPI
+        const payload = JSON.parse(data) as RuntimeOverviewAPI
         queryClient.setQueryData(queryKey, adaptRuntimeOverview(payload))
         setIsStreamLive(true)
       } catch {
         setIsStreamLive(false)
       }
     }
-    const handleOverviewDelta = (event: MessageEvent) => {
+    const handleOverviewDelta = (data: string) => {
       try {
-        const payload = JSON.parse(event.data) as RuntimeOverviewAPI
+        const payload = JSON.parse(data) as RuntimeOverviewAPI
         queryClient.setQueryData<TrafficOverviewQueryData>(queryKey, (previousData) =>
           mergeRuntimeOverviewDelta(previousData, payload, windowSec, maxPoints),
         )
@@ -349,18 +346,25 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
       setIsStreamLive(false)
     }
 
-    eventSource.addEventListener('runtime.overview', handleOverview as EventListener)
-    eventSource.addEventListener('runtime.overview.delta', handleOverviewDelta as EventListener)
-    eventSource.addEventListener('runtime.error', handleStreamError)
-    eventSource.onerror = handleStreamError
+    const unsubscribe = subscribeEventStream({
+      url: streamURL,
+      token,
+      onMessage(message) {
+        if (message.event === 'runtime.overview') {
+          handleOverview(message.data)
+        } else if (message.event === 'runtime.overview.delta') {
+          handleOverviewDelta(message.data)
+        } else if (message.event === 'runtime.error') {
+          handleStreamError()
+        }
+      },
+      onError: handleStreamError,
+    })
 
     return () => {
-      eventSource.removeEventListener('runtime.overview', handleOverview as EventListener)
-      eventSource.removeEventListener('runtime.overview.delta', handleOverviewDelta as EventListener)
-      eventSource.removeEventListener('runtime.error', handleStreamError)
-      eventSource.close()
+      unsubscribe()
     }
-  }, [maxPoints, queryClient, queryKey, streamURL, windowSec])
+  }, [maxPoints, queryClient, queryKey, streamURL, token, windowSec])
 
   return useQuery({
     queryKey,

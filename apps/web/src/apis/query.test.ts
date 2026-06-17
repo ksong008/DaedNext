@@ -180,20 +180,22 @@ describe('mergeRuntimeOverviewDelta', () => {
 describe('buildLogEventsURL', () => {
   it('uses stable API level values instead of localized display labels', async () => {
     const buildLogEventsURL = await loadBuildLogEventsURL()
-    const url = buildLogEventsURL('http://127.0.0.1:2023', 'token', 'all', '')
+    const url = buildLogEventsURL('http://127.0.0.1:2023', 'all', '')
     const parsed = new URL(url)
 
     expect(parsed.pathname).toBe('/api/events/logs')
     expect(parsed.searchParams.get('level')).toBe('all')
+    expect(parsed.searchParams.has('access_token')).toBe(false)
     expect(parsed.toString()).not.toContain('%E5%85%A8%E9%83%A8')
   })
 
   it('keeps concrete runtime levels as API values', async () => {
     const buildLogEventsURL = await loadBuildLogEventsURL()
-    const url = buildLogEventsURL('http://127.0.0.1:2023', 'token', 'debug', 'runtime')
+    const url = buildLogEventsURL('http://127.0.0.1:2023', 'debug', 'runtime')
     const parsed = new URL(url)
 
     expect(parsed.searchParams.get('level')).toBe('debug')
     expect(parsed.searchParams.get('q')).toBe('runtime')
+    expect(parsed.searchParams.has('access_token')).toBe(false)
   })
 })
