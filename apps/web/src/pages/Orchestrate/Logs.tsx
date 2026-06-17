@@ -12,6 +12,7 @@ import {
   useSetRuntimeLogLevelMutation,
   useUpdateLogSettingsMutation,
 } from '~/apis'
+import { subscribeEventStream } from '~/apis/event_stream'
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
@@ -180,8 +181,8 @@ export function LogResource() {
   }, [searchDraft])
 
   const streamURL = useMemo(() => {
-    if (isMockMode() || !token || typeof EventSource === 'undefined') return null
-    return buildLogEventsURL(endpointURL, token, queryLevel, appliedSearch)
+    if (isMockMode() || !token || typeof fetch === 'undefined') return null
+    return buildLogEventsURL(endpointURL, queryLevel, appliedSearch)
   }, [appliedSearch, endpointURL, queryLevel, token])
 
   useEffect(() => {
@@ -206,10 +207,9 @@ export function LogResource() {
       flushFrameRef.current = window.requestAnimationFrame(flushPendingEntries)
     }
 
-    const eventSource = new EventSource(streamURL)
-    const handleEntry = (event: MessageEvent) => {
+    const handleEntry = (data: string) => {
       try {
-        const entry = JSON.parse(event.data) as LogEntry
+        const entry = JSON.parse(data) as LogEntry
         if (!logEntryMatchesFilter(entry, queryLevel, appliedSearch)) return
         if (knownEntryIdsRef.current.has(entry.id)) return
         knownEntryIdsRef.current.add(entry.id)
@@ -220,17 +220,25 @@ export function LogResource() {
       }
     }
 
-    eventSource.addEventListener('log.entry', handleEntry as EventListener)
+    const unsubscribe = subscribeEventStream({
+      url: streamURL,
+      token,
+      onMessage(message) {
+        if (message.event === 'log.entry') {
+          handleEntry(message.data)
+        }
+      },
+    })
+
     return () => {
-      eventSource.removeEventListener('log.entry', handleEntry as EventListener)
-      eventSource.close()
+      unsubscribe()
       pendingEntriesRef.current = []
       if (flushFrameRef.current !== null) {
         window.cancelAnimationFrame(flushFrameRef.current)
         flushFrameRef.current = null
       }
     }
-  }, [appliedSearch, queryLevel, streamURL])
+  }, [appliedSearch, queryLevel, streamURL, token])
 
   useLayoutEffect(() => {
     if (!autoScroll || !logViewportRef.current) return

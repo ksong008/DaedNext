@@ -63,7 +63,7 @@ describe('aPI client', () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe('http://127.0.0.1:2023/api/auth/status')
   })
 
-  it('builds SSE-compatible API URLs with query parameters', async () => {
+  it('builds event API URLs with query parameters', async () => {
     vi.stubGlobal('location', {
       protocol: 'http:',
       hostname: '127.0.0.1',
@@ -73,12 +73,9 @@ describe('aPI client', () => {
     const url = buildAPIURL('http://127.0.0.1:2023/api', '/events/runtime', {
       windowSec: 600,
       maxPoints: 240,
-      access_token: 'test-token',
     })
 
-    expect(url.toString()).toBe(
-      'http://127.0.0.1:2023/api/events/runtime?windowSec=600&maxPoints=240&access_token=test-token',
-    )
+    expect(url.toString()).toBe('http://127.0.0.1:2023/api/events/runtime?windowSec=600&maxPoints=240')
   })
 
   it('reports static WebUI handler responses as endpoint errors', async () => {
