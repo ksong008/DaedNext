@@ -89,8 +89,8 @@ catalog:
   react-hook-form: ^7.72.1
   react-i18next: ^17.0.2
   react-resizable-panels: ^4.9.0
-  react-router: ^7.14.0
-  react-router-dom: ^7.14.0
+  react-router: ^7.15.0
+  react-router-dom: ^7.15.0
   recharts: 3.8.1
   shiki: ^4.0.2
   simple-git: ^3.33.0
@@ -123,8 +123,8 @@ overrides:
   ajv@>=8.0.0 <8.18.0: '>=8.18.0'
   brace-expansion@<1.1.13: '>=1.1.13'
   brace-expansion@>=2.0.0 <2.0.3: '>=2.0.3'
-  brace-expansion@>=5.0.0 <5.0.5: '>=5.0.5'
-  dompurify@<3.3.2: '>=3.3.2'
+  brace-expansion@>=5.0.0 <5.0.6: '>=5.0.6'
+  dompurify@<3.4.8: '>=3.4.8'
   markdown-it@<14.1.1: '>=14.1.1'
   minimatch@<3.1.4: '>=3.1.4'
   minimatch@>=10.0.0 <10.2.3: '>=10.2.3'
