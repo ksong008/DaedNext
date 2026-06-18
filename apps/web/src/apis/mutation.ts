@@ -1,3 +1,5 @@
+import type { QueryClient } from '@tanstack/react-query'
+
 import type {
   ConfigPreviewResult,
   DAEBundle,
@@ -11,26 +13,14 @@ import type {
   Policy,
   PolicyParam,
 } from './types'
-
 import type { MODE } from '~/constants'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  QUERY_KEY_CONFIG,
-  QUERY_KEY_DNS,
-  QUERY_KEY_GENERAL,
-  QUERY_KEY_GROUP,
-  QUERY_KEY_LOG,
-  QUERY_KEY_NODE,
-  QUERY_KEY_ROUTING,
-  QUERY_KEY_STORAGE,
-  QUERY_KEY_SUBSCRIPTION,
-  QUERY_KEY_USER,
-} from '~/constants'
 
 import { useAPIClient } from '~/contexts'
 import { toID, toNumericID } from './client'
 import { adaptNodeLatencyJob, adaptNodeLatencyProbeResults } from './query'
+import { invalidateQueryKeys, webQueryKeys } from './query_cache'
 
 interface CountResponse {
   updated?: number
@@ -63,6 +53,102 @@ interface NodeImportListResponse {
     error?: string | null
     node?: { id: number } | null
   }>
+}
+
+function invalidateDefaultResourceSetup(queryClient: QueryClient) {
+  return invalidateQueryKeys(queryClient, [
+    webQueryKeys.config.summary(),
+    webQueryKeys.config.expanded(),
+    webQueryKeys.dns.summary(),
+    webQueryKeys.dns.expanded(),
+    webQueryKeys.routing.summary(),
+    webQueryKeys.routing.expanded(),
+    webQueryKeys.group.summary(),
+    webQueryKeys.group.expanded(),
+    webQueryKeys.general.state(),
+    webQueryKeys.storage(),
+  ])
+}
+
+function invalidateImportedProductGraph(queryClient: QueryClient) {
+  return invalidateQueryKeys(queryClient, [
+    webQueryKeys.config.summary(),
+    webQueryKeys.config.expanded(),
+    webQueryKeys.config.item(),
+    webQueryKeys.dns.summary(),
+    webQueryKeys.dns.expanded(),
+    webQueryKeys.routing.summary(),
+    webQueryKeys.routing.expanded(),
+    webQueryKeys.group.summary(),
+    webQueryKeys.group.expanded(),
+    webQueryKeys.node.list(),
+    webQueryKeys.subscription.summary(),
+    webQueryKeys.subscription.expanded(),
+    webQueryKeys.general.state(),
+    webQueryKeys.storage(),
+    webQueryKeys.user(),
+  ])
+}
+
+function invalidateConfigResource(
+  queryClient: QueryClient,
+  {
+    allItems = false,
+    expanded = true,
+    generalState = false,
+    itemId,
+  }: {
+    allItems?: boolean
+    expanded?: boolean
+    generalState?: boolean
+    itemId?: string | null
+  } = {},
+) {
+  return invalidateQueryKeys(queryClient, [
+    webQueryKeys.config.summary(),
+    ...(expanded ? [webQueryKeys.config.expanded()] : []),
+    ...(allItems || itemId !== undefined ? [webQueryKeys.config.item(itemId)] : []),
+    ...(generalState ? [webQueryKeys.general.state()] : []),
+  ])
+}
+
+function invalidateRoutingResource(queryClient: QueryClient, { generalState = false } = {}) {
+  return invalidateQueryKeys(queryClient, [
+    webQueryKeys.routing.summary(),
+    webQueryKeys.routing.expanded(),
+    ...(generalState ? [webQueryKeys.general.state()] : []),
+  ])
+}
+
+function invalidateDNSResource(queryClient: QueryClient, { generalState = false } = {}) {
+  return invalidateQueryKeys(queryClient, [
+    webQueryKeys.dns.summary(),
+    webQueryKeys.dns.expanded(),
+    ...(generalState ? [webQueryKeys.general.state()] : []),
+  ])
+}
+
+function invalidateGroupResource(queryClient: QueryClient, { generalState = false } = {}) {
+  return invalidateQueryKeys(queryClient, [
+    webQueryKeys.group.summary(),
+    webQueryKeys.group.expanded(),
+    ...(generalState ? [webQueryKeys.general.state()] : []),
+  ])
+}
+
+function invalidateNodeResource(queryClient: QueryClient, { generalState = false } = {}) {
+  return invalidateQueryKeys(queryClient, [
+    webQueryKeys.node.list(),
+    ...(generalState ? [webQueryKeys.general.state()] : []),
+  ])
+}
+
+function invalidateSubscriptionResource(queryClient: QueryClient, { generalState = false } = {}) {
+  return invalidateQueryKeys(queryClient, [
+    webQueryKeys.subscription.summary(),
+    webQueryKeys.subscription.expanded(),
+    ...(generalState ? [webQueryKeys.general.state()] : []),
+  ])
 }
 
 export function useSetJsonStorageMutation() {
@@ -142,12 +228,7 @@ export function useEnsureDefaultResourcesMutation() {
       return ensured
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_STORAGE })
+      void invalidateDefaultResourceSetup(queryClient)
     },
   })
 }
@@ -170,7 +251,7 @@ export function useCreateConfigMutation() {
       return toID(resource.id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
+      void invalidateConfigResource(queryClient, { generalState: true })
     },
   })
 }
@@ -184,9 +265,8 @@ export function useUpdateConfigMutation() {
       const resource = await apiClient.put<ResourceWithID>(`/configs/${id}`, { global, parsedGlobal })
       return toID(resource.id)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+    onSuccess: (_result, { id }) => {
+      void invalidateConfigResource(queryClient, { generalState: true, itemId: id })
     },
   })
 }
@@ -226,15 +306,7 @@ export function useImportDAEBundleMutation() {
       return apiClient.put<{ imported: boolean }>('/user/me/dae-bundle', bundle)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_STORAGE })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
+      void invalidateImportedProductGraph(queryClient)
     },
   })
 }
@@ -266,15 +338,7 @@ export function useImportDAEConfigFileMutation() {
       return apiClient.put<DAEConfigFileImportResult>('/user/me/dae-config-file', { filename, namePrefix, content })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_STORAGE })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
+      void invalidateImportedProductGraph(queryClient)
     },
   })
 }
@@ -309,8 +373,8 @@ export function useRemoveConfigMutation() {
     mutationFn: async (id: string) => {
       await apiClient.delete(`/configs/${id}`)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
+    onSuccess: (_result, id) => {
+      void invalidateConfigResource(queryClient, { generalState: true, itemId: id })
     },
   })
 }
@@ -324,8 +388,7 @@ export function useSelectConfigMutation() {
       await apiClient.post(`/configs/${id}/select`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateConfigResource(queryClient, { allItems: true, generalState: true })
     },
   })
 }
@@ -338,8 +401,8 @@ export function useRenameConfigMutation() {
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       await apiClient.put(`/configs/${id}`, { name })
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
+    onSuccess: (_result, { id }) => {
+      void invalidateConfigResource(queryClient, { itemId: id })
     },
   })
 }
@@ -354,7 +417,7 @@ export function useCreateRoutingMutation() {
       return toID(resource.id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
+      void invalidateRoutingResource(queryClient, { generalState: true })
     },
   })
 }
@@ -369,8 +432,7 @@ export function useUpdateRoutingMutation() {
       return toID(resource.id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateRoutingResource(queryClient, { generalState: true })
     },
   })
 }
@@ -384,8 +446,7 @@ export function useRemoveRoutingMutation() {
       await apiClient.delete(`/routings/${id}`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateRoutingResource(queryClient, { generalState: true })
     },
   })
 }
@@ -399,8 +460,7 @@ export function useSelectRoutingMutation() {
       await apiClient.post(`/routings/${id}/select`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateRoutingResource(queryClient, { generalState: true })
     },
   })
 }
@@ -414,8 +474,7 @@ export function useRenameRoutingMutation() {
       await apiClient.put(`/routings/${id}`, { name })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_ROUTING })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateRoutingResource(queryClient, { generalState: true })
     },
   })
 }
@@ -430,7 +489,7 @@ export function useCreateDNSMutation() {
       return toID(resource.id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
+      void invalidateDNSResource(queryClient, { generalState: true })
     },
   })
 }
@@ -445,8 +504,7 @@ export function useUpdateDNSMutation() {
       return toID(resource.id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateDNSResource(queryClient, { generalState: true })
     },
   })
 }
@@ -460,7 +518,7 @@ export function useRemoveDNSMutation() {
       await apiClient.delete(`/dns/${id}`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
+      void invalidateDNSResource(queryClient, { generalState: true })
     },
   })
 }
@@ -474,8 +532,7 @@ export function useSelectDNSMutation() {
       await apiClient.post(`/dns/${id}/select`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateDNSResource(queryClient, { generalState: true })
     },
   })
 }
@@ -489,7 +546,7 @@ export function useRenameDNSMutation() {
       await apiClient.put(`/dns/${id}`, { name })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_DNS })
+      void invalidateDNSResource(queryClient)
     },
   })
 }
@@ -512,7 +569,7 @@ export function useCreateGroupMutation() {
       return toID(resource.id)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      void invalidateGroupResource(queryClient, { generalState: true })
     },
   })
 }
@@ -526,7 +583,7 @@ export function useRemoveGroupMutation() {
       await apiClient.delete(`/groups/${id}`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      void invalidateGroupResource(queryClient, { generalState: true })
     },
   })
 }
@@ -540,10 +597,7 @@ export function useGroupSetPolicyMutation() {
       await apiClient.put(`/groups/${id}`, { policy, policyParams })
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
-      ])
+      await invalidateGroupResource(queryClient, { generalState: true })
     },
   })
 }
@@ -557,10 +611,7 @@ export function useRenameGroupMutation() {
       await apiClient.put(`/groups/${id}`, { name })
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
-      ])
+      await invalidateGroupResource(queryClient, { generalState: true })
     },
   })
 }
@@ -574,10 +625,7 @@ export function useGroupAddNodesMutation() {
       await apiClient.post(`/groups/${id}/nodes`, { nodeIds: nodeIDs.map(toNumericID) })
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
-      ])
+      await invalidateGroupResource(queryClient, { generalState: true })
     },
   })
 }
@@ -591,10 +639,7 @@ export function useGroupDelNodesMutation() {
       await apiClient.delete(`/groups/${id}/nodes`, { nodeIds: nodeIDs.map(toNumericID) })
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
-      ])
+      await invalidateGroupResource(queryClient, { generalState: true })
     },
   })
 }
@@ -619,10 +664,7 @@ export function useGroupAddSubscriptionsMutation() {
       })
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
-      ])
+      await invalidateGroupResource(queryClient, { generalState: true })
     },
   })
 }
@@ -636,10 +678,7 @@ export function useGroupDelSubscriptionsMutation() {
       await apiClient.delete(`/groups/${id}/subscriptions`, { subscriptionIds: subscriptionIDs.map(toNumericID) })
     },
     onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP }),
-        queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL }),
-      ])
+      await invalidateGroupResource(queryClient, { generalState: true })
     },
   })
 }
@@ -661,7 +700,7 @@ export function useImportNodesMutation() {
       }))
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
+      void invalidateNodeResource(queryClient, { generalState: true })
     },
   })
 }
@@ -676,9 +715,12 @@ export function useRemoveNodesMutation() {
       return result.removed
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_CONFIG })
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.node.list(),
+        webQueryKeys.group.summary(),
+        webQueryKeys.group.expanded(),
+        webQueryKeys.general.state(),
+      ])
     },
   })
 }
@@ -703,9 +745,12 @@ export function useUpdateNodeMutation() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.node.list(),
+        webQueryKeys.group.summary(),
+        webQueryKeys.group.expanded(),
+        webQueryKeys.general.state(),
+      ])
     },
   })
 }
@@ -737,7 +782,7 @@ export function useImportSubscriptionsMutation() {
         }),
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
+      void invalidateSubscriptionResource(queryClient, { generalState: true })
     },
   })
 }
@@ -755,9 +800,13 @@ export function useUpdateSubscriptionsMutation() {
         }),
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.subscription.summary(),
+        webQueryKeys.subscription.expanded(),
+        webQueryKeys.group.summary(),
+        webQueryKeys.group.expanded(),
+        webQueryKeys.general.state(),
+      ])
     },
   })
 }
@@ -790,9 +839,13 @@ export function useRemoveSubscriptionsMutation() {
       return result.removed
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.subscription.summary(),
+        webQueryKeys.subscription.expanded(),
+        webQueryKeys.group.summary(),
+        webQueryKeys.group.expanded(),
+        webQueryKeys.general.state(),
+      ])
     },
   })
 }
@@ -807,7 +860,7 @@ export function useReloadRuntimeMutation() {
       return result.applied
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateQueryKeys(queryClient, [webQueryKeys.general.state()])
     },
   })
 }
@@ -822,7 +875,7 @@ export function useStopRuntimeMutation() {
       return result.stopped
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GENERAL })
+      void invalidateQueryKeys(queryClient, [webQueryKeys.general.state()])
     },
   })
 }
@@ -836,7 +889,7 @@ export function useSetRuntimeLogLevelMutation() {
       return apiClient.patch<{ level: string }>('/runtime/log-level', { level })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_LOG })
+      void invalidateQueryKeys(queryClient, [webQueryKeys.log.runtimeLevel()])
     },
   })
 }
@@ -850,7 +903,7 @@ export function useClearLogsMutation() {
       return apiClient.delete<{ cleared: boolean }>('/logs')
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_LOG })
+      void invalidateQueryKeys(queryClient, [webQueryKeys.log.items()])
     },
   })
 }
@@ -864,7 +917,7 @@ export function useUpdateLogSettingsMutation() {
       return apiClient.patch<LogSettings>('/logs/settings', settings)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_LOG })
+      void invalidateQueryKeys(queryClient, [webQueryKeys.log.settings()])
     },
   })
 }
@@ -878,7 +931,7 @@ export function useUpdateAvatarMutation() {
       return apiClient.patch('/user/me', { avatar })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
+      void invalidateQueryKeys(queryClient, [webQueryKeys.user()])
     },
   })
 }
@@ -892,7 +945,7 @@ export function useUpdateNameMutation() {
       return apiClient.patch('/user/me', { name })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
+      void invalidateQueryKeys(queryClient, [webQueryKeys.user()])
     },
   })
 }
@@ -920,7 +973,7 @@ export function useUpdateUsernameMutation() {
       return apiClient.patch('/user/me', { username })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_USER })
+      void invalidateQueryKeys(queryClient, [webQueryKeys.user()])
     },
   })
 }
@@ -934,8 +987,11 @@ export function useTagNodeMutation() {
       await apiClient.put(`/nodes/${id}`, { tag })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.node.list(),
+        webQueryKeys.group.summary(),
+        webQueryKeys.group.expanded(),
+      ])
     },
   })
 }
@@ -949,8 +1005,12 @@ export function useTagSubscriptionMutation() {
       await apiClient.put(`/subscriptions/${id}`, { tag })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.subscription.summary(),
+        webQueryKeys.subscription.expanded(),
+        webQueryKeys.group.summary(),
+        webQueryKeys.group.expanded(),
+      ])
     },
   })
 }
@@ -974,8 +1034,12 @@ export function useUpdateSubscriptionLinkMutation() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_GROUP })
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.subscription.summary(),
+        webQueryKeys.subscription.expanded(),
+        webQueryKeys.group.summary(),
+        webQueryKeys.group.expanded(),
+      ])
     },
   })
 }
@@ -997,7 +1061,7 @@ export function useUpdateSubscriptionCronMutation() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEY_SUBSCRIPTION })
+      void invalidateSubscriptionResource(queryClient)
     },
   })
 }
