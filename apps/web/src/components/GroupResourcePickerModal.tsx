@@ -16,6 +16,12 @@ import {
 } from '~/components/ui/scrollable-dialog'
 import { cn } from '~/lib/utils'
 
+const PICKER_ITEM_WINDOW_SIZE = 80
+const SUBSCRIPTION_PREVIEW_GROUP_WINDOW_SIZE = 8
+const SUBSCRIPTION_PREVIEW_GROUP_WINDOW_INCREMENT = 8
+const SUBSCRIPTION_PREVIEW_NODE_WINDOW_SIZE = 64
+const SUBSCRIPTION_PREVIEW_NODE_WINDOW_INCREMENT = 64
+
 export interface GroupPickerItem {
   id: string
   title: string
@@ -55,6 +61,42 @@ interface SelectionDialogProps {
   onSubmit: (ids: string[]) => Promise<void>
 }
 
+function useWindowedItems<T>(items: T[], initialSize: number, resetKey: string) {
+  const [visibleCount, setVisibleCount] = useState(initialSize)
+
+  useEffect(() => {
+    setVisibleCount(initialSize)
+  }, [initialSize, resetKey])
+
+  const visibleItems = useMemo(() => items.slice(0, visibleCount), [items, visibleCount])
+
+  return {
+    visibleItems,
+    hasMore: visibleCount < items.length,
+    showMore: () => setVisibleCount((current) => Math.min(current + initialSize, items.length)),
+  }
+}
+
+function ExpandWindowButton({
+  visibleCount,
+  totalCount,
+  onClick,
+}: {
+  visibleCount: number
+  totalCount: number
+  onClick: () => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className="flex w-full justify-center pt-1">
+      <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={onClick}>
+        {t('actions.expand')} {visibleCount}/{totalCount}
+      </Button>
+    </div>
+  )
+}
+
 function SelectionDialog({
   opened,
   onClose,
@@ -92,6 +134,11 @@ function SelectionDialog({
         .some((value) => value!.toLowerCase().includes(normalizedQuery)),
     )
   }, [items, query])
+  const {
+    visibleItems: visibleFilteredItems,
+    hasMore: hasMoreFilteredItems,
+    showMore: showMoreFilteredItems,
+  } = useWindowedItems(filteredItems, PICKER_ITEM_WINDOW_SIZE, `${opened ? 'open' : 'closed'}:${resetKey}:${query}`)
 
   const selectedCount = selectedIds.length
   const isSubscriptionChipLayout = layout === 'subscription-chip'
@@ -135,101 +182,112 @@ function SelectionDialog({
 
           <div className="flex flex-wrap gap-2.5">
             {filteredItems.length > 0 ? (
-              filteredItems.map((item) => {
-                const checked = selectedIds.includes(item.id)
-                const tooltipLabel = [item.title, item.description, item.meta, item.latency].filter(Boolean).join('\n')
+              <>
+                {visibleFilteredItems.map((item) => {
+                  const checked = selectedIds.includes(item.id)
+                  const tooltipLabel = [item.title, item.description, item.meta, item.latency]
+                    .filter(Boolean)
+                    .join('\n')
 
-                return (
-                  <div
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={checked}
-                    title={tooltipLabel || undefined}
-                    className={cn(
-                      'cursor-pointer rounded-lg border transition-colors outline-none',
-                      'hover:border-primary/30 hover:bg-accent/40 focus-visible:border-primary/40',
-                      checked && 'border-primary bg-primary/5',
-                      isSubscriptionChipLayout
-                        ? 'inline-flex max-w-full items-center gap-2 px-3 py-2'
-                        : 'min-w-[240px] max-w-full flex-1 basis-[260px] p-3',
-                    )}
-                    onClick={() => toggleItem(item.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        toggleItem(item.id)
-                      }
-                    }}
-                  >
+                  return (
                     <div
-                      className={cn('flex min-w-0 gap-3', isSubscriptionChipLayout ? 'items-center' : 'items-start')}
+                      key={item.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={checked}
+                      title={tooltipLabel || undefined}
+                      className={cn(
+                        'cursor-pointer rounded-lg border transition-colors outline-none',
+                        'hover:border-primary/30 hover:bg-accent/40 focus-visible:border-primary/40',
+                        checked && 'border-primary bg-primary/5',
+                        isSubscriptionChipLayout
+                          ? 'inline-flex max-w-full items-center gap-2 px-3 py-2'
+                          : 'min-w-[240px] max-w-full flex-1 basis-[260px] p-3',
+                      )}
+                      onClick={() => toggleItem(item.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          toggleItem(item.id)
+                        }
+                      }}
                     >
-                      <Checkbox
-                        checked={checked}
-                        className={cn('shrink-0', !isSubscriptionChipLayout && 'mt-0.5')}
-                        onCheckedChange={() => toggleItem(item.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        onPointerDown={(e) => e.stopPropagation()}
-                      />
+                      <div
+                        className={cn('flex min-w-0 gap-3', isSubscriptionChipLayout ? 'items-center' : 'items-start')}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          className={cn('shrink-0', !isSubscriptionChipLayout && 'mt-0.5')}
+                          onCheckedChange={() => toggleItem(item.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        />
 
-                      {isSubscriptionChipLayout ? (
-                        <div className="flex min-w-0 items-center gap-2">
-                          <p className="max-w-[20rem] truncate text-sm font-medium">{item.title}</p>
-                          {item.meta && (
-                            <span
-                              className={cn(
-                                'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
-                                item.metaTone === 'primary'
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'bg-muted text-muted-foreground',
-                              )}
-                            >
-                              {item.meta}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="truncate text-sm font-medium">{item.title}</p>
-                              {item.badge}
-                            </div>
-
-                            {item.description && (
-                              <p className="mt-1 truncate text-xs text-muted-foreground">{item.description}</p>
-                            )}
+                        {isSubscriptionChipLayout ? (
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p className="max-w-[20rem] truncate text-sm font-medium">{item.title}</p>
                             {item.meta && (
-                              <p
+                              <span
                                 className={cn(
-                                  'mt-1 text-[11px]',
-                                  item.metaTone === 'primary' ? 'text-primary' : 'text-muted-foreground',
+                                  'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+                                  item.metaTone === 'primary'
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-muted text-muted-foreground',
                                 )}
                               >
                                 {item.meta}
-                              </p>
+                              </span>
                             )}
                           </div>
+                        ) : (
+                          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-sm font-medium">{item.title}</p>
+                                {item.badge}
+                              </div>
 
-                          {item.latency && (
-                            <span
-                              className={cn(
-                                'shrink-0 self-start rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none sm:mt-0.5',
-                                item.latencyTone === 'primary'
-                                  ? 'bg-primary/10 text-primary'
-                                  : 'bg-muted text-muted-foreground',
+                              {item.description && (
+                                <p className="mt-1 truncate text-xs text-muted-foreground">{item.description}</p>
                               )}
-                            >
-                              {item.latency}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                              {item.meta && (
+                                <p
+                                  className={cn(
+                                    'mt-1 text-[11px]',
+                                    item.metaTone === 'primary' ? 'text-primary' : 'text-muted-foreground',
+                                  )}
+                                >
+                                  {item.meta}
+                                </p>
+                              )}
+                            </div>
+
+                            {item.latency && (
+                              <span
+                                className={cn(
+                                  'shrink-0 self-start rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none sm:mt-0.5',
+                                  item.latencyTone === 'primary'
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'bg-muted text-muted-foreground',
+                                )}
+                              >
+                                {item.latency}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })
+                  )
+                })}
+                {hasMoreFilteredItems && (
+                  <ExpandWindowButton
+                    visibleCount={visibleFilteredItems.length}
+                    totalCount={filteredItems.length}
+                    onClick={showMoreFilteredItems}
+                  />
+                )}
+              </>
             ) : (
               <p className="py-10 text-center text-sm text-muted-foreground">
                 {query.trim() ? noResultsLabel : emptyLabel}
@@ -351,8 +409,14 @@ export function GroupAddSubscriptionsModal({
         .some((value) => value!.toLowerCase().includes(normalizedQuery)),
     )
   }, [items, query])
+  const {
+    visibleItems: visibleFilteredItems,
+    hasMore: hasMoreFilteredItems,
+    showMore: showMoreFilteredItems,
+  } = useWindowedItems(filteredItems, PICKER_ITEM_WINDOW_SIZE, `${opened ? 'open' : 'closed'}:${resetKey}:${query}`)
 
   const selectedItems = useMemo(() => items.filter((item) => selectedIds.includes(item.id)), [items, selectedIds])
+  const selectedIdsKey = selectedIds.join('\u0000')
 
   const trimmedRegex = nameFilterRegex.trim()
 
@@ -383,6 +447,18 @@ export function GroupAddSubscriptionsModal({
       }
     })
   }, [regexError, selectedItems, trimmedRegex])
+  const [visiblePreviewGroupCount, setVisiblePreviewGroupCount] = useState(SUBSCRIPTION_PREVIEW_GROUP_WINDOW_SIZE)
+  const [visiblePreviewNodeCountByItemId, setVisiblePreviewNodeCountByItemId] = useState<Record<string, number>>({})
+
+  useEffect(() => {
+    setVisiblePreviewGroupCount(SUBSCRIPTION_PREVIEW_GROUP_WINDOW_SIZE)
+    setVisiblePreviewNodeCountByItemId({})
+  }, [opened, resetKey, selectedIdsKey, trimmedRegex])
+
+  const visiblePreviewGroups = useMemo(
+    () => previewGroups.slice(0, visiblePreviewGroupCount),
+    [previewGroups, visiblePreviewGroupCount],
+  )
 
   const totalMatchedNodes = previewGroups.reduce((sum, group) => sum + group.matchedNodes.length, 0)
 
@@ -446,56 +522,65 @@ export function GroupAddSubscriptionsModal({
 
           <div className="flex flex-wrap gap-2.5">
             {filteredItems.length > 0 ? (
-              filteredItems.map((item) => {
-                const checked = selectedIds.includes(item.id)
-                const tooltipLabel = [item.title, item.description, item.meta].filter(Boolean).join('\n')
+              <>
+                {visibleFilteredItems.map((item) => {
+                  const checked = selectedIds.includes(item.id)
+                  const tooltipLabel = [item.title, item.description, item.meta].filter(Boolean).join('\n')
 
-                return (
-                  <div
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={checked}
-                    title={tooltipLabel || undefined}
-                    className={cn(
-                      'inline-flex max-w-full cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition-colors outline-none',
-                      'hover:border-primary/30 hover:bg-accent/40 focus-visible:border-primary/40',
-                      checked && 'border-primary bg-primary/5',
-                    )}
-                    onClick={() => toggleItem(item.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        toggleItem(item.id)
-                      }
-                    }}
-                  >
-                    <Checkbox
-                      checked={checked}
-                      className="shrink-0"
-                      onCheckedChange={() => toggleItem(item.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      onPointerDown={(e) => e.stopPropagation()}
-                    />
-
-                    <div className="flex min-w-0 items-center gap-2">
-                      <p className="max-w-[20rem] truncate text-sm font-medium">{item.title}</p>
-                      {item.meta && (
-                        <span
-                          className={cn(
-                            'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
-                            item.metaTone === 'primary'
-                              ? 'bg-primary/10 text-primary'
-                              : 'bg-muted text-muted-foreground',
-                          )}
-                        >
-                          {item.meta}
-                        </span>
+                  return (
+                    <div
+                      key={item.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={checked}
+                      title={tooltipLabel || undefined}
+                      className={cn(
+                        'inline-flex max-w-full cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 transition-colors outline-none',
+                        'hover:border-primary/30 hover:bg-accent/40 focus-visible:border-primary/40',
+                        checked && 'border-primary bg-primary/5',
                       )}
+                      onClick={() => toggleItem(item.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          toggleItem(item.id)
+                        }
+                      }}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        className="shrink-0"
+                        onCheckedChange={() => toggleItem(item.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                      />
+
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="max-w-[20rem] truncate text-sm font-medium">{item.title}</p>
+                        {item.meta && (
+                          <span
+                            className={cn(
+                              'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+                              item.metaTone === 'primary'
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted text-muted-foreground',
+                            )}
+                          >
+                            {item.meta}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )
-              })
+                  )
+                })}
+                {hasMoreFilteredItems && (
+                  <ExpandWindowButton
+                    visibleCount={visibleFilteredItems.length}
+                    totalCount={filteredItems.length}
+                    onClick={showMoreFilteredItems}
+                  />
+                )}
+              </>
             ) : (
               <p className="py-10 text-center text-sm text-muted-foreground">
                 {query.trim() ? t('groupPicker.noSearchResults') : t('groupPicker.noAvailableSubscriptions')}
@@ -539,39 +624,72 @@ export function GroupAddSubscriptionsModal({
               </p>
             ) : (
               <div className="mt-4 flex flex-col gap-3">
-                {previewGroups.map(({ item, matchedNodes }) => (
-                  <div key={item.id} className="rounded-lg border border-border/60 bg-background/40 p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium">{item.title}</p>
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                        {t('groupPicker.subscriptionPreviewMatchedCount', { count: matchedNodes.length })}
-                      </span>
-                    </div>
+                {visiblePreviewGroups.map(({ item, matchedNodes }) => {
+                  const visibleNodeCount =
+                    visiblePreviewNodeCountByItemId[item.id] ?? SUBSCRIPTION_PREVIEW_NODE_WINDOW_SIZE
+                  const visibleMatchedNodes = matchedNodes.slice(0, visibleNodeCount)
+                  const hasMoreMatchedNodes = visibleNodeCount < matchedNodes.length
 
-                    {matchedNodes.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {matchedNodes.map((node) => (
-                          <span
-                            key={node.id}
-                            className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
-                          >
-                            <NodeProtocolBadge
-                              protocol={node.protocol}
-                              transport={node.transport}
-                              compact
-                              className="max-w-[4.75rem] rounded-md"
-                            />
-                            <span className="max-w-[16rem] truncate">{node.title}</span>
-                          </span>
-                        ))}
+                  return (
+                    <div key={item.id} className="rounded-lg border border-border/60 bg-background/40 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium">{item.title}</p>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {t('groupPicker.subscriptionPreviewMatchedCount', { count: matchedNodes.length })}
+                        </span>
                       </div>
-                    ) : (
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        {t('groupPicker.subscriptionPreviewNoMatchForItem')}
-                      </p>
-                    )}
-                  </div>
-                ))}
+
+                      {matchedNodes.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {visibleMatchedNodes.map((node) => (
+                            <span
+                              key={node.id}
+                              className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
+                            >
+                              <NodeProtocolBadge
+                                protocol={node.protocol}
+                                transport={node.transport}
+                                compact
+                                className="max-w-[4.75rem] rounded-md"
+                              />
+                              <span className="max-w-[16rem] truncate">{node.title}</span>
+                            </span>
+                          ))}
+                          {hasMoreMatchedNodes && (
+                            <ExpandWindowButton
+                              visibleCount={visibleMatchedNodes.length}
+                              totalCount={matchedNodes.length}
+                              onClick={() =>
+                                setVisiblePreviewNodeCountByItemId((current) => ({
+                                  ...current,
+                                  [item.id]: Math.min(
+                                    visibleNodeCount + SUBSCRIPTION_PREVIEW_NODE_WINDOW_INCREMENT,
+                                    matchedNodes.length,
+                                  ),
+                                }))
+                              }
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          {t('groupPicker.subscriptionPreviewNoMatchForItem')}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+                {visiblePreviewGroupCount < previewGroups.length && (
+                  <ExpandWindowButton
+                    visibleCount={visiblePreviewGroups.length}
+                    totalCount={previewGroups.length}
+                    onClick={() =>
+                      setVisiblePreviewGroupCount((current) =>
+                        Math.min(current + SUBSCRIPTION_PREVIEW_GROUP_WINDOW_INCREMENT, previewGroups.length),
+                      )
+                    }
+                  />
+                )}
               </div>
             )}
           </div>
