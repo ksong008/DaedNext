@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
 import {
-  useConfigsQuery,
-  useDNSsQuery,
-  useRoutingsQuery,
+  useConfigSummariesQuery,
+  useDNSSummariesQuery,
+  useRoutingSummariesQuery,
   useSelectConfigMutation,
   useSelectDNSMutation,
   useSelectRoutingMutation,
@@ -47,9 +47,9 @@ export function ProfileSwitcher() {
   const profilesState = useStore(profilesAtom)
   const { profiles, currentProfileID } = profilesState
 
-  const { data: configsQuery } = useConfigsQuery()
-  const { data: routingsQuery } = useRoutingsQuery()
-  const { data: dnssQuery } = useDNSsQuery()
+  const { data: configsQuery } = useConfigSummariesQuery()
+  const { data: routingsQuery } = useRoutingSummariesQuery()
+  const { data: dnssQuery } = useDNSSummariesQuery()
 
   const selectConfigMutation = useSelectConfigMutation()
   const selectRoutingMutation = useSelectRoutingMutation()

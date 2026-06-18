@@ -43,6 +43,33 @@ describe('mock API client group resource mutations', () => {
     expect(jobResponse.job?.status).toBe('finished')
   })
 
+  it('serves lightweight section and group summaries without full resource expansion', async () => {
+    const client = new MockAPIClient('')
+
+    const configs = await client.get<{
+      items: Array<{ id: number; name: string; selected: boolean; global?: unknown; parsedGlobal?: unknown }>
+    }>('/configs', { summary: true })
+    expect(configs.items[0]?.name).toBeTruthy()
+    expect(configs.items[0]?.global).toBeUndefined()
+    expect(configs.items[0]?.parsedGlobal).toBeUndefined()
+
+    const groups = await client.get<{
+      items: Array<{
+        id: number
+        nodeCount: number
+        subscriptionCount: number
+        nodes?: unknown
+        subscriptions?: unknown
+        firstSubscription?: { matchedNodes?: unknown; sampleMatchedNodes?: Array<{ name: string }> } | null
+      }>
+    }>('/groups', { summary: true })
+    expect(groups.items[0]?.nodeCount).toBeGreaterThanOrEqual(0)
+    expect(groups.items[0]?.subscriptionCount).toBeGreaterThanOrEqual(0)
+    expect(groups.items[0]?.nodes).toBeUndefined()
+    expect(groups.items[0]?.subscriptions).toBeUndefined()
+    expect(groups.items[0]?.firstSubscription?.matchedNodes).toBeUndefined()
+  })
+
   it('persists group node and subscription changes for local UI validation', async () => {
     const client = new MockAPIClient('')
 

@@ -2,14 +2,19 @@ import type { APIClientInterface } from './client'
 import type {
   ConfigGlobal,
   ConfigListView,
+  ConfigResource,
+  ConfigSummaryListView,
   CurrentUserView,
   DNSListView,
+  DNSSummaryListView,
   DNSView,
   GeneralDaemonState,
   GeneralResourceCounts,
   GeneralStateView,
   GroupListView,
   GroupResource,
+  GroupSummaryListView,
+  GroupSummaryResource,
   InterfaceResource,
   LogEntry,
   LogSettings,
@@ -20,10 +25,13 @@ import type {
   NodeListView,
   NodeResource,
   RoutingListView,
+  RoutingSummaryListView,
   RoutingView,
   RuntimeOverviewRuntimeState,
   SubscriptionListView,
   SubscriptionResource,
+  SubscriptionSummaryListView,
+  SubscriptionSummaryResource,
   TrafficOverviewQueryData,
 } from './types'
 import { useStore } from '@nanostores/react'
@@ -166,6 +174,15 @@ interface DNSAPI {
   parsedDns?: DNSView
 }
 
+interface SectionSummaryAPI {
+  id: number
+  name: string
+  selected: boolean
+  version: number
+  parseStatus?: string | null
+  parseError?: string | null
+}
+
 interface GroupAPI {
   id: number
   name: string
@@ -183,6 +200,28 @@ interface GroupAPI {
     link: string
     tag?: string | null
   }>
+}
+
+interface GroupSummaryAPI {
+  id: number
+  name: string
+  policy: string
+  policyParams: Array<{ key?: string | null; val: string }>
+  version: number
+  nodeCount: number
+  subscriptionCount: number
+  firstNode?: NodeAPI | null
+  firstSubscription?: {
+    subscriptionId: number
+    nameFilterRegex?: string | null
+    matchedCount: number
+    sampleMatchedNodes?: NodeAPI[] | null
+    updatedAt: string
+    status: string
+    info: string
+    link: string
+    tag?: string | null
+  } | null
 }
 
 interface SubscriptionAPI {
@@ -568,9 +607,9 @@ export function useRuntimeLogLevelQuery() {
   })
 }
 
-export function useNodesQuery() {
+export function useNodesQuery(enabled = true) {
   const apiClient = useAPIClient()
-  const enabled = useAuthenticatedQueryEnabled()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
     queryKey: QUERY_KEY_NODE,
@@ -580,16 +619,32 @@ export function useNodesQuery() {
         nodes: adaptNodesConnection(data),
       }
     },
-    enabled,
+    enabled: queryEnabled,
   })
 }
 
-export function useSubscriptionsQuery() {
+export function useSubscriptionsSummaryQuery() {
   const apiClient = useAPIClient()
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: QUERY_KEY_SUBSCRIPTION,
+    queryKey: [...QUERY_KEY_SUBSCRIPTION, 'summary'],
+    queryFn: async (): Promise<SubscriptionSummaryListView> => {
+      const data = await apiClient.get<{ items: SubscriptionAPI[] }>('/subscriptions')
+      return {
+        subscriptions: data.items.map(adaptSubscriptionSummary),
+      }
+    },
+    enabled,
+  })
+}
+
+export function useSubscriptionsQuery(enabled = true) {
+  const apiClient = useAPIClient()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_SUBSCRIPTION, 'expanded'],
     queryFn: async (): Promise<SubscriptionListView> => {
       const data = await apiClient.get<{ items: Array<SubscriptionAPI & { nodes?: NodeListAPI }> }>('/subscriptions', {
         expand: 'nodes',
@@ -607,83 +662,117 @@ export function useSubscriptionsQuery() {
             updatedAt: subscription.updatedAt,
             cronExp: subscription.cronExp,
             cronEnable: subscription.cronEnable,
+            nodeCount: subscription.nodeCount,
             nodes: adaptNodesConnection(nodes),
           }
         }),
       )
       return { subscriptions }
     },
-    enabled,
+    enabled: queryEnabled,
   })
 }
 
-export function useConfigsQuery() {
+export function useConfigSummariesQuery() {
   const apiClient = useAPIClient()
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: QUERY_KEY_CONFIG,
+    queryKey: [...QUERY_KEY_CONFIG, 'summary'],
+    queryFn: async (): Promise<ConfigSummaryListView> => {
+      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/configs', { summary: true })
+      return {
+        configs: data.items.map(adaptSectionSummary),
+      }
+    },
+    enabled,
+  })
+}
+
+export function useConfigQuery(id?: string | null, enabled = true) {
+  const apiClient = useAPIClient()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled && !!id)
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_CONFIG, 'item', id],
+    queryFn: async (): Promise<ConfigResource> => {
+      const config = await apiClient.get<ConfigAPI>(`/configs/${id}`)
+      return adaptConfig(config)
+    },
+    enabled: queryEnabled,
+  })
+}
+
+export function useConfigsQuery(enabled = true) {
+  const apiClient = useAPIClient()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_CONFIG, 'expanded'],
     queryFn: async (): Promise<ConfigListView> => {
       const data = await apiClient.get<{ items: ConfigAPI[] }>('/configs', { expand: 'parsed' })
       return {
-        configs: data.items.map((config) => ({
-          id: String(config.id),
-          name: config.name,
-          selected: config.selected,
-          rawGlobal: config.global ?? '',
-          parseError: config.parseError ?? null,
-          global: normalizeConfigGlobal(config.parsedGlobal),
-        })),
+        configs: data.items.map(adaptConfig),
+      }
+    },
+    enabled: queryEnabled,
+  })
+}
+
+export function useGroupsSummaryQuery() {
+  const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_GROUP, 'summary'],
+    queryFn: async (): Promise<GroupSummaryListView> => {
+      const data = await apiClient.get<{ items: GroupSummaryAPI[] }>('/groups', { summary: true })
+      return {
+        groups: data.items.map(adaptGroupSummary),
       }
     },
     enabled,
   })
 }
 
-export function useGroupsQuery() {
+export function useGroupsQuery(enabled = true) {
   const apiClient = useAPIClient()
-  const enabled = useAuthenticatedQueryEnabled()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: QUERY_KEY_GROUP,
+    queryKey: [...QUERY_KEY_GROUP, 'expanded'],
     queryFn: async (): Promise<GroupListView> => {
       const data = await apiClient.get<{ items: GroupAPI[] }>('/groups')
       return {
-        groups: data.items.map((group) => ({
-          id: String(group.id),
-          name: group.name,
-          nodes: group.nodes.map(adaptNode),
-          subscriptions: group.subscriptions.map((binding) => ({
-            nameFilterRegex: binding.nameFilterRegex ?? null,
-            matchedCount: binding.matchedCount,
-            subscription: {
-              id: String(binding.subscriptionId),
-              updatedAt: binding.updatedAt,
-              tag: binding.tag ?? null,
-              status: binding.status,
-              link: binding.link,
-              info: binding.info,
-            },
-            matchedNodes: binding.matchedNodes.map(adaptNode),
-          })),
-          policy: group.policy as GroupResource['policy'],
-          policyParams: group.policyParams.map((param) => ({
-            key: param.key ?? null,
-            val: param.val,
-          })),
-        })),
+        groups: data.items.map(adaptGroup),
+      }
+    },
+    enabled: queryEnabled,
+  })
+}
+
+export function useRoutingSummariesQuery() {
+  const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_ROUTING, 'summary'],
+    queryFn: async (): Promise<RoutingSummaryListView> => {
+      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/routings', { summary: true })
+      return {
+        routings: data.items.map(adaptSectionSummary),
       }
     },
     enabled,
   })
 }
 
-export function useRoutingsQuery() {
+export function useRoutingsQuery(enabled = true) {
   const apiClient = useAPIClient()
-  const enabled = useAuthenticatedQueryEnabled()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: QUERY_KEY_ROUTING,
+    queryKey: [...QUERY_KEY_ROUTING, 'expanded'],
     queryFn: async (): Promise<RoutingListView> => {
       const data = await apiClient.get<{ items: RoutingAPI[] }>('/routings', { expand: 'parsed' })
       return {
@@ -695,16 +784,32 @@ export function useRoutingsQuery() {
         })),
       }
     },
-    enabled,
+    enabled: queryEnabled,
   })
 }
 
-export function useDNSsQuery() {
+export function useDNSSummariesQuery() {
   const apiClient = useAPIClient()
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: QUERY_KEY_DNS,
+    queryKey: [...QUERY_KEY_DNS, 'summary'],
+    queryFn: async (): Promise<DNSSummaryListView> => {
+      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/dns', { summary: true })
+      return {
+        dnss: data.items.map(adaptSectionSummary),
+      }
+    },
+    enabled,
+  })
+}
+
+export function useDNSsQuery(enabled = true) {
+  const apiClient = useAPIClient()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
+
+  return useQuery({
+    queryKey: [...QUERY_KEY_DNS, 'expanded'],
     queryFn: async (): Promise<DNSListView> => {
       const data = await apiClient.get<{ items: DNSAPI[] }>('/dns', { expand: 'parsed' })
       return {
@@ -722,7 +827,7 @@ export function useDNSsQuery() {
         })),
       }
     },
-    enabled,
+    enabled: queryEnabled,
   })
 }
 
@@ -745,6 +850,101 @@ function adaptNodesConnection(data: NodeListAPI): NodeCollection {
   return {
     totalCount: data.totalCount,
     items,
+  }
+}
+
+function adaptSectionSummary(section: SectionSummaryAPI) {
+  return {
+    id: String(section.id),
+    name: section.name,
+    selected: section.selected,
+    version: section.version,
+    parseStatus: section.parseStatus ?? null,
+    parseError: section.parseError ?? null,
+  }
+}
+
+function adaptConfig(config: ConfigAPI): ConfigResource {
+  return {
+    id: String(config.id),
+    name: config.name,
+    selected: config.selected,
+    rawGlobal: config.global ?? '',
+    parseError: config.parseError ?? null,
+    global: normalizeConfigGlobal(config.parsedGlobal),
+  }
+}
+
+function adaptSubscriptionSummary(subscription: SubscriptionAPI): SubscriptionSummaryResource {
+  return {
+    id: String(subscription.id),
+    tag: subscription.tag ?? null,
+    status: subscription.status,
+    link: subscription.link,
+    info: subscription.info,
+    updatedAt: subscription.updatedAt,
+    cronExp: subscription.cronExp,
+    cronEnable: subscription.cronEnable,
+    nodeCount: subscription.nodeCount,
+  }
+}
+
+function adaptGroup(group: GroupAPI): GroupResource {
+  return {
+    id: String(group.id),
+    name: group.name,
+    nodes: group.nodes.map(adaptNode),
+    subscriptions: group.subscriptions.map((binding) => ({
+      nameFilterRegex: binding.nameFilterRegex ?? null,
+      matchedCount: binding.matchedCount,
+      subscription: {
+        id: String(binding.subscriptionId),
+        updatedAt: binding.updatedAt,
+        tag: binding.tag ?? null,
+        status: binding.status,
+        link: binding.link,
+        info: binding.info,
+      },
+      matchedNodes: binding.matchedNodes.map(adaptNode),
+    })),
+    policy: group.policy as GroupResource['policy'],
+    policyParams: group.policyParams.map(adaptPolicyParam),
+  }
+}
+
+function adaptGroupSummary(group: GroupSummaryAPI): GroupSummaryResource {
+  const firstSubscription = group.firstSubscription
+  return {
+    id: String(group.id),
+    name: group.name,
+    policy: group.policy as GroupSummaryResource['policy'],
+    policyParams: group.policyParams.map(adaptPolicyParam),
+    version: group.version,
+    nodeCount: group.nodeCount,
+    subscriptionCount: group.subscriptionCount,
+    firstNode: group.firstNode ? adaptNode(group.firstNode) : null,
+    firstSubscription: firstSubscription
+      ? {
+          nameFilterRegex: firstSubscription.nameFilterRegex ?? null,
+          matchedCount: firstSubscription.matchedCount,
+          subscription: {
+            id: String(firstSubscription.subscriptionId),
+            updatedAt: firstSubscription.updatedAt,
+            tag: firstSubscription.tag ?? null,
+            status: firstSubscription.status,
+            link: firstSubscription.link,
+            info: firstSubscription.info,
+          },
+          sampleMatchedNodes: (firstSubscription.sampleMatchedNodes ?? []).map(adaptNode),
+        }
+      : null,
+  }
+}
+
+function adaptPolicyParam(param: { key?: string | null; val: string }) {
+  return {
+    key: param.key ?? null,
+    val: param.val,
   }
 }
 
