@@ -1,7 +1,7 @@
 import type { Profile } from '~/store'
 import { useStore } from '@nanostores/react'
-import { BookmarkPlus, Check, ChevronDown, Layers, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { ChevronDown, Layers, RefreshCw } from 'lucide-react'
+import { lazy, Suspense, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
@@ -16,27 +16,12 @@ import {
 import { cn } from '~/lib/utils'
 import { profilesAtom } from '~/store'
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from './ui/alert-dialog'
 import { Button } from './ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from './ui/dropdown-menu'
-import { Input } from './ui/input'
+import { DropdownMenu, DropdownMenuTrigger } from './ui/dropdown-menu'
+
+const LazyProfileSwitcherDetails = lazy(() =>
+  import('./ProfileSwitcherDetails').then((module) => ({ default: module.ProfileSwitcherDetails })),
+)
 
 function generateProfileId(): string {
   return `profile-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
@@ -62,6 +47,7 @@ export function ProfileSwitcher() {
   const [profileName, setProfileName] = useState('')
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null)
   const [isSwitching, setIsSwitching] = useState(false)
+  const [detailsLoaded, setDetailsLoaded] = useState(false)
 
   // Get current selected resources
   const selectedConfig = configsQuery?.configs.find((c) => c.selected)
@@ -216,10 +202,18 @@ export function ProfileSwitcher() {
     (currentProfile.configID !== selectedConfig?.id ||
       currentProfile.routingID !== selectedRouting?.id ||
       currentProfile.dnsID !== selectedDNS?.id)
+  const showDetails = detailsLoaded || dropdownOpen || saveDialogOpen || renameDialogOpen || deleteDialogOpen
+
+  const setProfileDropdownOpen = (open: boolean) => {
+    if (open) {
+      setDetailsLoaded(true)
+    }
+    setDropdownOpen(open)
+  }
 
   return (
     <>
-      <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+      <DropdownMenu open={dropdownOpen} onOpenChange={setProfileDropdownOpen}>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
@@ -243,171 +237,36 @@ export function ProfileSwitcher() {
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-60">
-          <DropdownMenuLabel className="flex items-center gap-2">
-            <Layers className="h-4 w-4" />
-            {t('profile.title')}
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
-
-          {profiles.length === 0 ? (
-            <div className="px-2 py-3 text-sm text-muted-foreground text-center">{t('profile.noProfiles')}</div>
-          ) : (
-            profiles.map((profile) => (
-              <DropdownMenuItem
-                key={profile.id}
-                className="flex items-center justify-between group cursor-pointer"
-                onSelect={(e) => e.preventDefault()}
-              >
-                <button
-                  type="button"
-                  className="flex items-center gap-2 flex-1 text-left"
-                  onClick={() => handleSwitchProfile(profile)}
-                >
-                  {profile.id === currentProfileID ? (
-                    <Check className="h-4 w-4 text-primary" />
-                  ) : (
-                    <div className="w-4" />
-                  )}
-                  <span className="truncate">{profile.name}</span>
-                </button>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    className="h-6 w-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openRenameDialog(profile)
-                    }}
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openDeleteDialog(profile)
-                    }}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </DropdownMenuItem>
-            ))
-          )}
-
-          <DropdownMenuSeparator />
-
-          {currentProfile && isCurrentSettingsModified && (
-            <DropdownMenuItem onClick={handleUpdateProfile}>
-              <Save className="h-4 w-4 mr-2" />
-              {t('profile.update')}
-            </DropdownMenuItem>
-          )}
-
-          <DropdownMenuItem
-            onClick={() => {
-              setProfileName('')
-              setSaveDialogOpen(true)
-              setDropdownOpen(false)
-            }}
-          >
-            <BookmarkPlus className="h-4 w-4 mr-2" />
-            {t('profile.save')}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
+        {showDetails && (
+          <Suspense fallback={null}>
+            <LazyProfileSwitcherDetails
+              profiles={profiles}
+              currentProfileID={currentProfileID}
+              currentProfile={currentProfile}
+              isCurrentSettingsModified={!!isCurrentSettingsModified}
+              selectedConfig={selectedConfig}
+              selectedRouting={selectedRouting}
+              selectedDNS={selectedDNS}
+              profileName={profileName}
+              setProfileName={setProfileName}
+              saveDialogOpen={saveDialogOpen}
+              setSaveDialogOpen={setSaveDialogOpen}
+              renameDialogOpen={renameDialogOpen}
+              setRenameDialogOpen={setRenameDialogOpen}
+              deleteDialogOpen={deleteDialogOpen}
+              setDeleteDialogOpen={setDeleteDialogOpen}
+              handleSwitchProfile={(profile) => void handleSwitchProfile(profile)}
+              handleUpdateProfile={handleUpdateProfile}
+              handleSaveProfile={handleSaveProfile}
+              handleRenameProfile={handleRenameProfile}
+              handleDeleteProfile={handleDeleteProfile}
+              openRenameDialog={openRenameDialog}
+              openDeleteDialog={openDeleteDialog}
+              setDropdownOpen={setProfileDropdownOpen}
+            />
+          </Suspense>
+        )}
       </DropdownMenu>
-
-      {/* Save Profile Dialog */}
-      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('profile.save')}</DialogTitle>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleSaveProfile()
-            }}
-          >
-            <div className="space-y-4">
-              <Input
-                label={t('profile.name')}
-                placeholder={t('profile.namePlaceholder')}
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                autoFocus
-              />
-              <div className="text-sm text-muted-foreground">
-                {t('profile.saveCurrentAs')}:
-                <ul className="mt-2 space-y-1 ml-4 list-disc">
-                  <li>Config: {selectedConfig?.name || '-'}</li>
-                  <li>Routing: {selectedRouting?.name || '-'}</li>
-                  <li>DNS: {selectedDNS?.name || '-'}</li>
-                </ul>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setSaveDialogOpen(false)}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button type="submit" disabled={!profileName.trim()}>
-                  {t('actions.save dae')}
-                </Button>
-              </div>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Rename Profile Dialog */}
-      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t('profile.rename')}</DialogTitle>
-          </DialogHeader>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleRenameProfile()
-            }}
-          >
-            <div className="space-y-4">
-              <Input
-                label={t('profile.name')}
-                placeholder={t('profile.namePlaceholder')}
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                autoFocus
-              />
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setRenameDialogOpen(false)}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button type="submit" disabled={!profileName.trim()}>
-                  {t('actions.confirm')}
-                </Button>
-              </div>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('profile.delete')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('profile.confirmDelete')}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t('confirmModal.cancel')}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteProfile}>{t('confirmModal.confirm')}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   )
 }

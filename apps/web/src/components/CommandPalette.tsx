@@ -1,5 +1,5 @@
-import { Keyboard, Languages, Monitor, Moon, RefreshCw, Sun, Wifi } from 'lucide-react'
-import { useCallback, useEffect, useMemo } from 'react'
+import type { CommandAction } from './CommandPaletteActions'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -12,16 +12,6 @@ import {
   CommandShortcut,
 } from '~/components/ui/command'
 import { Kbd, KbdGroup } from '~/components/ui/kbd'
-
-export interface CommandAction {
-  id: string
-  label: string
-  icon?: React.ReactNode
-  shortcut?: string[]
-  action: () => void
-  disabled?: boolean
-  group: 'general' | 'appearance' | 'actions'
-}
 
 interface CommandPaletteProps {
   open: boolean
@@ -53,19 +43,6 @@ function formatShortcut(keys: string[]): string[] {
 
 export function CommandPalette({ open, onOpenChange, actions }: CommandPaletteProps) {
   const { t } = useTranslation()
-
-  // Listen for ⌘P / Ctrl+P keyboard shortcut
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'p' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        onOpenChange(!open)
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [open, onOpenChange])
 
   // Group actions by category
   const groupedActions = useMemo(() => {
@@ -164,89 +141,4 @@ export function CommandPalette({ open, onOpenChange, actions }: CommandPalettePr
       </CommandList>
     </CommandDialog>
   )
-}
-
-// Export default actions factory for use in Header
-export function useCommandPaletteActions({
-  cycleThemeMode,
-  toggleLanguage,
-  toggleRunning,
-  reloadConfig,
-  openShortcutsModal,
-  themeMode,
-  isModified,
-}: {
-  cycleThemeMode: () => void
-  toggleLanguage: () => void
-  toggleRunning: () => void
-  reloadConfig: () => void
-  openShortcutsModal: () => void
-  themeMode: 'system' | 'light' | 'dark'
-  isModified: boolean
-}): CommandAction[] {
-  const { t } = useTranslation()
-
-  const getThemeIcon = useCallback(() => {
-    switch (themeMode) {
-      case 'system':
-        return <Monitor className="h-4 w-4" />
-      case 'light':
-        return <Sun className="h-4 w-4" />
-      case 'dark':
-        return <Moon className="h-4 w-4" />
-    }
-  }, [themeMode])
-
-  return useMemo(() => {
-    const actions: CommandAction[] = [
-      // General
-      {
-        id: 'help',
-        label: t('shortcuts.help'),
-        icon: <Keyboard className="h-4 w-4" />,
-        shortcut: ['?'],
-        action: openShortcutsModal,
-        group: 'general',
-      },
-      // Appearance
-      {
-        id: 'toggle-theme',
-        label: t('shortcuts.toggleTheme'),
-        icon: getThemeIcon(),
-        shortcut: ['Ctrl/⌘', 'D'],
-        action: cycleThemeMode,
-        group: 'appearance',
-      },
-      {
-        id: 'toggle-language',
-        label: t('shortcuts.toggleLanguage'),
-        icon: <Languages className="h-4 w-4" />,
-        shortcut: ['Ctrl/⌘', 'L'],
-        action: toggleLanguage,
-        group: 'appearance',
-      },
-      // Actions
-      {
-        id: 'toggle-running',
-        label: t('shortcuts.toggleRunning'),
-        icon: <Wifi className="h-4 w-4" />,
-        shortcut: ['Ctrl/⌘', 'S'],
-        action: toggleRunning,
-        group: 'actions',
-      },
-    ]
-
-    if (isModified) {
-      actions.push({
-        id: 'reload-config',
-        label: t('shortcuts.reload'),
-        icon: <RefreshCw className="h-4 w-4" />,
-        shortcut: ['Ctrl/⌘', 'R'],
-        action: reloadConfig,
-        group: 'actions',
-      })
-    }
-
-    return actions
-  }, [t, cycleThemeMode, toggleLanguage, toggleRunning, reloadConfig, openShortcutsModal, getThemeIcon, isModified])
 }
