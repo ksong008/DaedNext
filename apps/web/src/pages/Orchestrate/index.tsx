@@ -1,5 +1,5 @@
 import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
-import type { NodeLatencyProbeResult } from '~/apis'
+import type { NodeLatencyJob, NodeLatencyProbeResult } from '~/apis'
 import type { GroupListView, NodeListView, SubscriptionListView } from '~/apis/types'
 import type { GroupPickerItem } from '~/components/GroupResourcePickerModal'
 import type { DraggingResource } from '~/constants'
@@ -12,13 +12,14 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import {
   useConfigsQuery,
-  useGeneralQuery,
   useGroupAddNodesMutation,
   useGroupAddSubscriptionsMutation,
   useGroupDelNodesMutation,
   useGroupDelSubscriptionsMutation,
   useGroupsQuery,
+  useInterfacesQuery,
   useNodeLatenciesQuery,
+  useNodeLatencyJobQuery,
   useNodesQuery,
   useSubscriptionsQuery,
   useTestNodeLatenciesMutation,
@@ -54,19 +55,8 @@ function arrayMove<T>(array: T[], from: number, to: number): T[] {
   return newArray
 }
 
-function chunkArray<T>(array: T[], size: number): T[][] {
-  if (size <= 0) return [array]
-
-  const chunks: T[][] = []
-  for (let index = 0; index < array.length; index += size) {
-    chunks.push(array.slice(index, index + size))
-  }
-  return chunks
-}
-
-const MANUAL_LATENCY_PROBE_BATCH_SIZE_FALLBACK = 8
-const MANUAL_LATENCY_PROBE_BATCH_SIZE_MAX = 32
-const MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS = 8_000
+const MANUAL_LATENCY_PROBE_START_TIMEOUT_MS = 8_000
+const MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS = 1_000
 const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
 const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
 
@@ -77,10 +67,16 @@ interface NodePickerCandidate {
   sourceLabel: string
 }
 
+interface ManualLatencyProbeProgress {
+  completed: number
+  total: number
+  jobId?: string | null
+}
+
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   return new Promise<T>((resolve, reject) => {
     const timeoutId = window.setTimeout(() => {
-      reject(new Error('manual latency probe batch timed out'))
+      reject(new Error('manual latency probe job start timed out'))
     }, timeoutMs)
 
     promise
@@ -95,12 +91,27 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
   })
 }
 
-function manualLatencyProbeBatchSizeFromRuntime(runtime: ReturnType<typeof useTrafficOverviewQuery>['data']) {
-  const value = runtime?.runtime?.residentDataplane?.metrics?.resources?.manualProbe?.concurrency?.value
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    return MANUAL_LATENCY_PROBE_BATCH_SIZE_FALLBACK
+function isLatencyJobActive(job?: NodeLatencyJob | null) {
+  return job?.status === 'queued' || job?.status === 'running'
+}
+
+function progressFromLatencyJob(job: NodeLatencyJob, fallbackTotal: number) {
+  const total = job.total > 0 ? job.total : fallbackTotal
+  const completed = isLatencyJobActive(job) ? job.completed : Math.max(job.completed, total)
+  return {
+    completed: Math.min(completed, total),
+    total,
   }
-  return Math.min(MANUAL_LATENCY_PROBE_BATCH_SIZE_MAX, Math.max(1, Math.floor(value)))
+}
+
+function timeoutLatencyResults(ids: string[]): NodeLatencyProbeResult[] {
+  const testedAt = new Date().toISOString()
+  return ids.map((id) => ({
+    id,
+    alive: false,
+    testedAt,
+    message: 'timeout',
+  }))
 }
 
 export function OrchestratePage() {
@@ -108,7 +119,7 @@ export function OrchestratePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: configsQuery } = useConfigsQuery()
-  const { data: generalQuery } = useGeneralQuery()
+  const { data: interfaces } = useInterfacesQuery()
   const { data: nodesQuery } = useNodesQuery()
   const { data: groupsQuery } = useGroupsQuery()
   const { data: subscriptionsQuery } = useSubscriptionsQuery()
@@ -120,10 +131,11 @@ export function OrchestratePage() {
   const groupDelNodesMutation = useGroupDelNodesMutation()
   const groupDelSubscriptionsMutation = useGroupDelSubscriptionsMutation()
   const testNodeLatenciesMutation = useTestNodeLatenciesMutation()
-  const [manualLatencyProbeProgress, setManualLatencyProbeProgress] = useState<{
-    completed: number
-    total: number
-  } | null>(null)
+  const [manualLatencyProbeProgress, setManualLatencyProbeProgress] = useState<ManualLatencyProbeProgress | null>(null)
+  const nodeLatencyJobQuery = useNodeLatencyJobQuery(
+    MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS,
+    !!manualLatencyProbeProgress?.jobId,
+  )
   const [manualLatencyProbeOverrides, setManualLatencyProbeOverrides] = useState<
     Record<string, NodeLatencyProbeResult>
   >({})
@@ -346,10 +358,6 @@ export function OrchestratePage() {
 
     return Array.from(nodeIDs)
   }, [sortedNodes, sortedSubscriptions])
-  const manualLatencyProbeBatchSize = useMemo(
-    () => manualLatencyProbeBatchSizeFromRuntime(runtimeOverview),
-    [runtimeOverview],
-  )
 
   const testAllNodeLatencies = useCallback(async () => {
     if (manualLatencyProbeProgress) return
@@ -360,49 +368,60 @@ export function OrchestratePage() {
     setManualLatencyProbeProgress({
       completed: 0,
       total: nodeIDs.length,
+      jobId: null,
     })
 
     try {
-      let completed = 0
-      for (const nodeIDChunk of chunkArray(nodeIDs, manualLatencyProbeBatchSize)) {
-        let results: NodeLatencyProbeResult[]
-        try {
-          results = await withTimeout(
-            testNodeLatenciesMutation.mutateAsync(nodeIDChunk),
-            MANUAL_LATENCY_PROBE_BATCH_TIMEOUT_MS,
-          )
-        } catch (error) {
-          console.error('Failed to test node latency batch', error)
-          const testedAt = new Date().toISOString()
-          results = nodeIDChunk.map((id) => ({
-            id,
-            alive: false,
-            testedAt,
-            message: 'timeout',
-          }))
-        }
+      const response = await withTimeout(
+        testNodeLatenciesMutation.mutateAsync(undefined),
+        MANUAL_LATENCY_PROBE_START_TIMEOUT_MS,
+      )
 
-        mergeNodeLatencyResults(results)
-
-        completed += nodeIDChunk.length
+      if (response.job) {
         setManualLatencyProbeProgress({
-          completed,
-          total: nodeIDs.length,
+          ...progressFromLatencyJob(response.job, nodeIDs.length),
+          jobId: response.job.id,
         })
+        if (isLatencyJobActive(response.job)) return
       }
 
+      if (response.items.length > 0) {
+        mergeNodeLatencyResults(response.items)
+      }
       void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
-    } finally {
+      setManualLatencyProbeProgress(null)
+    } catch (error) {
+      console.error('Failed to start node latency job', error)
+      mergeNodeLatencyResults(timeoutLatencyResults(nodeIDs))
       setManualLatencyProbeProgress(null)
     }
   }, [
     allLatencyProbeNodeIds,
     manualLatencyProbeProgress,
-    manualLatencyProbeBatchSize,
     mergeNodeLatencyResults,
     queryClient,
     testNodeLatenciesMutation,
   ])
+
+  useEffect(() => {
+    const job = nodeLatencyJobQuery.data?.job
+    if (!manualLatencyProbeProgress || !job) return
+    if (!manualLatencyProbeProgress.jobId || job.id !== manualLatencyProbeProgress.jobId) return
+
+    const nextProgress = progressFromLatencyJob(job, manualLatencyProbeProgress.total)
+    setManualLatencyProbeProgress((currentProgress) => {
+      if (!currentProgress) return currentProgress
+      if (currentProgress.completed === nextProgress.completed && currentProgress.total === nextProgress.total) {
+        return currentProgress
+      }
+      return { ...nextProgress, jobId: currentProgress.jobId }
+    })
+
+    if (!isLatencyJobActive(job)) {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+      setManualLatencyProbeProgress(null)
+    }
+  }, [manualLatencyProbeProgress, nodeLatencyJobQuery.data?.job, queryClient])
 
   useEffect(() => {
     const visibleNodeIdSet = new Set(allLatencyProbeNodeIds)
@@ -1064,7 +1083,7 @@ export function OrchestratePage() {
             groups={sortedGroups}
             sortedNodes={sortedNodes}
             subscriptions={sortedSubscriptions}
-            interfaces={generalQuery?.general.interfaces ?? []}
+            interfaces={interfaces ?? []}
             nodeLatencies={nodeLatencies}
             onOpenConfig={() => openWorkspacePanel('config')}
             onOpenGroup={() => openWorkspacePanel('group')}

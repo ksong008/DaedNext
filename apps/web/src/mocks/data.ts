@@ -40,6 +40,15 @@ export const mockGeneral: GeneralStateView = {
       netnsLinkMode: 'netkit',
       attachBackend: 'tcx',
     },
+    counts: {
+      configs: 0,
+      dns: 0,
+      routings: 0,
+      groups: 0,
+      nodes: 0,
+      subscriptions: 0,
+      logs: 0,
+    },
     interfaces: [
       {
         name: 'eth0',

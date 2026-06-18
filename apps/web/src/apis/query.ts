@@ -5,6 +5,8 @@ import type {
   CurrentUserView,
   DNSListView,
   DNSView,
+  GeneralDaemonState,
+  GeneralResourceCounts,
   GeneralStateView,
   GroupListView,
   GroupResource,
@@ -12,6 +14,8 @@ import type {
   LogEntry,
   LogSettings,
   NodeCollection,
+  NodeLatencyJob,
+  NodeLatencyJobView,
   NodeLatencyProbeResult,
   NodeListView,
   NodeResource,
@@ -30,10 +34,13 @@ import {
   QUERY_KEY_CONFIG,
   QUERY_KEY_DNS,
   QUERY_KEY_GENERAL,
+  QUERY_KEY_GENERAL_INTERFACES,
+  QUERY_KEY_GENERAL_STATE,
   QUERY_KEY_GROUP,
   QUERY_KEY_LOG,
   QUERY_KEY_NODE,
   QUERY_KEY_NODE_LATENCY,
+  QUERY_KEY_NODE_LATENCY_JOB,
   QUERY_KEY_ROUTING,
   QUERY_KEY_STORAGE,
   QUERY_KEY_SUBSCRIPTION,
@@ -63,6 +70,7 @@ interface GeneralStateAPI {
   version: string
   netnsLinkMode?: string
   attachBackend?: string
+  counts?: Partial<GeneralResourceCounts>
 }
 
 interface InterfaceAPI {
@@ -119,6 +127,19 @@ interface NodeLatencyAPI {
   latencyMs?: number | null
   alive: boolean
   testedAt: string
+  message?: string | null
+}
+
+interface NodeLatencyJobAPI {
+  id: number
+  status: string
+  total: number
+  completed: number
+  succeeded: number
+  failed: number
+  queuedAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
   message?: string | null
 }
 
@@ -245,12 +266,58 @@ export function getDefaultsRequest(apiClient: APIClientInterface) {
   }
 }
 
+function emptyGeneralResourceCounts(): GeneralResourceCounts {
+  return {
+    configs: 0,
+    dns: 0,
+    routings: 0,
+    groups: 0,
+    nodes: 0,
+    subscriptions: 0,
+    logs: 0,
+  }
+}
+
+function normalizeGeneralResourceCounts(counts?: Partial<GeneralResourceCounts>): GeneralResourceCounts {
+  const emptyCounts = emptyGeneralResourceCounts()
+  return {
+    configs: counts?.configs ?? emptyCounts.configs,
+    dns: counts?.dns ?? emptyCounts.dns,
+    routings: counts?.routings ?? emptyCounts.routings,
+    groups: counts?.groups ?? emptyCounts.groups,
+    nodes: counts?.nodes ?? emptyCounts.nodes,
+    subscriptions: counts?.subscriptions ?? emptyCounts.subscriptions,
+    logs: counts?.logs ?? emptyCounts.logs,
+  }
+}
+
+function adaptGeneralDaemonState(state: GeneralStateAPI): GeneralDaemonState {
+  return {
+    running: state.running,
+    modified: state.modified,
+    version: state.version,
+    netnsLinkMode: state.netnsLinkMode,
+    attachBackend: state.attachBackend,
+  }
+}
+
+function adaptGeneralStateView(state: GeneralStateAPI, interfaces: InterfaceResource[] = []): GeneralStateView {
+  return {
+    general: {
+      dae: adaptGeneralDaemonState(state),
+      counts: normalizeGeneralResourceCounts(state.counts),
+      interfaces,
+    },
+  }
+}
+
 export function getInterfacesRequest(apiClient: APIClientInterface) {
   return async (): Promise<GeneralStateView> => {
     const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true })
     return {
       general: {
         dae: { running: false, modified: false, version: '', netnsLinkMode: '', attachBackend: '' },
+        counts: emptyGeneralResourceCounts(),
         interfaces: data.items.map(adaptInterface),
       },
     }
@@ -285,12 +352,35 @@ export function useGeneralQuery() {
         apiClient.get<GeneralStateAPI>('/general/state'),
         apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true }),
       ])
-      return {
-        general: {
-          dae: state,
-          interfaces: interfaces.items.map(adaptInterface),
-        },
-      }
+      return adaptGeneralStateView(state, interfaces.items.map(adaptInterface))
+    },
+    enabled,
+  })
+}
+
+export function useGeneralStateQuery() {
+  const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
+
+  return useQuery({
+    queryKey: QUERY_KEY_GENERAL_STATE,
+    queryFn: async (): Promise<GeneralStateView> => {
+      const state = await apiClient.get<GeneralStateAPI>('/general/state')
+      return adaptGeneralStateView(state)
+    },
+    enabled,
+  })
+}
+
+export function useInterfacesQuery() {
+  const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
+
+  return useQuery({
+    queryKey: QUERY_KEY_GENERAL_INTERFACES,
+    queryFn: async (): Promise<InterfaceResource[]> => {
+      const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true })
+      return data.items.map(adaptInterface)
     },
     enabled,
   })
@@ -379,6 +469,32 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   })
 }
 
+export function adaptNodeLatencyProbeResults(items: NodeLatencyAPI[]): NodeLatencyProbeResult[] {
+  return items.map((item) => ({
+    id: String(item.id),
+    latencyMs: item.latencyMs ?? null,
+    alive: item.alive,
+    testedAt: item.testedAt,
+    message: item.message ?? null,
+  }))
+}
+
+export function adaptNodeLatencyJob(job?: NodeLatencyJobAPI | null): NodeLatencyJob | null {
+  if (!job) return null
+  return {
+    id: String(job.id),
+    status: job.status,
+    total: job.total,
+    completed: job.completed,
+    succeeded: job.succeeded,
+    failed: job.failed,
+    queuedAt: job.queuedAt,
+    startedAt: job.startedAt ?? null,
+    finishedAt: job.finishedAt ?? null,
+    message: job.message ?? null,
+  }
+}
+
 export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true) {
   const apiClient = useAPIClient()
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
@@ -387,13 +503,24 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true)
     queryKey: QUERY_KEY_NODE_LATENCY,
     queryFn: async (): Promise<NodeLatencyProbeResult[]> => {
       const data = await apiClient.get<{ items: NodeLatencyAPI[] }>('/nodes/latencies')
-      return data.items.map((item) => ({
-        id: String(item.id),
-        latencyMs: item.latencyMs ?? null,
-        alive: item.alive,
-        testedAt: item.testedAt,
-        message: item.message ?? null,
-      }))
+      return adaptNodeLatencyProbeResults(data.items)
+    },
+    enabled: queryEnabled,
+    placeholderData: (previousData) => previousData,
+    refetchInterval: () => refetchIntervalMs,
+    refetchIntervalInBackground: false,
+  })
+}
+
+export function useNodeLatencyJobQuery(refetchIntervalMs: number, enabled = true) {
+  const apiClient = useAPIClient()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
+
+  return useQuery({
+    queryKey: QUERY_KEY_NODE_LATENCY_JOB,
+    queryFn: async (): Promise<NodeLatencyJobView> => {
+      const data = await apiClient.get<{ job?: NodeLatencyJobAPI | null }>('/nodes/latencies/job')
+      return { job: adaptNodeLatencyJob(data.job) }
     },
     enabled: queryEnabled,
     placeholderData: (previousData) => previousData,

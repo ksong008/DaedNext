@@ -5,14 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 
-import {
-  useConfigsQuery,
-  useDNSsQuery,
-  useGroupsQuery,
-  useNodesQuery,
-  useRoutingsQuery,
-  useSubscriptionsQuery,
-} from '~/apis'
+import { useGeneralStateQuery } from '~/apis'
 import { HeaderWithActions } from '~/components/Header'
 import {
   Sidebar,
@@ -80,12 +73,7 @@ export function MainLayout() {
   const initialize = useInitialize()
   const initializedRuntimeKeyRef = useRef<string | null>(null)
   const [activeSection, setActiveSection] = useState<OrchestrateSectionKey>('overview')
-  const { data: configsQuery } = useConfigsQuery()
-  const { data: dnssQuery } = useDNSsQuery()
-  const { data: routingsQuery } = useRoutingsQuery()
-  const { data: groupsQuery } = useGroupsQuery()
-  const { data: nodesQuery } = useNodesQuery()
-  const { data: subscriptionsQuery } = useSubscriptionsQuery()
+  const { data: generalStateQuery } = useGeneralStateQuery()
 
   useEffect(() => {
     if (isMockMode()) {
@@ -118,22 +106,14 @@ export function MainLayout() {
     () => ({
       overview: t('shell.live'),
       log: '',
-      config: String(configsQuery?.configs.length ?? 0),
-      dns: String(dnssQuery?.dnss.length ?? 0),
-      routing: String(routingsQuery?.routings.length ?? 0),
-      group: String(groupsQuery?.groups.length ?? 0),
-      node: String(nodesQuery?.nodes.items.length ?? 0),
-      subscription: String(subscriptionsQuery?.subscriptions.length ?? 0),
+      config: String(generalStateQuery?.general.counts.configs ?? 0),
+      dns: String(generalStateQuery?.general.counts.dns ?? 0),
+      routing: String(generalStateQuery?.general.counts.routings ?? 0),
+      group: String(generalStateQuery?.general.counts.groups ?? 0),
+      node: String(generalStateQuery?.general.counts.nodes ?? 0),
+      subscription: String(generalStateQuery?.general.counts.subscriptions ?? 0),
     }),
-    [
-      configsQuery?.configs.length,
-      dnssQuery?.dnss.length,
-      groupsQuery?.groups.length,
-      nodesQuery?.nodes.items.length,
-      routingsQuery?.routings.length,
-      subscriptionsQuery?.subscriptions.length,
-      t,
-    ],
+    [generalStateQuery?.general.counts, t],
   )
 
   const navItemByKey = useMemo(

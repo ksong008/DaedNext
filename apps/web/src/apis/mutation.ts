@@ -7,7 +7,7 @@ import type {
   GlobalInput,
   ImportArgument,
   LogSettings,
-  NodeLatencyProbeResult,
+  NodeLatencyProbeResponse,
   Policy,
   PolicyParam,
 } from './types'
@@ -30,6 +30,7 @@ import {
 
 import { useAPIClient } from '~/contexts'
 import { toID, toNumericID } from './client'
+import { adaptNodeLatencyJob, adaptNodeLatencyProbeResults } from './query'
 
 interface CountResponse {
   updated?: number
@@ -766,18 +767,15 @@ export function useTestNodeLatenciesMutation() {
 
   return useMutation({
     mutationFn: async (ids?: string[]) => {
-      const data = await apiClient.post<{ items: Array<Omit<NodeLatencyProbeResult, 'id'> & { id: number }> }>(
-        '/nodes/latencies',
-        ids && ids.length > 0 ? { ids: ids.map(toNumericID) } : {},
-      )
+      const data = await apiClient.post<{
+        items: Parameters<typeof adaptNodeLatencyProbeResults>[0]
+        job?: Parameters<typeof adaptNodeLatencyJob>[0]
+      }>('/nodes/latencies', ids && ids.length > 0 ? { ids: ids.map(toNumericID) } : {})
 
-      return data.items.map((item) => ({
-        id: toID(item.id),
-        latencyMs: item.latencyMs ?? null,
-        alive: item.alive,
-        testedAt: item.testedAt,
-        message: item.message ?? null,
-      }))
+      return {
+        items: adaptNodeLatencyProbeResults(data.items),
+        job: adaptNodeLatencyJob(data.job),
+      } satisfies NodeLatencyProbeResponse
     },
   })
 }
