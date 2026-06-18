@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 
-import { useGeneralStateQuery } from '~/apis'
+import { useGeneralStateQuery, useNodesQuery } from '~/apis'
 import { HeaderWithActions } from '~/components/Header'
 import {
   Sidebar,
@@ -74,6 +74,8 @@ export function MainLayout() {
   const initializedRuntimeKeyRef = useRef<string | null>(null)
   const [activeSection, setActiveSection] = useState<OrchestrateSectionKey>('overview')
   const { data: generalStateQuery } = useGeneralStateQuery()
+  const { data: nodesQuery } = useNodesQuery()
+  const manualNodeCount = nodesQuery?.nodes.totalCount ?? nodesQuery?.nodes.items.length ?? 0
 
   useEffect(() => {
     if (isMockMode()) {
@@ -110,10 +112,10 @@ export function MainLayout() {
       dns: String(generalStateQuery?.general.counts.dns ?? 0),
       routing: String(generalStateQuery?.general.counts.routings ?? 0),
       group: String(generalStateQuery?.general.counts.groups ?? 0),
-      node: String(generalStateQuery?.general.counts.nodes ?? 0),
+      node: String(manualNodeCount),
       subscription: String(generalStateQuery?.general.counts.subscriptions ?? 0),
     }),
-    [generalStateQuery?.general.counts, t],
+    [generalStateQuery?.general.counts, manualNodeCount, t],
   )
 
   const navItemByKey = useMemo(

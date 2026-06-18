@@ -607,6 +607,22 @@ export function useNodesQuery(enabled = true) {
   })
 }
 
+export function useSubscriptionBackedNodesQuery(enabled = true) {
+  const apiClient = useAPIClient()
+  const queryEnabled = useAuthenticatedQueryEnabled(enabled)
+
+  return useQuery({
+    queryKey: webQueryKeys.node.subscriptionBackedList(),
+    queryFn: async (): Promise<NodeListView> => {
+      const data = await apiClient.get<NodeListAPI>('/nodes', { independent: false })
+      return {
+        nodes: adaptNodesConnection(data),
+      }
+    },
+    enabled: queryEnabled,
+  })
+}
+
 export function useSubscriptionsSummaryQuery() {
   const apiClient = useAPIClient()
   const enabled = useAuthenticatedQueryEnabled()

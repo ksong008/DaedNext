@@ -58,6 +58,7 @@ export const webQueryKeys = {
   },
   node: {
     list: () => rootKey(QUERY_KEY_NODE),
+    subscriptionBackedList: () => childKey(QUERY_KEY_NODE, 'subscription-backed'),
     latency: () => rootKey(QUERY_KEY_NODE_LATENCY),
     latencyJob: () => rootKey(QUERY_KEY_NODE_LATENCY_JOB),
   },
