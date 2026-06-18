@@ -5,7 +5,6 @@ import type {
   NodeLatencyProbeResult,
   NodeResource,
   SectionSummaryResource,
-  SubscriptionResource,
   SubscriptionSummaryResource,
 } from '~/apis/types'
 import { CloudCog, Map as MapIcon, Pencil, Settings } from 'lucide-react'
@@ -433,13 +432,16 @@ interface RankedNode {
 
 function getTopNodes(
   nodes: NodeResource[],
-  subscriptions: Array<{ id: string; tag?: string | null; link: string; nodes: { items: NodeResource[] } }>,
+  subscriptionBackedNodes: NodeResource[],
+  subscriptionNameById: Map<string, string>,
   nodeLatencies?: Record<string, NodeLatencyProbeResult>,
 ): RankedNode[] {
   const rankedNodes: RankedNode[] = []
   const seenNodeIds = new Set<string>()
 
   for (const node of nodes) {
+    if (node.subscriptionID) continue
+
     rankedNodes.push({
       node,
       latency: nodeLatencies?.[node.id]?.latencyMs ?? Number.POSITIVE_INFINITY,
@@ -448,263 +450,266 @@ function getTopNodes(
     seenNodeIds.add(node.id)
   }
 
-  for (const subscription of subscriptions) {
-    for (const node of subscription.nodes.items) {
-      if (seenNodeIds.has(node.id)) continue
+  for (const node of subscriptionBackedNodes) {
+    if (seenNodeIds.has(node.id)) continue
 
-      rankedNodes.push({
-        node,
-        latency: nodeLatencies?.[node.id]?.latencyMs ?? Number.POSITIVE_INFINITY,
-        source: { type: 'subscription', name: subscription.tag || subscription.link },
-      })
-      seenNodeIds.add(node.id)
-    }
+    rankedNodes.push({
+      node,
+      latency: nodeLatencies?.[node.id]?.latencyMs ?? Number.POSITIVE_INFINITY,
+      source: {
+        type: 'subscription',
+        name: (node.subscriptionID && subscriptionNameById.get(node.subscriptionID)) || '—',
+      },
+    })
+    seenNodeIds.add(node.id)
   }
 
   return rankedNodes.sort((left, right) => left.latency - right.latency).slice(0, 3)
 }
 
-export const WorkspaceSummaryCards = memo(({
-  selectedConfig,
-  configs,
-  groups,
-  sortedNodes,
-  expandedSubscriptions,
-  subscriptions,
-  manualNodeCount,
-  interfaces,
-  nodeLatencies,
-  onOpenConfig,
-  onOpenGroup,
-  onEditGroupResources,
-  onOpenNodes,
-  onOpenSubscriptions,
-  onTestAllNodeLatencies,
-  testingLatencies,
-  testingLatencyProgress,
-}: {
-  selectedConfig?: ConfigResource
-  configs: SectionSummaryResource[]
-  groups: GroupSummaryResource[]
-  sortedNodes: NodeResource[]
-  expandedSubscriptions?: SubscriptionResource[]
-  subscriptions: SubscriptionSummaryResource[]
-  manualNodeCount?: number
-  interfaces: InterfaceResource[]
-  nodeLatencies?: Record<string, NodeLatencyProbeResult>
-  onOpenConfig?: () => void
-  onOpenGroup?: () => void
-  onEditGroupResources?: (groupId: string) => void
-  onOpenNodes?: () => void
-  onOpenSubscriptions?: () => void
-  onTestAllNodeLatencies?: () => void | Promise<void>
-  testingLatencies?: boolean
-  testingLatencyProgress?: { completed: number; total: number } | null
-}) => {
-  const { t } = useTranslation()
+export const WorkspaceSummaryCards = memo(
+  ({
+    selectedConfig,
+    configs,
+    groups,
+    sortedNodes,
+    subscriptionBackedNodes,
+    subscriptions,
+    manualNodeCount,
+    interfaces,
+    nodeLatencies,
+    onOpenConfig,
+    onOpenGroup,
+    onEditGroupResources,
+    onOpenNodes,
+    onOpenSubscriptions,
+    onTestAllNodeLatencies,
+    testingLatencies,
+    testingLatencyProgress,
+  }: {
+    selectedConfig?: ConfigResource
+    configs: SectionSummaryResource[]
+    groups: GroupSummaryResource[]
+    sortedNodes: NodeResource[]
+    subscriptionBackedNodes: NodeResource[]
+    subscriptions: SubscriptionSummaryResource[]
+    manualNodeCount?: number
+    interfaces: InterfaceResource[]
+    nodeLatencies?: Record<string, NodeLatencyProbeResult>
+    onOpenConfig?: () => void
+    onOpenGroup?: () => void
+    onEditGroupResources?: (groupId: string) => void
+    onOpenNodes?: () => void
+    onOpenSubscriptions?: () => void
+    onTestAllNodeLatencies?: () => void | Promise<void>
+    testingLatencies?: boolean
+    testingLatencyProgress?: { completed: number; total: number } | null
+  }) => {
+    const { t } = useTranslation()
 
-  const selectedConfigSummary = useMemo(() => configs.find((config) => config.selected) ?? configs[0], [configs])
-  const activeConfigName = selectedConfig?.name || selectedConfigSummary?.name || 'default'
-  const subscriptionNameById = useMemo(
-    () => new Map(subscriptions.map((subscription) => [subscription.id, subscription.tag || subscription.link])),
-    [subscriptions],
-  )
-  const groupPathCards = useMemo(
-    () =>
-      groups.map((group) => {
-        const directNode = group.firstNode ?? undefined
-        const directNodeSubscriptionName = directNode?.subscriptionID
-          ? subscriptionNameById.get(directNode.subscriptionID)
-          : undefined
-        const subscriptionBinding = group.firstSubscription ?? undefined
-        const subscriptionNodes = subscriptionBinding?.sampleMatchedNodes ?? []
-        const destination = directNode
-          ? {
-              ...getNodeIdentity(directNode),
-              subtitle: directNode.subscriptionID
-                ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
-                : t('workspaceSummary.manualNode'),
-            }
-          : subscriptionBinding
-            ? {
-                title: subscriptionBinding.subscription.tag || subscriptionBinding.subscription.link || '—',
-                subtitle: `${t('workspaceSummary.fromSubscription')} · ${t(
-                  'groupPicker.subscriptionPreviewMatchedCount',
-                  {
-                    count: subscriptionBinding.matchedCount,
-                  },
-                )}`,
-                tooltipNodes: subscriptionNodes.map(getNodeIdentity),
-              }
+    const selectedConfigSummary = useMemo(() => configs.find((config) => config.selected) ?? configs[0], [configs])
+    const activeConfigName = selectedConfig?.name || selectedConfigSummary?.name || 'default'
+    const subscriptionNameById = useMemo(
+      () => new Map(subscriptions.map((subscription) => [subscription.id, subscription.tag || subscription.link])),
+      [subscriptions],
+    )
+    const groupPathCards = useMemo(
+      () =>
+        groups.map((group) => {
+          const directNode = group.firstNode ?? undefined
+          const directNodeSubscriptionName = directNode?.subscriptionID
+            ? subscriptionNameById.get(directNode.subscriptionID)
             : undefined
-
-        return {
-          group,
-          destination,
-          latencyLabel: directNode
-            ? (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
+          const subscriptionBinding = group.firstSubscription ?? undefined
+          const subscriptionNodes = subscriptionBinding?.sampleMatchedNodes ?? []
+          const destination = directNode
+            ? {
+                ...getNodeIdentity(directNode),
+                subtitle: directNode.subscriptionID
+                  ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
+                  : t('workspaceSummary.manualNode'),
+              }
             : subscriptionBinding
-              ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
-              : '—',
+              ? {
+                  title: subscriptionBinding.subscription.tag || subscriptionBinding.subscription.link || '—',
+                  subtitle: `${t('workspaceSummary.fromSubscription')} · ${t(
+                    'groupPicker.subscriptionPreviewMatchedCount',
+                    {
+                      count: subscriptionBinding.matchedCount,
+                    },
+                  )}`,
+                  tooltipNodes: subscriptionNodes.map(getNodeIdentity),
+                }
+              : undefined
+
+          return {
+            group,
+            destination,
+            latencyLabel: directNode
+              ? (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
+              : subscriptionBinding
+                ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
+                : '—',
+          }
+        }),
+      [groups, nodeLatencies, subscriptionNameById, t],
+    )
+    const topNodes = useMemo(
+      () => getTopNodes(sortedNodes, subscriptionBackedNodes, subscriptionNameById, nodeLatencies),
+      [nodeLatencies, sortedNodes, subscriptionBackedNodes, subscriptionNameById],
+    )
+    const topSubscriptions = useMemo(() => subscriptions.slice(0, 2), [subscriptions])
+    const displayedManualNodeCount = useMemo(
+      () =>
+        manualNodeCount ??
+        (sortedNodes.length > 0 ? sortedNodes.filter((node) => !node.subscriptionID).length : undefined),
+      [manualNodeCount, sortedNodes],
+    )
+    const nodeLatencyActionLabel = testingLatencyProgress
+      ? `${t('latency.testAllNodes')} · ${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
+      : t('latency.testAllNodes')
+
+    const wanInterfaceSummary = useMemo(() => {
+      const wanInterfaceItems = (selectedConfig?.global.wanInterface ?? []).flatMap((value) => {
+        if (value === 'auto') {
+          return interfaces
+            .filter((iface) => iface.defaultRoutes && iface.defaultRoutes.length > 0)
+            .map((iface) => ({
+              name: iface.name,
+              address: iface.addresses[0],
+            }))
         }
-      }),
-    [groups, nodeLatencies, subscriptionNameById, t],
-  )
-  const topNodes = useMemo(
-    () => getTopNodes(sortedNodes, expandedSubscriptions ?? [], nodeLatencies),
-    [expandedSubscriptions, nodeLatencies, sortedNodes],
-  )
-  const topSubscriptions = useMemo(() => subscriptions.slice(0, 2), [subscriptions])
-  const displayedManualNodeCount = useMemo(
-    () =>
-      manualNodeCount ??
-      (sortedNodes.length > 0 ? sortedNodes.filter((node) => !node.subscriptionID).length : undefined),
-    [manualNodeCount, sortedNodes],
-  )
-  const nodeLatencyActionLabel = testingLatencyProgress
-    ? `${t('latency.testAllNodes')} · ${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
-    : t('latency.testAllNodes')
 
-  const wanInterfaceSummary = useMemo(() => {
-    const wanInterfaceItems = (selectedConfig?.global.wanInterface ?? []).flatMap((value) => {
-      if (value === 'auto') {
-        return interfaces
-          .filter((iface) => iface.defaultRoutes && iface.defaultRoutes.length > 0)
-          .map((iface) => ({
-            name: iface.name,
-            address: iface.addresses[0],
-          }))
-      }
+        const iface = interfaces.find((item) => item.name === value)
+        return iface ? [{ name: iface.name, address: iface.addresses[0] }] : [{ name: value }]
+      })
+      return formatInterfaceSummary(wanInterfaceItems)
+    }, [interfaces, selectedConfig?.global.wanInterface])
+    const lanInterfaceSummary = useMemo(() => {
+      const lanInterfaceItems = (selectedConfig?.global.lanInterface ?? []).map((value) => {
+        const iface = interfaces.find((item) => item.name === value)
+        return iface ? { name: iface.name, address: iface.addresses[0] } : { name: value }
+      })
+      return formatInterfaceSummary(lanInterfaceItems)
+    }, [interfaces, selectedConfig?.global.lanInterface])
 
-      const iface = interfaces.find((item) => item.name === value)
-      return iface ? [{ name: iface.name, address: iface.addresses[0] }] : [{ name: value }]
-    })
-    return formatInterfaceSummary(wanInterfaceItems)
-  }, [interfaces, selectedConfig?.global.wanInterface])
-  const lanInterfaceSummary = useMemo(() => {
-    const lanInterfaceItems = (selectedConfig?.global.lanInterface ?? []).map((value) => {
-      const iface = interfaces.find((item) => item.name === value)
-      return iface ? { name: iface.name, address: iface.addresses[0] } : { name: value }
-    })
-    return formatInterfaceSummary(lanInterfaceItems)
-  }, [interfaces, selectedConfig?.global.lanInterface])
-
-  return (
-    <section className="grid items-stretch gap-4 lg:grid-cols-3 lg:gap-5">
-      <SummaryShell
-        title={t('config')}
-        subtitle={t('workspaceSummary.configSubtitle')}
-        icon={<Settings className="h-4.5 w-4.5" />}
-        actionLabel={t('actions.settings')}
-        onAction={onOpenConfig}
-      >
-        <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-2">
-          <SummaryConfigCard
-            label={t('workspaceSummary.currentConfig')}
-            value={activeConfigName}
-            tag={t('workspaceSummary.applied')}
-          />
-          <SummaryConfigCard label={t('tproxyPort')} value={String(selectedConfig?.global.tproxyPort ?? '—')} />
-          <SummaryConfigCard
-            label={t('wanInterface')}
-            value={wanInterfaceSummary.value}
-            detail={wanInterfaceSummary.detail}
-          />
-          <SummaryConfigCard
-            label={t('lanInterface')}
-            value={lanInterfaceSummary.value}
-            detail={lanInterfaceSummary.detail}
-          />
-          <SummaryConfigCard label={t('dialMode')} value={selectedConfig?.global.dialMode || '—'} />
-          <SummaryConfigCard
-            label={t('workspaceSummary.fallbackDns')}
-            value={selectedConfig?.global.fallbackResolver || '—'}
-          />
-        </div>
-      </SummaryShell>
-
-      <SummaryShell
-        title={t('group')}
-        subtitle={t('workspaceSummary.groupSubtitle')}
-        icon={<MapIcon className="h-4.5 w-4.5" />}
-        actionLabel={t('actions.viewDetails')}
-        onAction={onOpenGroup}
-      >
-        <div className="min-h-0 max-h-[340px] flex-1 space-y-2.5 overflow-y-auto overscroll-contain py-0.5 pr-1 lg:max-h-none">
-          {groupPathCards.map(({ group, destination, latencyLabel }) => (
-            <CurrentGroupPathCard
-              key={group.id}
-              groupName={group.name || '—'}
-              currentLabel={t('workspaceSummary.currentGroup')}
-              policy={group.policy}
-              policyLabel={t('policy')}
-              destination={destination}
-              latencyTitle={t('latency.label')}
-              latencyLabel={latencyLabel}
-              editGroupLabel={t('groupPicker.editGroupResources')}
-              onEditGroup={onEditGroupResources ? () => onEditGroupResources(group.id) : undefined}
+    return (
+      <section className="grid items-stretch gap-4 lg:grid-cols-3 lg:gap-5">
+        <SummaryShell
+          title={t('config')}
+          subtitle={t('workspaceSummary.configSubtitle')}
+          icon={<Settings className="h-4.5 w-4.5" />}
+          actionLabel={t('actions.settings')}
+          onAction={onOpenConfig}
+        >
+          <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-2">
+            <SummaryConfigCard
+              label={t('workspaceSummary.currentConfig')}
+              value={activeConfigName}
+              tag={t('workspaceSummary.applied')}
             />
-          ))}
-        </div>
-      </SummaryShell>
-
-      <SummaryShell
-        title={t('workspaceSummary.nodeSubscriptionTitle')}
-        subtitle={t('workspaceSummary.nodeSubscriptionSubtitle')}
-        icon={<CloudCog className="h-4.5 w-4.5" />}
-        actionLabel={nodeLatencyActionLabel}
-        actionDisabled={testingLatencies}
-        onAction={onTestAllNodeLatencies}
-      >
-        <div className="min-h-0 max-h-[326px] space-y-2 overflow-y-auto overscroll-contain pr-1 lg:max-h-[276px]">
-          <div className="space-y-2">
-            {topNodes.map(({ node, latency, source }, index) => {
-              const hasLatency = Number.isFinite(latency)
-              const sourceLabel =
-                source.type === 'subscription'
-                  ? `${t('workspaceSummary.fromSubscription')} · ${source.name}`
-                  : t('workspaceSummary.customNode')
-              const nodeMeta = [sourceLabel, node.address].filter(Boolean).join(' · ')
-
-              return (
-                <NodeRow
-                  key={node.id}
-                  rank={index + 1}
-                  title={node.name || node.tag || node.address}
-                  subtitle={nodeMeta}
-                  protocol={node.protocol || undefined}
-                  transport={node.transport || undefined}
-                  latencyLabel={hasLatency ? `${latency} ms` : t('latency.unavailable')}
-                  warn={hasLatency && latency >= 80}
-                  muted={!hasLatency}
-                />
-              )
-            })}
+            <SummaryConfigCard label={t('tproxyPort')} value={String(selectedConfig?.global.tproxyPort ?? '—')} />
+            <SummaryConfigCard
+              label={t('wanInterface')}
+              value={wanInterfaceSummary.value}
+              detail={wanInterfaceSummary.detail}
+            />
+            <SummaryConfigCard
+              label={t('lanInterface')}
+              value={lanInterfaceSummary.value}
+              detail={lanInterfaceSummary.detail}
+            />
+            <SummaryConfigCard label={t('dialMode')} value={selectedConfig?.global.dialMode || '—'} />
+            <SummaryConfigCard
+              label={t('workspaceSummary.fallbackDns')}
+              value={selectedConfig?.global.fallbackResolver || '—'}
+            />
           </div>
-          <div className="space-y-1.5">
-            {topSubscriptions.map((subscription) => (
-              <StatusRow
-                key={subscription.id}
-                title={subscription.tag || subscription.link}
-                subtitle={`${t('workspaceSummary.subscriptionUpdated')} · ${subscription.nodeCount} ${t('node')}`}
-                badge={t('workspaceSummary.healthy')}
+        </SummaryShell>
+
+        <SummaryShell
+          title={t('group')}
+          subtitle={t('workspaceSummary.groupSubtitle')}
+          icon={<MapIcon className="h-4.5 w-4.5" />}
+          actionLabel={t('actions.viewDetails')}
+          onAction={onOpenGroup}
+        >
+          <div className="min-h-0 max-h-[340px] flex-1 space-y-2.5 overflow-y-auto overscroll-contain py-0.5 pr-1 lg:max-h-none">
+            {groupPathCards.map(({ group, destination, latencyLabel }) => (
+              <CurrentGroupPathCard
+                key={group.id}
+                groupName={group.name || '—'}
+                currentLabel={t('workspaceSummary.currentGroup')}
+                policy={group.policy}
+                policyLabel={t('policy')}
+                destination={destination}
+                latencyTitle={t('latency.label')}
+                latencyLabel={latencyLabel}
+                editGroupLabel={t('groupPicker.editGroupResources')}
+                onEditGroup={onEditGroupResources ? () => onEditGroupResources(group.id) : undefined}
               />
             ))}
-            <div className="grid min-h-[48px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-border/35 bg-accent/10 px-3 py-2">
-              <strong className="truncate text-sm font-semibold text-foreground">
-                {t('workspaceSummary.customNodes')}
-              </strong>
-              <span className="text-sm font-bold text-muted-foreground">{displayedManualNodeCount ?? '—'}</span>
+          </div>
+        </SummaryShell>
+
+        <SummaryShell
+          title={t('workspaceSummary.nodeSubscriptionTitle')}
+          subtitle={t('workspaceSummary.nodeSubscriptionSubtitle')}
+          icon={<CloudCog className="h-4.5 w-4.5" />}
+          actionLabel={nodeLatencyActionLabel}
+          actionDisabled={testingLatencies}
+          onAction={onTestAllNodeLatencies}
+        >
+          <div className="min-h-0 max-h-[326px] space-y-2 overflow-y-auto overscroll-contain pr-1 lg:max-h-[276px]">
+            <div className="space-y-2">
+              {topNodes.map(({ node, latency, source }, index) => {
+                const hasLatency = Number.isFinite(latency)
+                const sourceLabel =
+                  source.type === 'subscription'
+                    ? `${t('workspaceSummary.fromSubscription')} · ${source.name}`
+                    : t('workspaceSummary.customNode')
+                const nodeMeta = [sourceLabel, node.address].filter(Boolean).join(' · ')
+
+                return (
+                  <NodeRow
+                    key={node.id}
+                    rank={index + 1}
+                    title={node.name || node.tag || node.address}
+                    subtitle={nodeMeta}
+                    protocol={node.protocol || undefined}
+                    transport={node.transport || undefined}
+                    latencyLabel={hasLatency ? `${latency} ms` : t('latency.unavailable')}
+                    warn={hasLatency && latency >= 80}
+                    muted={!hasLatency}
+                  />
+                )
+              })}
+            </div>
+            <div className="space-y-1.5">
+              {topSubscriptions.map((subscription) => (
+                <StatusRow
+                  key={subscription.id}
+                  title={subscription.tag || subscription.link}
+                  subtitle={`${t('workspaceSummary.subscriptionUpdated')} · ${subscription.nodeCount} ${t('node')}`}
+                  badge={t('workspaceSummary.healthy')}
+                />
+              ))}
+              <div className="grid min-h-[48px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-border/35 bg-accent/10 px-3 py-2">
+                <strong className="truncate text-sm font-semibold text-foreground">
+                  {t('workspaceSummary.customNodes')}
+                </strong>
+                <span className="text-sm font-bold text-muted-foreground">{displayedManualNodeCount ?? '—'}</span>
+              </div>
             </div>
           </div>
-        </div>
-        <SummarySplitActions
-          leftLabel={t('node')}
-          rightLabel={t('subscription')}
-          onLeft={onOpenNodes}
-          onRight={onOpenSubscriptions}
-        />
-      </SummaryShell>
-    </section>
-  )
-})
+          <SummarySplitActions
+            leftLabel={t('node')}
+            rightLabel={t('subscription')}
+            onLeft={onOpenNodes}
+            onRight={onOpenSubscriptions}
+          />
+        </SummaryShell>
+      </section>
+    )
+  },
+)

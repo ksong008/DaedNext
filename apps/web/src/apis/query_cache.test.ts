@@ -13,6 +13,9 @@ describe('webQueryKeys', () => {
 
     expect(webQueryKeys.subscription.summary()).toEqual(['subscription', 'summary'])
     expect(webQueryKeys.subscription.expanded()).toEqual(['subscription', 'expanded'])
+
+    expect(webQueryKeys.node.list()).toEqual(['node'])
+    expect(webQueryKeys.node.subscriptionBackedList()).toEqual(['node', 'subscription-backed'])
   })
 
   it('targets daemon state without invalidating interface lists', () => {

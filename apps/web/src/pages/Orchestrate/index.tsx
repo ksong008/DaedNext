@@ -31,6 +31,7 @@ import {
   useNodeLatenciesQuery,
   useNodeLatencyJobQuery,
   useNodesQuery,
+  useSubscriptionBackedNodesQuery,
   useSubscriptionsQuery,
   useSubscriptionsSummaryQuery,
   useTestNodeLatenciesMutation,
@@ -162,11 +163,6 @@ export function OrchestratePage() {
   const [summaryEditingGroupId, setSummaryEditingGroupId] = useState<string | null>(null)
   const [summaryGroupEditMode, setSummaryGroupEditMode] = useState<SummaryGroupEditMode | null>(null)
   const fullGroupQueryEnabled = activeWorkspacePanel === 'group' || summaryGroupEditMode !== null
-  const fullNodeQueryEnabled =
-    activeWorkspacePanel === 'node' ||
-    activeWorkspacePanel === 'group' ||
-    activeWorkspacePanel === 'subscription' ||
-    summaryGroupEditMode === 'nodes'
   const fullSubscriptionQueryEnabled =
     activeWorkspacePanel === 'subscription' ||
     activeWorkspacePanel === 'group' ||
@@ -180,7 +176,8 @@ export function OrchestratePage() {
   const { data: selectedConfig } = useConfigQuery(selectedConfigSummary?.id, !!selectedConfigSummary?.id)
   const { data: generalStateQuery } = useGeneralStateQuery()
   const { data: interfaces } = useInterfacesQuery()
-  const { data: nodesQuery } = useNodesQuery(fullNodeQueryEnabled)
+  const { data: nodesQuery } = useNodesQuery()
+  const { data: subscriptionBackedNodesQuery } = useSubscriptionBackedNodesQuery()
   const { data: groupSummariesQuery } = useGroupsSummaryQuery()
   const { data: groupsQuery } = useGroupsQuery(fullGroupQueryEnabled)
   const { data: subscriptionSummariesQuery } = useSubscriptionsSummaryQuery()
@@ -229,6 +226,10 @@ export function OrchestratePage() {
 
   // Get nodes from query (memoized to avoid dependency issues)
   const nodes = useMemo(() => nodesQuery?.nodes.items ?? [], [nodesQuery?.nodes.items])
+  const subscriptionBackedNodes = useMemo(
+    () => subscriptionBackedNodesQuery?.nodes.items ?? [],
+    [subscriptionBackedNodesQuery?.nodes.items],
+  )
   const groups = useMemo(() => groupsQuery?.groups ?? [], [groupsQuery?.groups])
   const groupSummaries = useMemo(
     () => groupSummariesQuery?.groups ?? EMPTY_GROUP_SUMMARIES,
@@ -309,10 +310,15 @@ export function OrchestratePage() {
 
     return latestTestedAt
   }, [nodeLatencies])
+  const manualNodeCount = nodesQuery?.nodes.totalCount ?? nodes.length
   const loadedNodeCount = useMemo(() => {
     const nodeIds = new Set<string>()
 
     for (const node of nodes) {
+      nodeIds.add(node.id)
+    }
+
+    for (const node of subscriptionBackedNodes) {
       nodeIds.add(node.id)
     }
 
@@ -323,7 +329,7 @@ export function OrchestratePage() {
     }
 
     return nodeIds.size
-  }, [nodes, subscriptions])
+  }, [nodes, subscriptionBackedNodes, subscriptions])
   const totalNodeCount = generalStateQuery?.general.counts.nodes ?? loadedNodeCount
   const minLatencyMs = useMemo(() => {
     let minLatencyMs: number | undefined
@@ -416,6 +422,10 @@ export function OrchestratePage() {
       nodeIDs.add(node.id)
     }
 
+    for (const node of subscriptionBackedNodes) {
+      nodeIDs.add(node.id)
+    }
+
     for (const subscription of sortedSubscriptions) {
       for (const node of subscription.nodes.items) {
         nodeIDs.add(node.id)
@@ -423,8 +433,8 @@ export function OrchestratePage() {
     }
 
     return Array.from(nodeIDs)
-  }, [sortedNodes, sortedSubscriptions])
-  const latencyProbeFallbackTotal = allLatencyProbeNodeIds.length || totalNodeCount
+  }, [sortedNodes, sortedSubscriptions, subscriptionBackedNodes])
+  const latencyProbeFallbackTotal = Math.max(allLatencyProbeNodeIds.length, totalNodeCount)
 
   const testAllNodeLatencies = useCallback(async () => {
     if (manualLatencyProbeProgress) return
@@ -1163,7 +1173,7 @@ export function OrchestratePage() {
         <>
           <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
             <TrafficOverviewIsland
-              nodeCount={totalNodeCount}
+              nodeCount={manualNodeCount}
               subscriptionCount={generalStateQuery?.general.counts.subscriptions ?? subscriptionSummaries.length}
               minLatencyMs={minLatencyMs}
             />
@@ -1174,8 +1184,9 @@ export function OrchestratePage() {
             configs={configSummariesQuery?.configs ?? EMPTY_CONFIG_SUMMARIES}
             groups={sortedGroupSummaries}
             sortedNodes={sortedNodes}
-            expandedSubscriptions={sortedSubscriptions}
+            subscriptionBackedNodes={subscriptionBackedNodes}
             subscriptions={subscriptionSummariesQuery?.subscriptions ?? EMPTY_SUBSCRIPTION_SUMMARIES}
+            manualNodeCount={manualNodeCount}
             interfaces={interfaces ?? EMPTY_INTERFACES}
             nodeLatencies={nodeLatencies}
             onOpenConfig={openConfigPanel}

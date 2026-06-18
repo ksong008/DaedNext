@@ -156,6 +156,15 @@ export class MockAPIClient implements APIClientInterface {
       case 'GET /nodes/latencies/job':
         return { job: mockLatencyJob } as T
       case 'GET /nodes':
+        if (toQueryBool(query?.independent) === false) {
+          const subscriptionNodes = mockSubscriptions.subscriptions.flatMap((subscription) =>
+            subscription.nodes.items.map((node) => toMockNodeAPI(node, subscription.id)),
+          )
+          return {
+            items: subscriptionNodes,
+            totalCount: subscriptionNodes.length,
+          } as T
+        }
         return {
           items: mockNodes.nodes.items.map((node) => toMockNodeAPI(node)),
           totalCount: mockNodes.nodes.items.length,
