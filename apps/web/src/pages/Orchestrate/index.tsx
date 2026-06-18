@@ -1,6 +1,14 @@
 import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
 import type { NodeLatencyJob, NodeLatencyProbeResult } from '~/apis'
-import type { GroupListView, NodeListView, SubscriptionListView } from '~/apis/types'
+import type {
+  GroupListView,
+  GroupSummaryResource,
+  InterfaceResource,
+  NodeListView,
+  SectionSummaryResource,
+  SubscriptionListView,
+  SubscriptionSummaryResource,
+} from '~/apis/types'
 import type { GroupPickerItem } from '~/components/GroupResourcePickerModal'
 import type { DraggingResource } from '~/constants'
 import { useStore } from '@nanostores/react'
@@ -26,7 +34,6 @@ import {
   useSubscriptionsQuery,
   useSubscriptionsSummaryQuery,
   useTestNodeLatenciesMutation,
-  useTrafficOverviewQuery,
 } from '~/apis'
 import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
@@ -42,7 +49,7 @@ import { cn } from '~/lib/utils'
 import { appStateAtom, groupSortOrdersAtom } from '~/store'
 import { deriveTime } from '~/utils'
 import { NODE_DROPPABLE_ID } from './dndConstants'
-import { REALTIME_TRAFFIC_MAX_POINTS, REALTIME_TRAFFIC_WINDOW_SECONDS, TrafficOverview } from './TrafficOverview'
+import { TrafficOverviewIsland } from './TrafficOverviewIsland'
 import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
 
 const ConfigPanel = lazy(() => import('./Config').then((module) => ({ default: module.Config })))
@@ -69,6 +76,10 @@ const MANUAL_LATENCY_PROBE_START_TIMEOUT_MS = 8_000
 const MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS = 1_000
 const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
 const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
+const EMPTY_CONFIG_SUMMARIES: SectionSummaryResource[] = []
+const EMPTY_GROUP_SUMMARIES: GroupSummaryResource[] = []
+const EMPTY_SUBSCRIPTION_SUMMARIES: SubscriptionSummaryResource[] = []
+const EMPTY_INTERFACES: InterfaceResource[] = []
 
 function PanelLoadingFallback() {
   return <div className="min-h-28 rounded-xl border border-border/70 bg-muted/20" aria-busy="true" />
@@ -174,8 +185,6 @@ export function OrchestratePage() {
   const { data: groupsQuery } = useGroupsQuery(fullGroupQueryEnabled)
   const { data: subscriptionSummariesQuery } = useSubscriptionsSummaryQuery()
   const { data: subscriptionsQuery } = useSubscriptionsQuery(fullSubscriptionQueryEnabled)
-  const trafficOverviewQuery = useTrafficOverviewQuery(REALTIME_TRAFFIC_WINDOW_SECONDS, REALTIME_TRAFFIC_MAX_POINTS)
-  const runtimeOverview = trafficOverviewQuery.data
 
   const groupAddNodesMutation = useGroupAddNodesMutation()
   const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
@@ -221,10 +230,13 @@ export function OrchestratePage() {
   // Get nodes from query (memoized to avoid dependency issues)
   const nodes = useMemo(() => nodesQuery?.nodes.items ?? [], [nodesQuery?.nodes.items])
   const groups = useMemo(() => groupsQuery?.groups ?? [], [groupsQuery?.groups])
-  const groupSummaries = useMemo(() => groupSummariesQuery?.groups ?? [], [groupSummariesQuery?.groups])
+  const groupSummaries = useMemo(
+    () => groupSummariesQuery?.groups ?? EMPTY_GROUP_SUMMARIES,
+    [groupSummariesQuery?.groups],
+  )
   const subscriptions = useMemo(() => subscriptionsQuery?.subscriptions ?? [], [subscriptionsQuery?.subscriptions])
   const subscriptionSummaries = useMemo(
-    () => subscriptionSummariesQuery?.subscriptions ?? [],
+    () => subscriptionSummariesQuery?.subscriptions ?? EMPTY_SUBSCRIPTION_SUMMARIES,
     [subscriptionSummariesQuery?.subscriptions],
   )
   const getGroupById = useCallback(
@@ -565,6 +577,10 @@ export function OrchestratePage() {
     [sortedGroupSummaries, summaryEditingGroupId],
   )
   const summaryEditingGroupName = summaryEditingGroup?.name || summaryEditingGroupSummary?.name || t('group')
+  const summaryEditingGroupAvailable = !!summaryEditingGroup || !!summaryEditingGroupSummary
+  const summaryEditingGroupNodeCount = summaryEditingGroup?.nodes.length ?? summaryEditingGroupSummary?.nodeCount ?? 0
+  const summaryEditingGroupSubscriptionCount =
+    summaryEditingGroup?.subscriptions.length ?? summaryEditingGroupSummary?.subscriptionCount ?? 0
 
   const summaryNodePickerCandidates = useMemo<NodePickerCandidate[]>(() => {
     if (summaryGroupEditMode !== 'nodes') return []
@@ -634,12 +650,12 @@ export function OrchestratePage() {
   )
 
   const summarySelectedNodeItemIds = useMemo(() => {
-    if (!summaryEditingGroup) return []
+    if (summaryGroupEditMode !== 'nodes' || !summaryEditingGroup) return []
 
     return summaryEditingGroup.nodes
       .map((node) => findNodePickerId(node, summaryNodePickerCandidates))
       .filter(Boolean) as string[]
-  }, [summaryEditingGroup, summaryNodePickerCandidates])
+  }, [summaryEditingGroup, summaryGroupEditMode, summaryNodePickerCandidates])
 
   const summaryEditableSubscriptionItems = useMemo<GroupPickerItem[]>(() => {
     if (summaryGroupEditMode !== 'subscriptions') return []
@@ -667,8 +683,11 @@ export function OrchestratePage() {
   }, [sortedSubscriptions, summaryGroupEditMode, t])
 
   const summarySelectedSubscriptionItemIds = useMemo(
-    () => summaryEditingGroup?.subscriptions.map((binding) => binding.subscription.id) ?? [],
-    [summaryEditingGroup],
+    () =>
+      summaryGroupEditMode === 'subscriptions'
+        ? (summaryEditingGroup?.subscriptions.map((binding) => binding.subscription.id) ?? [])
+        : [],
+    [summaryEditingGroup, summaryGroupEditMode],
   )
 
   // Helper to parse group item IDs (format: groupId-node-nodeId or groupId-sub-subId)
@@ -1124,6 +1143,10 @@ export function OrchestratePage() {
     nextSearchParams.delete('panel')
     setSearchParams(nextSearchParams, { replace: true })
   }, [searchParams, setSearchParams])
+  const openConfigPanel = useCallback(() => openWorkspacePanel('config'), [openWorkspacePanel])
+  const openGroupPanel = useCallback(() => openWorkspacePanel('group'), [openWorkspacePanel])
+  const openNodePanel = useCallback(() => openWorkspacePanel('node'), [openWorkspacePanel])
+  const openSubscriptionPanel = useCallback(() => openWorkspacePanel('subscription'), [openWorkspacePanel])
 
   return (
     <div className="flex flex-col gap-4 lg:gap-5">
@@ -1139,8 +1162,7 @@ export function OrchestratePage() {
       ) : (
         <>
           <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
-            <TrafficOverview
-              runtimeOverview={runtimeOverview}
+            <TrafficOverviewIsland
               nodeCount={totalNodeCount}
               subscriptionCount={generalStateQuery?.general.counts.subscriptions ?? subscriptionSummaries.length}
               minLatencyMs={minLatencyMs}
@@ -1149,18 +1171,18 @@ export function OrchestratePage() {
 
           <WorkspaceSummaryCards
             selectedConfig={selectedConfig}
-            configs={configSummariesQuery?.configs ?? []}
+            configs={configSummariesQuery?.configs ?? EMPTY_CONFIG_SUMMARIES}
             groups={sortedGroupSummaries}
             sortedNodes={sortedNodes}
             expandedSubscriptions={sortedSubscriptions}
-            subscriptions={subscriptionSummaries}
-            interfaces={interfaces ?? []}
+            subscriptions={subscriptionSummariesQuery?.subscriptions ?? EMPTY_SUBSCRIPTION_SUMMARIES}
+            interfaces={interfaces ?? EMPTY_INTERFACES}
             nodeLatencies={nodeLatencies}
-            onOpenConfig={() => openWorkspacePanel('config')}
-            onOpenGroup={() => openWorkspacePanel('group')}
+            onOpenConfig={openConfigPanel}
+            onOpenGroup={openGroupPanel}
             onEditGroupResources={openSummaryGroupEdit}
-            onOpenNodes={() => openWorkspacePanel('node')}
-            onOpenSubscriptions={() => openWorkspacePanel('subscription')}
+            onOpenNodes={openNodePanel}
+            onOpenSubscriptions={openSubscriptionPanel}
             onTestAllNodeLatencies={testAllNodeLatencies}
             testingLatencies={manualLatencyProbeProgress !== null}
             testingLatencyProgress={manualLatencyProbeProgress}
@@ -1177,7 +1199,7 @@ export function OrchestratePage() {
             <button
               type="button"
               className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-accent/40 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/55 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
-              disabled={!summaryEditingGroup}
+              disabled={!summaryEditingGroupAvailable}
               onClick={() => setSummaryGroupEditMode('nodes')}
             >
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
@@ -1188,7 +1210,7 @@ export function OrchestratePage() {
                   {t('groupPicker.editNodePicker')}
                 </span>
                 <span className="mt-1 block truncate text-xs text-muted-foreground">
-                  {t('groupPicker.nodesCount', { count: summaryEditingGroup?.nodes.length ?? 0 })}
+                  {t('groupPicker.nodesCount', { count: summaryEditingGroupNodeCount })}
                 </span>
               </span>
             </button>
@@ -1196,7 +1218,7 @@ export function OrchestratePage() {
             <button
               type="button"
               className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-accent/40 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/55 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
-              disabled={!summaryEditingGroup}
+              disabled={!summaryEditingGroupAvailable}
               onClick={() => setSummaryGroupEditMode('subscriptions')}
             >
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
@@ -1208,7 +1230,7 @@ export function OrchestratePage() {
                 </span>
                 <span className="mt-1 block truncate text-xs text-muted-foreground">
                   {t('groupPicker.subscriptionGroupsCount', {
-                    count: summaryEditingGroup?.subscriptions.length ?? 0,
+                    count: summaryEditingGroupSubscriptionCount,
                   })}
                 </span>
               </span>

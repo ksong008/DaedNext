@@ -9,6 +9,7 @@ import type {
   SubscriptionSummaryResource,
 } from '~/apis/types'
 import { CloudCog, Map as MapIcon, Pencil, Settings } from 'lucide-react'
+import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
@@ -463,7 +464,7 @@ function getTopNodes(
   return rankedNodes.sort((left, right) => left.latency - right.latency).slice(0, 3)
 }
 
-export function WorkspaceSummaryCards({
+export const WorkspaceSummaryCards = memo(({
   selectedConfig,
   configs,
   groups,
@@ -499,75 +500,94 @@ export function WorkspaceSummaryCards({
   onTestAllNodeLatencies?: () => void | Promise<void>
   testingLatencies?: boolean
   testingLatencyProgress?: { completed: number; total: number } | null
-}) {
+}) => {
   const { t } = useTranslation()
 
-  const selectedConfigSummary = configs.find((config) => config.selected) ?? configs[0]
+  const selectedConfigSummary = useMemo(() => configs.find((config) => config.selected) ?? configs[0], [configs])
   const activeConfigName = selectedConfig?.name || selectedConfigSummary?.name || 'default'
-  const subscriptionNameById = new Map(
-    subscriptions.map((subscription) => [subscription.id, subscription.tag || subscription.link]),
+  const subscriptionNameById = useMemo(
+    () => new Map(subscriptions.map((subscription) => [subscription.id, subscription.tag || subscription.link])),
+    [subscriptions],
   )
-  const groupPathCards = groups.map((group) => {
-    const directNode = group.firstNode ?? undefined
-    const directNodeSubscriptionName = directNode?.subscriptionID
-      ? subscriptionNameById.get(directNode.subscriptionID)
-      : undefined
-    const subscriptionBinding = group.firstSubscription ?? undefined
-    const subscriptionNodes = subscriptionBinding?.sampleMatchedNodes ?? []
-    const destination = directNode
-      ? {
-          ...getNodeIdentity(directNode),
-          subtitle: directNode.subscriptionID
-            ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
-            : t('workspaceSummary.manualNode'),
-        }
-      : subscriptionBinding
-        ? {
-            title: subscriptionBinding.subscription.tag || subscriptionBinding.subscription.link || '—',
-            subtitle: `${t('workspaceSummary.fromSubscription')} · ${t('groupPicker.subscriptionPreviewMatchedCount', {
-              count: subscriptionBinding.matchedCount,
-            })}`,
-            tooltipNodes: subscriptionNodes.map(getNodeIdentity),
-          }
-        : undefined
+  const groupPathCards = useMemo(
+    () =>
+      groups.map((group) => {
+        const directNode = group.firstNode ?? undefined
+        const directNodeSubscriptionName = directNode?.subscriptionID
+          ? subscriptionNameById.get(directNode.subscriptionID)
+          : undefined
+        const subscriptionBinding = group.firstSubscription ?? undefined
+        const subscriptionNodes = subscriptionBinding?.sampleMatchedNodes ?? []
+        const destination = directNode
+          ? {
+              ...getNodeIdentity(directNode),
+              subtitle: directNode.subscriptionID
+                ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
+                : t('workspaceSummary.manualNode'),
+            }
+          : subscriptionBinding
+            ? {
+                title: subscriptionBinding.subscription.tag || subscriptionBinding.subscription.link || '—',
+                subtitle: `${t('workspaceSummary.fromSubscription')} · ${t(
+                  'groupPicker.subscriptionPreviewMatchedCount',
+                  {
+                    count: subscriptionBinding.matchedCount,
+                  },
+                )}`,
+                tooltipNodes: subscriptionNodes.map(getNodeIdentity),
+              }
+            : undefined
 
-    return {
-      group,
-      destination,
-      latencyLabel: directNode
-        ? (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
-        : subscriptionBinding
-          ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
-          : '—',
-    }
-  })
-  const topNodes = getTopNodes(sortedNodes, expandedSubscriptions ?? [], nodeLatencies)
-  const topSubscriptions = subscriptions.slice(0, 2)
-  const displayedManualNodeCount =
-    manualNodeCount ?? (sortedNodes.length > 0 ? sortedNodes.filter((node) => !node.subscriptionID).length : undefined)
+        return {
+          group,
+          destination,
+          latencyLabel: directNode
+            ? (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
+            : subscriptionBinding
+              ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
+              : '—',
+        }
+      }),
+    [groups, nodeLatencies, subscriptionNameById, t],
+  )
+  const topNodes = useMemo(
+    () => getTopNodes(sortedNodes, expandedSubscriptions ?? [], nodeLatencies),
+    [expandedSubscriptions, nodeLatencies, sortedNodes],
+  )
+  const topSubscriptions = useMemo(() => subscriptions.slice(0, 2), [subscriptions])
+  const displayedManualNodeCount = useMemo(
+    () =>
+      manualNodeCount ??
+      (sortedNodes.length > 0 ? sortedNodes.filter((node) => !node.subscriptionID).length : undefined),
+    [manualNodeCount, sortedNodes],
+  )
   const nodeLatencyActionLabel = testingLatencyProgress
     ? `${t('latency.testAllNodes')} · ${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
     : t('latency.testAllNodes')
 
-  const wanInterfaceItems = (selectedConfig?.global.wanInterface ?? []).flatMap((value) => {
-    if (value === 'auto') {
-      return interfaces
-        .filter((iface) => iface.defaultRoutes && iface.defaultRoutes.length > 0)
-        .map((iface) => ({
-          name: iface.name,
-          address: iface.addresses[0],
-        }))
-    }
+  const wanInterfaceSummary = useMemo(() => {
+    const wanInterfaceItems = (selectedConfig?.global.wanInterface ?? []).flatMap((value) => {
+      if (value === 'auto') {
+        return interfaces
+          .filter((iface) => iface.defaultRoutes && iface.defaultRoutes.length > 0)
+          .map((iface) => ({
+            name: iface.name,
+            address: iface.addresses[0],
+          }))
+      }
 
-    const iface = interfaces.find((item) => item.name === value)
-    return iface ? [{ name: iface.name, address: iface.addresses[0] }] : [{ name: value }]
-  })
-  const lanInterfaceItems = (selectedConfig?.global.lanInterface ?? []).map((value) => {
-    const iface = interfaces.find((item) => item.name === value)
-    return iface ? { name: iface.name, address: iface.addresses[0] } : { name: value }
-  })
-  const wanInterfaceSummary = formatInterfaceSummary(wanInterfaceItems)
-  const lanInterfaceSummary = formatInterfaceSummary(lanInterfaceItems)
+      const iface = interfaces.find((item) => item.name === value)
+      return iface ? [{ name: iface.name, address: iface.addresses[0] }] : [{ name: value }]
+    })
+    return formatInterfaceSummary(wanInterfaceItems)
+  }, [interfaces, selectedConfig?.global.wanInterface])
+  const lanInterfaceSummary = useMemo(() => {
+    const lanInterfaceItems = (selectedConfig?.global.lanInterface ?? []).map((value) => {
+      const iface = interfaces.find((item) => item.name === value)
+      return iface ? { name: iface.name, address: iface.addresses[0] } : { name: value }
+    })
+    return formatInterfaceSummary(lanInterfaceItems)
+  }, [interfaces, selectedConfig?.global.lanInterface])
 
   return (
     <section className="grid items-stretch gap-4 lg:grid-cols-3 lg:gap-5">
@@ -687,4 +707,4 @@ export function WorkspaceSummaryCards({
       </SummaryShell>
     </section>
   )
-}
+})
