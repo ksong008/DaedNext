@@ -101,4 +101,56 @@ describe('aPI client', () => {
       'API request reached the WebUI static handler; check the endpoint URL and make sure it points to /api',
     )
   })
+
+  it('keeps a newer token when a stale authenticated request receives 401', async () => {
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      hostname: '127.0.0.1',
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response(JSON.stringify({ error: 'authentication required' }), {
+          status: 401,
+          statusText: 'Unauthorized',
+          headers: { 'content-type': 'application/json' },
+        })
+      }),
+    )
+
+    const { tokenAtom } = await import('~/store')
+    const { APIClient } = await import('./client')
+
+    tokenAtom.set('new-token')
+    const staleClient = new APIClient('http://127.0.0.1:2023/api', 'old-token')
+    await expect(staleClient.get('/general')).rejects.toThrow('authentication required')
+
+    expect(tokenAtom.get()).toBe('new-token')
+  })
+
+  it('clears the current token when the active authenticated request receives 401', async () => {
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      hostname: '127.0.0.1',
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response(JSON.stringify({ error: 'authentication required' }), {
+          status: 401,
+          statusText: 'Unauthorized',
+          headers: { 'content-type': 'application/json' },
+        })
+      }),
+    )
+
+    const { tokenAtom } = await import('~/store')
+    const { APIClient } = await import('./client')
+
+    tokenAtom.set('current-token')
+    const client = new APIClient('http://127.0.0.1:2023/api', 'current-token')
+    await expect(client.get('/general')).rejects.toThrow('authentication required')
+
+    expect(tokenAtom.get()).toBe('')
+  })
 })

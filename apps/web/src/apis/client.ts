@@ -166,7 +166,7 @@ export class APIClient implements APIClientInterface {
       body: body === undefined ? undefined : JSON.stringify(body),
     })
 
-    if (response.status === 401) {
+    if (response.status === 401 && (!this.token || tokenAtom.get() === this.token)) {
       tokenAtom.set('')
     }
 
