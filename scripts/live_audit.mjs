@@ -151,8 +151,10 @@ async function main() {
   await loginInputs.nth(1).fill(PASSWORD)
   await loginButton.click()
 
-  await page.getByRole('link', { name: /start your journey/i }).waitFor({ state: 'visible', timeout: 15000 })
-  await page.getByRole('link', { name: /start your journey/i }).click()
+  const startJourneyLink = page.getByRole('link', { name: /start your journey/i })
+  if (await startJourneyLink.isVisible({ timeout: 15000 }).catch(() => false)) {
+    await startJourneyLink.click()
+  }
 
   await page.waitForURL(/#\/?$/, { timeout: 15000 })
   await page.locator('#overview').waitFor({ state: 'visible', timeout: 15000 })
