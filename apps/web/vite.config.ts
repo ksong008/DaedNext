@@ -29,7 +29,7 @@ export default defineConfig(() => {
     },
     plugins: [react(), tailwindcss()],
     build: {
-      chunkSizeWarningLimit: 10 * 1024 * 1024,
+      chunkSizeWarningLimit: 7 * 1024,
     },
     define: {
       'import.meta.env.APP_VERSION': JSON.stringify(displayVersion),

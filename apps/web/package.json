@@ -6,6 +6,8 @@
   "description": "A Web Dashboard For dae",
   "scripts": {
     "build": "vite build",
+    "bundle:check": "node scripts/bundle-evidence.mjs --check",
+    "bundle:evidence": "node scripts/bundle-evidence.mjs",
     "dev": "vite dev",
     "test": "vitest run",
     "check-types": "tsc --noEmit"
