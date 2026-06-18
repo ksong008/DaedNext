@@ -38,29 +38,13 @@ import { useStore } from '@nanostores/react'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import {
-  QUERY_KEY_CONFIG,
-  QUERY_KEY_DNS,
-  QUERY_KEY_GENERAL,
-  QUERY_KEY_GENERAL_INTERFACES,
-  QUERY_KEY_GENERAL_STATE,
-  QUERY_KEY_GROUP,
-  QUERY_KEY_LOG,
-  QUERY_KEY_NODE,
-  QUERY_KEY_NODE_LATENCY,
-  QUERY_KEY_NODE_LATENCY_JOB,
-  QUERY_KEY_ROUTING,
-  QUERY_KEY_STORAGE,
-  QUERY_KEY_SUBSCRIPTION,
-  QUERY_KEY_TRAFFIC,
-  QUERY_KEY_USER,
-} from '~/constants'
 import { useAPIClient } from '~/contexts'
 
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { buildEventStreamURL, subscribeEventStream } from './event_stream'
 import { resolveNodeTransport } from './node_transport'
+import { webQueryKeys } from './query_cache'
 import { adaptRuntimeOverview, mergeRuntimeOverviewDelta } from './runtime_overview'
 
 interface JSONStorageResponse {
@@ -266,7 +250,7 @@ function normalizeConfigGlobal(global?: Partial<ConfigGlobal> | null): ConfigGlo
 }
 
 function trafficOverviewQueryKey(windowSec: number, maxPoints: number) {
-  return [...QUERY_KEY_TRAFFIC, windowSec, maxPoints]
+  return webQueryKeys.traffic.overview(windowSec, maxPoints)
 }
 
 export function buildRuntimeEventsURL(endpointURL: string, windowSec: number, maxPoints: number) {
@@ -368,7 +352,7 @@ export function useDefaultsQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   const { data } = useQuery({
-    queryKey: QUERY_KEY_STORAGE,
+    queryKey: webQueryKeys.storage(),
     queryFn: () => getDefaultsRequest(apiClient)(),
     enabled,
   })
@@ -385,7 +369,7 @@ export function useGeneralQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: QUERY_KEY_GENERAL,
+    queryKey: webQueryKeys.general.root(),
     queryFn: async (): Promise<GeneralStateView> => {
       const [state, interfaces] = await Promise.all([
         apiClient.get<GeneralStateAPI>('/general/state'),
@@ -402,7 +386,7 @@ export function useGeneralStateQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: QUERY_KEY_GENERAL_STATE,
+    queryKey: webQueryKeys.general.state(),
     queryFn: async (): Promise<GeneralStateView> => {
       const state = await apiClient.get<GeneralStateAPI>('/general/state')
       return adaptGeneralStateView(state)
@@ -416,7 +400,7 @@ export function useInterfacesQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: QUERY_KEY_GENERAL_INTERFACES,
+    queryKey: webQueryKeys.general.interfaces(),
     queryFn: async (): Promise<InterfaceResource[]> => {
       const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true })
       return data.items.map(adaptInterface)
@@ -539,7 +523,7 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true)
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: QUERY_KEY_NODE_LATENCY,
+    queryKey: webQueryKeys.node.latency(),
     queryFn: async (): Promise<NodeLatencyProbeResult[]> => {
       const data = await apiClient.get<{ items: NodeLatencyAPI[] }>('/nodes/latencies')
       return adaptNodeLatencyProbeResults(data.items)
@@ -556,7 +540,7 @@ export function useNodeLatencyJobQuery(refetchIntervalMs: number, enabled = true
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: QUERY_KEY_NODE_LATENCY_JOB,
+    queryKey: webQueryKeys.node.latencyJob(),
     queryFn: async (): Promise<NodeLatencyJobView> => {
       const data = await apiClient.get<{ job?: NodeLatencyJobAPI | null }>('/nodes/latencies/job')
       return { job: adaptNodeLatencyJob(data.job) }
@@ -573,7 +557,7 @@ export function useLogsQuery({ level, query, limit = 500 }: { level: string; que
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...QUERY_KEY_LOG, 'items', level, query, limit],
+    queryKey: [...webQueryKeys.log.items(), level, query, limit],
     queryFn: async (): Promise<{ items: LogEntry[] }> => {
       return apiClient.get<{ items: LogEntry[] }>('/logs', { level, q: query, limit })
     },
@@ -586,7 +570,7 @@ export function useLogSettingsQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...QUERY_KEY_LOG, 'settings'],
+    queryKey: webQueryKeys.log.settings(),
     queryFn: async (): Promise<LogSettings> => {
       return apiClient.get<LogSettings>('/logs/settings')
     },
@@ -599,7 +583,7 @@ export function useRuntimeLogLevelQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...QUERY_KEY_LOG, 'runtime-level'],
+    queryKey: webQueryKeys.log.runtimeLevel(),
     queryFn: async (): Promise<{ level: string }> => {
       return apiClient.get<{ level: string }>('/runtime/log-level')
     },
@@ -612,7 +596,7 @@ export function useNodesQuery(enabled = true) {
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: QUERY_KEY_NODE,
+    queryKey: webQueryKeys.node.list(),
     queryFn: async (): Promise<NodeListView> => {
       const data = await apiClient.get<NodeListAPI>('/nodes')
       return {
@@ -628,7 +612,7 @@ export function useSubscriptionsSummaryQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...QUERY_KEY_SUBSCRIPTION, 'summary'],
+    queryKey: webQueryKeys.subscription.summary(),
     queryFn: async (): Promise<SubscriptionSummaryListView> => {
       const data = await apiClient.get<{ items: SubscriptionAPI[] }>('/subscriptions')
       return {
@@ -644,7 +628,7 @@ export function useSubscriptionsQuery(enabled = true) {
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: [...QUERY_KEY_SUBSCRIPTION, 'expanded'],
+    queryKey: webQueryKeys.subscription.expanded(),
     queryFn: async (): Promise<SubscriptionListView> => {
       const data = await apiClient.get<{ items: Array<SubscriptionAPI & { nodes?: NodeListAPI }> }>('/subscriptions', {
         expand: 'nodes',
@@ -678,7 +662,7 @@ export function useConfigSummariesQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...QUERY_KEY_CONFIG, 'summary'],
+    queryKey: webQueryKeys.config.summary(),
     queryFn: async (): Promise<ConfigSummaryListView> => {
       const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/configs', { summary: true })
       return {
@@ -694,7 +678,7 @@ export function useConfigQuery(id?: string | null, enabled = true) {
   const queryEnabled = useAuthenticatedQueryEnabled(enabled && !!id)
 
   return useQuery({
-    queryKey: [...QUERY_KEY_CONFIG, 'item', id],
+    queryKey: webQueryKeys.config.item(id),
     queryFn: async (): Promise<ConfigResource> => {
       const config = await apiClient.get<ConfigAPI>(`/configs/${id}`)
       return adaptConfig(config)
@@ -708,7 +692,7 @@ export function useConfigsQuery(enabled = true) {
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: [...QUERY_KEY_CONFIG, 'expanded'],
+    queryKey: webQueryKeys.config.expanded(),
     queryFn: async (): Promise<ConfigListView> => {
       const data = await apiClient.get<{ items: ConfigAPI[] }>('/configs', { expand: 'parsed' })
       return {
@@ -724,7 +708,7 @@ export function useGroupsSummaryQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...QUERY_KEY_GROUP, 'summary'],
+    queryKey: webQueryKeys.group.summary(),
     queryFn: async (): Promise<GroupSummaryListView> => {
       const data = await apiClient.get<{ items: GroupSummaryAPI[] }>('/groups', { summary: true })
       return {
@@ -740,7 +724,7 @@ export function useGroupsQuery(enabled = true) {
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: [...QUERY_KEY_GROUP, 'expanded'],
+    queryKey: webQueryKeys.group.expanded(),
     queryFn: async (): Promise<GroupListView> => {
       const data = await apiClient.get<{ items: GroupAPI[] }>('/groups')
       return {
@@ -756,7 +740,7 @@ export function useRoutingSummariesQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...QUERY_KEY_ROUTING, 'summary'],
+    queryKey: webQueryKeys.routing.summary(),
     queryFn: async (): Promise<RoutingSummaryListView> => {
       const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/routings', { summary: true })
       return {
@@ -772,7 +756,7 @@ export function useRoutingsQuery(enabled = true) {
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: [...QUERY_KEY_ROUTING, 'expanded'],
+    queryKey: webQueryKeys.routing.expanded(),
     queryFn: async (): Promise<RoutingListView> => {
       const data = await apiClient.get<{ items: RoutingAPI[] }>('/routings', { expand: 'parsed' })
       return {
@@ -793,7 +777,7 @@ export function useDNSSummariesQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...QUERY_KEY_DNS, 'summary'],
+    queryKey: webQueryKeys.dns.summary(),
     queryFn: async (): Promise<DNSSummaryListView> => {
       const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/dns', { summary: true })
       return {
@@ -809,7 +793,7 @@ export function useDNSsQuery(enabled = true) {
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: [...QUERY_KEY_DNS, 'expanded'],
+    queryKey: webQueryKeys.dns.expanded(),
     queryFn: async (): Promise<DNSListView> => {
       const data = await apiClient.get<{ items: DNSAPI[] }>('/dns', { expand: 'parsed' })
       return {
@@ -836,7 +820,7 @@ export function useUserQuery() {
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: QUERY_KEY_USER,
+    queryKey: webQueryKeys.user(),
     queryFn: async (): Promise<CurrentUserView> => {
       const user = await apiClient.get<CurrentUserView['user']>('/user/me')
       return { user }
