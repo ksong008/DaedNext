@@ -1,3 +1,4 @@
+import type { SectionSummaryResource } from '~/apis/types'
 import type { Profile } from '~/store'
 import { useStore } from '@nanostores/react'
 import { ChevronDown, Layers, RefreshCw } from 'lucide-react'
@@ -14,7 +15,7 @@ import {
   useSelectRoutingMutation,
 } from '~/apis'
 import { cn } from '~/lib/utils'
-import { profilesAtom } from '~/store'
+import { defaultResourcesAtom, profilesAtom } from '~/store'
 
 import { Button } from './ui/button'
 import { DropdownMenu, DropdownMenuTrigger } from './ui/dropdown-menu'
@@ -27,9 +28,18 @@ function generateProfileId(): string {
   return `profile-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 }
 
+function resolveCurrentResource(resources: SectionSummaryResource[] | undefined, defaultID: string) {
+  if (!resources?.length) {
+    return undefined
+  }
+
+  return resources.find((resource) => resource.selected) || resources.find((resource) => resource.id === defaultID)
+}
+
 export function ProfileSwitcher() {
   const { t } = useTranslation()
   const profilesState = useStore(profilesAtom)
+  const defaultResources = useStore(defaultResourcesAtom)
   const { profiles, currentProfileID } = profilesState
 
   const { data: configsQuery } = useConfigSummariesQuery()
@@ -49,10 +59,11 @@ export function ProfileSwitcher() {
   const [isSwitching, setIsSwitching] = useState(false)
   const [detailsLoaded, setDetailsLoaded] = useState(false)
 
-  // Get current selected resources
-  const selectedConfig = configsQuery?.configs.find((c) => c.selected)
-  const selectedRouting = routingsQuery?.routings.find((r) => r.selected)
-  const selectedDNS = dnssQuery?.dnss.find((d) => d.selected)
+  // Get current resources. Backend selected state tracks runtime materialization;
+  // before first runtime selection, profile snapshots should use WebUI defaults.
+  const selectedConfig = resolveCurrentResource(configsQuery?.configs, defaultResources.defaultConfigID)
+  const selectedRouting = resolveCurrentResource(routingsQuery?.routings, defaultResources.defaultRoutingID)
+  const selectedDNS = resolveCurrentResource(dnssQuery?.dnss, defaultResources.defaultDNSID)
 
   const currentProfile = profiles.find((p) => p.id === currentProfileID)
 
