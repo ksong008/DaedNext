@@ -15,7 +15,7 @@ import {
   Upload,
   UserPen,
 } from 'lucide-react'
-import { useCallback, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { toast } from 'sonner'
@@ -55,13 +55,9 @@ import { i18n } from '~/i18n'
 import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { fileToBase64 } from '~/utils'
-import { createBundleDiffPreview } from '~/utils/bundle'
 
-import { BundleImportPreviewDialog } from './BundleImportPreviewDialog'
-import { CommandPalette, useCommandPaletteActions } from './CommandPalette'
+import { useCommandPaletteActions } from './CommandPaletteActions'
 import { FormActions } from './FormActions'
-import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
-import { ProfileSwitcher } from './ProfileSwitcher'
 import { ThemePicker } from './ThemePicker'
 
 function joinWarningMessages(warnings?: Array<{ message: string }>) {
@@ -111,6 +107,17 @@ const mobileHeaderButtonClassName =
 
 const desktopHeaderIconButtonClassName = 'rounded-lg border-border/75 bg-background/72'
 const showHeaderRuntimeStatus = false
+
+const LazyBundleImportPreviewDialog = lazy(() =>
+  import('./BundleImportPreviewDialog').then((module) => ({ default: module.BundleImportPreviewDialog })),
+)
+const LazyCommandPalette = lazy(() => import('./CommandPalette').then((module) => ({ default: module.CommandPalette })))
+const LazyKeyboardShortcutsModal = lazy(() =>
+  import('./KeyboardShortcutsModal').then((module) => ({ default: module.KeyboardShortcutsModal })),
+)
+const LazyProfileSwitcher = lazy(() =>
+  import('./ProfileSwitcher').then((module) => ({ default: module.ProfileSwitcher })),
+)
 
 function MobileRuntimeHealthStrip({ running }: { running?: boolean }) {
   const { t } = useTranslation()
@@ -254,6 +261,18 @@ export function HeaderWithActions() {
         description: 'Show keyboard shortcuts',
       },
       {
+        key: 'p',
+        ctrl: true,
+        action: () => {
+          if (openedCommandPalette) {
+            closeCommandPalette()
+          } else {
+            openCommandPalette()
+          }
+        },
+        description: 'Open command palette',
+      },
+      {
         key: 'd',
         ctrl: true,
         action: cycleThemeMode,
@@ -369,12 +388,15 @@ export function HeaderWithActions() {
           throw new Error(t('bundle.importInvalid'))
         }
 
-        const currentBundle = await exportBundleMutation.mutateAsync()
+        const [currentBundle, bundleDiff] = await Promise.all([
+          exportBundleMutation.mutateAsync(),
+          import('~/utils/bundle'),
+        ])
         setPendingBundleImport(bundle)
         setPendingDAEConfigFileImport(null)
         setBundleImportFileName(file.name)
         setPreviewWarnings([])
-        setBundleDiffPreview(createBundleDiffPreview(currentBundle, bundle))
+        setBundleDiffPreview(bundleDiff.createBundleDiffPreview(currentBundle, bundle))
         setPreviewKind('bundle')
         openBundlePreview()
       } catch (error) {
@@ -471,15 +493,16 @@ export function HeaderWithActions() {
           namePrefix,
           content,
         }
-        const [currentBundle, preview] = await Promise.all([
+        const [currentBundle, preview, bundleDiff] = await Promise.all([
           exportBundleMutation.mutateAsync(),
           previewDAEConfigFileMutation.mutateAsync(payload),
+          import('~/utils/bundle'),
         ])
         setPendingDAEConfigFileImport(payload)
         setPendingBundleImport(null)
         setBundleImportFileName(file.name)
         setPreviewWarnings(preview.warnings || [])
-        setBundleDiffPreview(createBundleDiffPreview(currentBundle, preview.bundle))
+        setBundleDiffPreview(bundleDiff.createBundleDiffPreview(currentBundle, preview.bundle))
         setPreviewKind('daeFile')
         openBundlePreview()
       } catch (error) {
@@ -600,7 +623,11 @@ export function HeaderWithActions() {
             onChange={handleImportDAEConfigFile}
           />
 
-          {!matchSmallScreen && <ProfileSwitcher />}
+          {!matchSmallScreen && (
+            <Suspense fallback={null}>
+              <LazyProfileSwitcher />
+            </Suspense>
+          )}
 
           {matchSmallScreen && showHeaderRuntimeStatus && (
             <div className="mr-auto flex shrink-0 items-center">
@@ -865,39 +892,53 @@ export function HeaderWithActions() {
         </DialogContent>
       </Dialog>
 
-      <KeyboardShortcutsModal opened={openedShortcutsModal} onClose={closeShortcutsModal} />
+      {openedShortcutsModal && (
+        <Suspense fallback={null}>
+          <LazyKeyboardShortcutsModal opened={openedShortcutsModal} onClose={closeShortcutsModal} />
+        </Suspense>
+      )}
 
-      <BundleImportPreviewDialog
-        open={openedBundlePreview}
-        fileName={bundleImportFileName}
-        preview={bundleDiffPreview}
-        warnings={previewWarnings}
-        loading={importBundleMutation.isPending || importDAEConfigFileMutation.isPending}
-        title={previewKind === 'daeFile' ? t('daeFile.previewTitle') : t('bundle.previewTitle')}
-        description={previewKind === 'daeFile' ? t('daeFile.previewDesc') : t('bundle.previewDesc')}
-        fileLabel={previewKind === 'daeFile' ? t('daeFile.previewFile') : t('bundle.previewFile')}
-        warningTitle={previewKind === 'daeFile' ? t('daeFile.previewWarningTitle') : t('bundle.previewWarningTitle')}
-        warningDescription={previewKind === 'daeFile' ? t('daeFile.importConfirm') : t('bundle.importConfirm')}
-        noChangesTitle={
-          previewKind === 'daeFile' ? t('daeFile.previewNoChangesTitle') : t('bundle.previewNoChangesTitle')
-        }
-        noChangesDescription={
-          previewKind === 'daeFile' ? t('daeFile.previewNoChangesDesc') : t('bundle.previewNoChangesDesc')
-        }
-        confirmLabel={previewKind === 'daeFile' ? t('daeFile.confirmImport') : t('bundle.confirmImport')}
-        onOpenChange={(open) => {
-          if (!open) {
-            closeBundlePreviewState()
-          }
-        }}
-        onConfirm={() => void confirmBundleImport()}
-      />
+      {openedBundlePreview && (
+        <Suspense fallback={null}>
+          <LazyBundleImportPreviewDialog
+            open={openedBundlePreview}
+            fileName={bundleImportFileName}
+            preview={bundleDiffPreview}
+            warnings={previewWarnings}
+            loading={importBundleMutation.isPending || importDAEConfigFileMutation.isPending}
+            title={previewKind === 'daeFile' ? t('daeFile.previewTitle') : t('bundle.previewTitle')}
+            description={previewKind === 'daeFile' ? t('daeFile.previewDesc') : t('bundle.previewDesc')}
+            fileLabel={previewKind === 'daeFile' ? t('daeFile.previewFile') : t('bundle.previewFile')}
+            warningTitle={
+              previewKind === 'daeFile' ? t('daeFile.previewWarningTitle') : t('bundle.previewWarningTitle')
+            }
+            warningDescription={previewKind === 'daeFile' ? t('daeFile.importConfirm') : t('bundle.importConfirm')}
+            noChangesTitle={
+              previewKind === 'daeFile' ? t('daeFile.previewNoChangesTitle') : t('bundle.previewNoChangesTitle')
+            }
+            noChangesDescription={
+              previewKind === 'daeFile' ? t('daeFile.previewNoChangesDesc') : t('bundle.previewNoChangesDesc')
+            }
+            confirmLabel={previewKind === 'daeFile' ? t('daeFile.confirmImport') : t('bundle.confirmImport')}
+            onOpenChange={(open) => {
+              if (!open) {
+                closeBundlePreviewState()
+              }
+            }}
+            onConfirm={() => void confirmBundleImport()}
+          />
+        </Suspense>
+      )}
 
-      <CommandPalette
-        open={openedCommandPalette}
-        onOpenChange={(open) => (open ? openCommandPalette() : closeCommandPalette())}
-        actions={commandPaletteActions}
-      />
+      {openedCommandPalette && (
+        <Suspense fallback={null}>
+          <LazyCommandPalette
+            open={openedCommandPalette}
+            onOpenChange={(open) => (open ? openCommandPalette() : closeCommandPalette())}
+            actions={commandPaletteActions}
+          />
+        </Suspense>
+      )}
     </header>
   )
 }
