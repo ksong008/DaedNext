@@ -23,6 +23,19 @@ interface MockLatencyResult {
   message?: string | null
 }
 
+interface MockLatencyJob {
+  id: number
+  status: string
+  total: number
+  completed: number
+  succeeded: number
+  failed: number
+  queuedAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
+  message?: string | null
+}
+
 const absoluteOriginPattern = /^https?:\/\/[^/]+/
 const groupIDPattern = /^group-(\d+)$/
 const nodeIDPattern = /^node-(\d+)$/
@@ -41,6 +54,8 @@ const mockStorage = new Map<string, string>([
 ])
 
 const mockLatencyById = new Map<string, MockLatencyResult>()
+let mockLatencyJob: MockLatencyJob | null = null
+let mockNextLatencyJobID = 1
 let mockRuntimeLogLevel = 'info'
 let mockLogSettings = {
   maxEntries: 10000,
@@ -112,7 +127,10 @@ export class MockAPIClient implements APIClientInterface {
       case 'GET /user/me':
         return mockUser.user as T
       case 'GET /general/state':
-        return mockGeneral.general.dae as T
+        return {
+          ...mockGeneral.general.dae,
+          counts: mockGeneralResourceCounts(),
+        } as T
       case 'GET /general/interfaces':
         return {
           items: mockGeneral.general.interfaces.map((iface) => ({
@@ -132,9 +150,11 @@ export class MockAPIClient implements APIClientInterface {
       case 'GET /logs/settings':
         return mockLogSettings as T
       case 'GET /nodes/latencies':
-        return { items: Array.from(mockLatencyById.values()) } as T
+        return { items: Array.from(mockLatencyById.values()), job: mockLatencyJob } as T
       case 'POST /nodes/latencies':
-        return { items: updateMockLatencies(body) } as T
+        return updateMockLatencyJob(body) as T
+      case 'GET /nodes/latencies/job':
+        return { job: mockLatencyJob } as T
       case 'GET /nodes':
         return {
           items: mockNodes.nodes.items.map((node) => toMockNodeAPI(node)),
@@ -507,6 +527,18 @@ function filterMockLogs(query?: QueryRecord) {
     .slice(-limit)
 }
 
+function mockGeneralResourceCounts() {
+  return {
+    configs: mockConfigs.configs.length,
+    dns: mockDNSs.dnss.length,
+    routings: mockRoutings.routings.length,
+    groups: mockGroups.groups.length,
+    nodes: mockNodes.nodes.items.length,
+    subscriptions: mockSubscriptions.subscriptions.length,
+    logs: mockLogs.length,
+  }
+}
+
 function numericID(value: string | number): number {
   const text = String(value)
   const groupMatch = text.match(groupIDPattern)
@@ -763,6 +795,24 @@ function updateMockLatencies(body: unknown) {
   }
 
   return results
+}
+
+function updateMockLatencyJob(body: unknown) {
+  const queuedAt = new Date().toISOString()
+  const items = updateMockLatencies(body)
+  mockLatencyJob = {
+    id: mockNextLatencyJobID++,
+    status: 'finished',
+    total: items.length,
+    completed: items.length,
+    succeeded: items.filter((item) => item.alive).length,
+    failed: items.filter((item) => !item.alive).length,
+    queuedAt,
+    startedAt: queuedAt,
+    finishedAt: new Date().toISOString(),
+    message: 'mock manual latency probe finished',
+  }
+  return { items, job: mockLatencyJob }
 }
 
 export { isMockMode, MOCK_DEFAULT_IDS }

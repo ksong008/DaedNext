@@ -91,6 +91,8 @@ export enum MODE {
 export const COLS_PER_ROW = 3
 export const QUERY_KEY_HEALTH_CHECK = ['healthCheck']
 export const QUERY_KEY_GENERAL = ['general']
+export const QUERY_KEY_GENERAL_STATE = [...QUERY_KEY_GENERAL, 'state']
+export const QUERY_KEY_GENERAL_INTERFACES = [...QUERY_KEY_GENERAL, 'interfaces']
 export const QUERY_KEY_USER = ['user']
 export const QUERY_KEY_NODE = ['node']
 export const QUERY_KEY_SUBSCRIPTION = ['subscription']
@@ -101,6 +103,7 @@ export const QUERY_KEY_GROUP = ['group']
 export const QUERY_KEY_STORAGE = ['storage']
 export const QUERY_KEY_TRAFFIC = ['traffic']
 export const QUERY_KEY_NODE_LATENCY = ['nodeLatency']
+export const QUERY_KEY_NODE_LATENCY_JOB = [...QUERY_KEY_NODE_LATENCY, 'job']
 export const QUERY_KEY_LOG = ['log']
 
 export enum DraggableResourceType {

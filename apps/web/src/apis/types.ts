@@ -283,15 +283,28 @@ export interface InterfaceResource {
   }>
 }
 
+export interface GeneralResourceCounts {
+  configs: number
+  dns: number
+  routings: number
+  groups: number
+  nodes: number
+  subscriptions: number
+  logs: number
+}
+
+export interface GeneralDaemonState {
+  running: boolean
+  modified: boolean
+  version: string
+  netnsLinkMode?: string
+  attachBackend?: string
+}
+
 export interface GeneralStateView {
   general: {
-    dae: {
-      running: boolean
-      modified: boolean
-      version: string
-      netnsLinkMode?: string
-      attachBackend?: string
-    }
+    dae: GeneralDaemonState
+    counts: GeneralResourceCounts
     interfaces: InterfaceResource[]
   }
 }
@@ -350,6 +363,28 @@ export interface NodeLatencyProbeResult {
   alive: boolean
   testedAt: string
   message?: string | null
+}
+
+export interface NodeLatencyJob {
+  id: string
+  status: string
+  total: number
+  completed: number
+  succeeded: number
+  failed: number
+  queuedAt: string
+  startedAt?: string | null
+  finishedAt?: string | null
+  message?: string | null
+}
+
+export interface NodeLatencyJobView {
+  job: NodeLatencyJob | null
+}
+
+export interface NodeLatencyProbeResponse {
+  items: NodeLatencyProbeResult[]
+  job?: NodeLatencyJob | null
 }
 
 export interface LogEntry {

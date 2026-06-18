@@ -6,7 +6,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 
 import { z } from 'zod'
-import { useCreateConfigMutation, useGeneralQuery, usePreviewConfigMutation, useUpdateConfigMutation } from '~/apis'
+import { useCreateConfigMutation, useInterfacesQuery, usePreviewConfigMutation, useUpdateConfigMutation } from '~/apis'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
@@ -329,11 +329,9 @@ export function ConfigFormDrawer({
     [onClose, resetForm],
   )
 
-  const { data: generalQuery } = useGeneralQuery()
+  const { data: interfaces } = useInterfacesQuery()
 
   const wanInterfacesData = useMemo(() => {
-    const interfaces = generalQuery?.general.interfaces
-
     if (interfaces) {
       return [
         { label: t('autoDetect'), value: 'auto' },
@@ -348,11 +346,9 @@ export function ConfigFormDrawer({
     }
 
     return []
-  }, [generalQuery?.general.interfaces, t])
+  }, [interfaces, t])
 
   const lanInterfacesData = useMemo(() => {
-    const interfaces = generalQuery?.general.interfaces
-
     if (interfaces) {
       return interfaces.map(({ name, addresses }: { name: string; addresses?: string[] | null }) => ({
         label: name,
@@ -362,7 +358,7 @@ export function ConfigFormDrawer({
     }
 
     return []
-  }, [generalQuery?.general.interfaces])
+  }, [interfaces])
 
   const onSubmit = async (data: FormValues) => {
     setRawGlobalError(null)

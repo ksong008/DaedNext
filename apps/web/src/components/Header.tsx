@@ -23,7 +23,7 @@ import { z } from 'zod'
 import {
   useExportDAEBundleMutation,
   useExportDAEConfigFileMutation,
-  useGeneralQuery,
+  useGeneralStateQuery,
   useImportDAEBundleMutation,
   useImportDAEConfigFileMutation,
   usePreviewDAEConfigFileMutation,
@@ -154,7 +154,7 @@ export function HeaderWithActions() {
   const [openedCommandPalette, { open: openCommandPalette, close: closeCommandPalette }] = useDisclosure(false)
   const [openedBundlePreview, { open: openBundlePreview, close: closeBundlePreview }] = useDisclosure(false)
   const { data: userQuery } = useUserQuery()
-  const { data: generalQuery } = useGeneralQuery()
+  const { data: generalQuery } = useGeneralStateQuery()
   const reloadRuntimeMutation = useReloadRuntimeMutation()
   const stopRuntimeMutation = useStopRuntimeMutation()
   const runtimeMutationPending = reloadRuntimeMutation.isPending || stopRuntimeMutation.isPending
