@@ -14,8 +14,7 @@ import { Section } from '~/components/Section.tsx'
 import { Button } from '~/components/ui/button.tsx'
 import { SimpleTooltip } from '~/components/ui/tooltip.tsx'
 import { cn } from '~/lib/utils'
-
-export const NODE_DROPPABLE_ID = 'node-list'
+import { NODE_DROPPABLE_ID } from './dndConstants'
 
 export function NodeResource({
   sortedNodes,

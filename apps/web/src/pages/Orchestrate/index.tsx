@@ -3,11 +3,10 @@ import type { NodeLatencyJob, NodeLatencyProbeResult } from '~/apis'
 import type { GroupListView, NodeListView, SubscriptionListView } from '~/apis/types'
 import type { GroupPickerItem } from '~/components/GroupResourcePickerModal'
 import type { DraggingResource } from '~/constants'
-import { DragDropContext } from '@hello-pangea/dnd'
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ListPlus, Network } from 'lucide-react'
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -42,15 +41,22 @@ import { useMediaQuery } from '~/hooks'
 import { cn } from '~/lib/utils'
 import { appStateAtom, groupSortOrdersAtom } from '~/store'
 import { deriveTime } from '~/utils'
-import { Config } from './Config'
-import { DNS } from './DNS'
-import { GroupResource } from './Group'
-import { LogResource } from './Logs'
-import { NODE_DROPPABLE_ID, NodeResource } from './Node'
-import { Routing } from './Routing'
-import { SubscriptionResource } from './Subscription'
+import { NODE_DROPPABLE_ID } from './dndConstants'
 import { REALTIME_TRAFFIC_MAX_POINTS, REALTIME_TRAFFIC_WINDOW_SECONDS, TrafficOverview } from './TrafficOverview'
 import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
+
+const ConfigPanel = lazy(() => import('./Config').then((module) => ({ default: module.Config })))
+const DNSPanel = lazy(() => import('./DNS').then((module) => ({ default: module.DNS })))
+const GroupResourcePanel = lazy(() => import('./Group').then((module) => ({ default: module.GroupResource })))
+const LogResourcePanel = lazy(() => import('./Logs').then((module) => ({ default: module.LogResource })))
+const NodeResourcePanel = lazy(() => import('./Node').then((module) => ({ default: module.NodeResource })))
+const RoutingPanel = lazy(() => import('./Routing').then((module) => ({ default: module.Routing })))
+const SubscriptionResourcePanel = lazy(() =>
+  import('./Subscription').then((module) => ({ default: module.SubscriptionResource })),
+)
+const LazyDragDropContext = lazy(() =>
+  import('./DragDropIsland').then((module) => ({ default: module.OrchestrateDragDropContext })),
+)
 
 function arrayMove<T>(array: T[], from: number, to: number): T[] {
   const newArray = [...array]
@@ -63,6 +69,10 @@ const MANUAL_LATENCY_PROBE_START_TIMEOUT_MS = 8_000
 const MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS = 1_000
 const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
 const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
+
+function PanelLoadingFallback() {
+  return <div className="min-h-28 rounded-xl border border-border/70 bg-muted/20" aria-busy="true" />
+}
 
 type SummaryGroupEditMode = 'actions' | 'nodes' | 'subscriptions'
 
@@ -1122,7 +1132,9 @@ export function OrchestratePage() {
           id={ORCHESTRATE_SECTION_IDS.log}
           className="h-[calc(100dvh-9rem)] min-h-[28rem] sm:h-[calc(100dvh-7.75rem)] sm:min-h-[32rem]"
         >
-          <LogResource />
+          <Suspense fallback={<PanelLoadingFallback />}>
+            <LogResourcePanel />
+          </Suspense>
         </section>
       ) : (
         <>
@@ -1317,41 +1329,43 @@ export function OrchestratePage() {
             </DialogTitle>
           </ScrollableDialogHeader>
           <ScrollableDialogBody className="p-4 sm:p-5">
-            {activeWorkspacePanel === 'config' && <Config />}
-            {activeWorkspacePanel === 'dns' && <DNS />}
-            {activeWorkspacePanel === 'routing' && <Routing />}
-            {activeWorkspacePanel === 'group' && (
-              <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
-                <GroupResource
-                  highlight={!!draggingResource}
-                  draggingResource={draggingResource}
-                  dragDestinationDroppableId={dragDestinationDroppableId}
-                  hoveredGroupId={hoveredGroupId}
-                  nodeLatencies={nodeLatencies}
-                />
-              </DragDropContext>
-            )}
-            {activeWorkspacePanel === 'node' && (
-              <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
-                <NodeResource
-                  sortedNodes={sortedNodes}
-                  highlight={draggingResource?.type === DraggableResourceType.groupNode}
-                  nodeLatencies={nodeLatencies}
-                />
-              </DragDropContext>
-            )}
-            {activeWorkspacePanel === 'subscription' && (
-              <DragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
-                <SubscriptionResource
-                  sortedSubscriptions={sortedSubscriptions}
-                  nodeLatencies={nodeLatencies}
-                  testingLatencies={manualLatencyProbeProgress !== null}
-                  testingLatencyProgress={manualLatencyProbeProgress}
-                  lastLatencyProbeAt={lastLatencyProbeAt}
-                  onTestAllNodeLatencies={testAllNodeLatencies}
-                />
-              </DragDropContext>
-            )}
+            <Suspense fallback={<PanelLoadingFallback />}>
+              {activeWorkspacePanel === 'config' && <ConfigPanel />}
+              {activeWorkspacePanel === 'dns' && <DNSPanel />}
+              {activeWorkspacePanel === 'routing' && <RoutingPanel />}
+              {activeWorkspacePanel === 'group' && (
+                <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                  <GroupResourcePanel
+                    highlight={!!draggingResource}
+                    draggingResource={draggingResource}
+                    dragDestinationDroppableId={dragDestinationDroppableId}
+                    hoveredGroupId={hoveredGroupId}
+                    nodeLatencies={nodeLatencies}
+                  />
+                </LazyDragDropContext>
+              )}
+              {activeWorkspacePanel === 'node' && (
+                <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                  <NodeResourcePanel
+                    sortedNodes={sortedNodes}
+                    highlight={draggingResource?.type === DraggableResourceType.groupNode}
+                    nodeLatencies={nodeLatencies}
+                  />
+                </LazyDragDropContext>
+              )}
+              {activeWorkspacePanel === 'subscription' && (
+                <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                  <SubscriptionResourcePanel
+                    sortedSubscriptions={sortedSubscriptions}
+                    nodeLatencies={nodeLatencies}
+                    testingLatencies={manualLatencyProbeProgress !== null}
+                    testingLatencyProgress={manualLatencyProbeProgress}
+                    lastLatencyProbeAt={lastLatencyProbeAt}
+                    onTestAllNodeLatencies={testAllNodeLatencies}
+                  />
+                </LazyDragDropContext>
+              )}
+            </Suspense>
           </ScrollableDialogBody>
         </ScrollableDialogContent>
       </Dialog>
