@@ -1,10 +1,12 @@
 import type {
   ConfigResource,
-  GroupListView,
+  GroupSummaryResource,
   InterfaceResource,
   NodeLatencyProbeResult,
   NodeResource,
+  SectionSummaryResource,
   SubscriptionResource,
+  SubscriptionSummaryResource,
 } from '~/apis/types'
 import { CloudCog, Map as MapIcon, Pencil, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -430,7 +432,7 @@ interface RankedNode {
 
 function getTopNodes(
   nodes: NodeResource[],
-  subscriptions: SubscriptionResource[],
+  subscriptions: Array<{ id: string; tag?: string | null; link: string; nodes: { items: NodeResource[] } }>,
   nodeLatencies?: Record<string, NodeLatencyProbeResult>,
 ): RankedNode[] {
   const rankedNodes: RankedNode[] = []
@@ -466,7 +468,9 @@ export function WorkspaceSummaryCards({
   configs,
   groups,
   sortedNodes,
+  expandedSubscriptions,
   subscriptions,
+  manualNodeCount,
   interfaces,
   nodeLatencies,
   onOpenConfig,
@@ -479,10 +483,12 @@ export function WorkspaceSummaryCards({
   testingLatencyProgress,
 }: {
   selectedConfig?: ConfigResource
-  configs: ConfigResource[]
-  groups: GroupListView['groups']
+  configs: SectionSummaryResource[]
+  groups: GroupSummaryResource[]
   sortedNodes: NodeResource[]
-  subscriptions: SubscriptionResource[]
+  expandedSubscriptions?: SubscriptionResource[]
+  subscriptions: SubscriptionSummaryResource[]
+  manualNodeCount?: number
   interfaces: InterfaceResource[]
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
   onOpenConfig?: () => void
@@ -496,17 +502,18 @@ export function WorkspaceSummaryCards({
 }) {
   const { t } = useTranslation()
 
-  const activeConfig = selectedConfig ?? configs[0]
+  const selectedConfigSummary = configs.find((config) => config.selected) ?? configs[0]
+  const activeConfigName = selectedConfig?.name || selectedConfigSummary?.name || 'default'
   const subscriptionNameById = new Map(
     subscriptions.map((subscription) => [subscription.id, subscription.tag || subscription.link]),
   )
   const groupPathCards = groups.map((group) => {
-    const directNode = group.nodes[0]
+    const directNode = group.firstNode ?? undefined
     const directNodeSubscriptionName = directNode?.subscriptionID
       ? subscriptionNameById.get(directNode.subscriptionID)
       : undefined
-    const subscriptionBinding = group.subscriptions[0]
-    const subscriptionNodes = subscriptionBinding?.matchedNodes ?? []
+    const subscriptionBinding = group.firstSubscription ?? undefined
+    const subscriptionNodes = subscriptionBinding?.sampleMatchedNodes ?? []
     const destination = directNode
       ? {
           ...getNodeIdentity(directNode),
@@ -534,14 +541,15 @@ export function WorkspaceSummaryCards({
           : '—',
     }
   })
-  const topNodes = getTopNodes(sortedNodes, subscriptions, nodeLatencies)
+  const topNodes = getTopNodes(sortedNodes, expandedSubscriptions ?? [], nodeLatencies)
   const topSubscriptions = subscriptions.slice(0, 2)
-  const manualNodeCount = sortedNodes.filter((node) => !node.subscriptionID).length
+  const displayedManualNodeCount =
+    manualNodeCount ?? (sortedNodes.length > 0 ? sortedNodes.filter((node) => !node.subscriptionID).length : undefined)
   const nodeLatencyActionLabel = testingLatencyProgress
     ? `${t('latency.testAllNodes')} · ${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
     : t('latency.testAllNodes')
 
-  const wanInterfaceItems = (activeConfig?.global.wanInterface ?? []).flatMap((value) => {
+  const wanInterfaceItems = (selectedConfig?.global.wanInterface ?? []).flatMap((value) => {
     if (value === 'auto') {
       return interfaces
         .filter((iface) => iface.defaultRoutes && iface.defaultRoutes.length > 0)
@@ -554,7 +562,7 @@ export function WorkspaceSummaryCards({
     const iface = interfaces.find((item) => item.name === value)
     return iface ? [{ name: iface.name, address: iface.addresses[0] }] : [{ name: value }]
   })
-  const lanInterfaceItems = (activeConfig?.global.lanInterface ?? []).map((value) => {
+  const lanInterfaceItems = (selectedConfig?.global.lanInterface ?? []).map((value) => {
     const iface = interfaces.find((item) => item.name === value)
     return iface ? { name: iface.name, address: iface.addresses[0] } : { name: value }
   })
@@ -573,10 +581,10 @@ export function WorkspaceSummaryCards({
         <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-2">
           <SummaryConfigCard
             label={t('workspaceSummary.currentConfig')}
-            value={activeConfig?.name || 'default'}
+            value={activeConfigName}
             tag={t('workspaceSummary.applied')}
           />
-          <SummaryConfigCard label={t('tproxyPort')} value={String(activeConfig?.global.tproxyPort ?? '—')} />
+          <SummaryConfigCard label={t('tproxyPort')} value={String(selectedConfig?.global.tproxyPort ?? '—')} />
           <SummaryConfigCard
             label={t('wanInterface')}
             value={wanInterfaceSummary.value}
@@ -587,10 +595,10 @@ export function WorkspaceSummaryCards({
             value={lanInterfaceSummary.value}
             detail={lanInterfaceSummary.detail}
           />
-          <SummaryConfigCard label={t('dialMode')} value={activeConfig?.global.dialMode || '—'} />
+          <SummaryConfigCard label={t('dialMode')} value={selectedConfig?.global.dialMode || '—'} />
           <SummaryConfigCard
             label={t('workspaceSummary.fallbackDns')}
-            value={activeConfig?.global.fallbackResolver || '—'}
+            value={selectedConfig?.global.fallbackResolver || '—'}
           />
         </div>
       </SummaryShell>
@@ -658,7 +666,7 @@ export function WorkspaceSummaryCards({
               <StatusRow
                 key={subscription.id}
                 title={subscription.tag || subscription.link}
-                subtitle={`${t('workspaceSummary.subscriptionUpdated')} · ${subscription.nodes.items.length} ${t('node')}`}
+                subtitle={`${t('workspaceSummary.subscriptionUpdated')} · ${subscription.nodeCount} ${t('node')}`}
                 badge={t('workspaceSummary.healthy')}
               />
             ))}
@@ -666,7 +674,7 @@ export function WorkspaceSummaryCards({
               <strong className="truncate text-sm font-semibold text-foreground">
                 {t('workspaceSummary.customNodes')}
               </strong>
-              <span className="text-sm font-bold text-muted-foreground">{manualNodeCount}</span>
+              <span className="text-sm font-bold text-muted-foreground">{displayedManualNodeCount ?? '—'}</span>
             </div>
           </div>
         </div>

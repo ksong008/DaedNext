@@ -59,6 +59,15 @@ export interface NodeCollection {
   items: NodeResource[]
 }
 
+export interface SectionSummaryResource {
+  id: string
+  name: string
+  selected: boolean
+  version: number
+  parseStatus?: string | null
+  parseError?: string | null
+}
+
 export interface SubscriptionResource {
   id: string
   tag?: string | null
@@ -68,7 +77,20 @@ export interface SubscriptionResource {
   updatedAt: string
   cronExp: string
   cronEnable: boolean
+  nodeCount: number
   nodes: NodeCollection
+}
+
+export interface SubscriptionSummaryResource {
+  id: string
+  tag?: string | null
+  status: string
+  link: string
+  info: string
+  updatedAt: string
+  cronExp: string
+  cronEnable: boolean
+  nodeCount: number
 }
 
 export interface GroupSubscriptionResource {
@@ -92,6 +114,32 @@ export interface GroupResource {
   subscriptions: GroupSubscriptionResource[]
   policy: Policy
   policyParams: PolicyParam[]
+}
+
+export interface GroupSummarySubscriptionResource {
+  nameFilterRegex?: string | null
+  matchedCount: number
+  subscription: {
+    id: string
+    updatedAt: string
+    tag?: string | null
+    link: string
+    status: string
+    info: string
+  }
+  sampleMatchedNodes: NodeResource[]
+}
+
+export interface GroupSummaryResource {
+  id: string
+  name: string
+  policy: Policy
+  policyParams: PolicyParam[]
+  version: number
+  nodeCount: number
+  subscriptionCount: number
+  firstNode?: NodeResource | null
+  firstSubscription?: GroupSummarySubscriptionResource | null
 }
 
 export interface ConfigGlobal {
@@ -408,8 +456,16 @@ export interface ConfigListView {
   configs: ConfigResource[]
 }
 
+export interface ConfigSummaryListView {
+  configs: SectionSummaryResource[]
+}
+
 export interface GroupListView {
   groups: GroupResource[]
+}
+
+export interface GroupSummaryListView {
+  groups: GroupSummaryResource[]
 }
 
 export interface NodeListView {
@@ -420,12 +476,24 @@ export interface SubscriptionListView {
   subscriptions: SubscriptionResource[]
 }
 
+export interface SubscriptionSummaryListView {
+  subscriptions: SubscriptionSummaryResource[]
+}
+
 export interface RoutingListView {
   routings: RoutingResource[]
 }
 
+export interface RoutingSummaryListView {
+  routings: SectionSummaryResource[]
+}
+
 export interface DNSListView {
   dnss: DNSResource[]
+}
+
+export interface DNSSummaryListView {
+  dnss: SectionSummaryResource[]
 }
 
 export interface CurrentUserView {

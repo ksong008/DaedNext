@@ -11,17 +11,21 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import {
-  useConfigsQuery,
+  useConfigQuery,
+  useConfigSummariesQuery,
+  useGeneralStateQuery,
   useGroupAddNodesMutation,
   useGroupAddSubscriptionsMutation,
   useGroupDelNodesMutation,
   useGroupDelSubscriptionsMutation,
   useGroupsQuery,
+  useGroupsSummaryQuery,
   useInterfacesQuery,
   useNodeLatenciesQuery,
   useNodeLatencyJobQuery,
   useNodesQuery,
   useSubscriptionsQuery,
+  useSubscriptionsSummaryQuery,
   useTestNodeLatenciesMutation,
   useTrafficOverviewQuery,
 } from '~/apis'
@@ -118,11 +122,48 @@ export function OrchestratePage() {
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  const { data: configsQuery } = useConfigsQuery()
+  const activeWorkspacePanel = useMemo(() => {
+    const panel = searchParams.get('panel')
+    if (!panel || panel === 'overview') return null
+    if (
+      panel === 'config' ||
+      panel === 'log' ||
+      panel === 'dns' ||
+      panel === 'routing' ||
+      panel === 'group' ||
+      panel === 'node' ||
+      panel === 'subscription'
+    ) {
+      return panel
+    }
+    return null
+  }, [searchParams])
+  const [summaryEditingGroupId, setSummaryEditingGroupId] = useState<string | null>(null)
+  const [summaryGroupEditMode, setSummaryGroupEditMode] = useState<SummaryGroupEditMode | null>(null)
+  const fullGroupQueryEnabled = activeWorkspacePanel === 'group' || summaryGroupEditMode !== null
+  const fullNodeQueryEnabled =
+    activeWorkspacePanel === 'node' ||
+    activeWorkspacePanel === 'group' ||
+    activeWorkspacePanel === 'subscription' ||
+    summaryGroupEditMode === 'nodes'
+  const fullSubscriptionQueryEnabled =
+    activeWorkspacePanel === 'subscription' ||
+    activeWorkspacePanel === 'group' ||
+    summaryGroupEditMode === 'nodes' ||
+    summaryGroupEditMode === 'subscriptions'
+  const { data: configSummariesQuery } = useConfigSummariesQuery()
+  const selectedConfigSummary = useMemo(
+    () => configSummariesQuery?.configs.find((config) => config.selected) ?? configSummariesQuery?.configs[0],
+    [configSummariesQuery?.configs],
+  )
+  const { data: selectedConfig } = useConfigQuery(selectedConfigSummary?.id, !!selectedConfigSummary?.id)
+  const { data: generalStateQuery } = useGeneralStateQuery()
   const { data: interfaces } = useInterfacesQuery()
-  const { data: nodesQuery } = useNodesQuery()
-  const { data: groupsQuery } = useGroupsQuery()
-  const { data: subscriptionsQuery } = useSubscriptionsQuery()
+  const { data: nodesQuery } = useNodesQuery(fullNodeQueryEnabled)
+  const { data: groupSummariesQuery } = useGroupsSummaryQuery()
+  const { data: groupsQuery } = useGroupsQuery(fullGroupQueryEnabled)
+  const { data: subscriptionSummariesQuery } = useSubscriptionsSummaryQuery()
+  const { data: subscriptionsQuery } = useSubscriptionsQuery(fullSubscriptionQueryEnabled)
   const trafficOverviewQuery = useTrafficOverviewQuery(REALTIME_TRAFFIC_WINDOW_SECONDS, REALTIME_TRAFFIC_MAX_POINTS)
   const runtimeOverview = trafficOverviewQuery.data
 
@@ -144,8 +185,6 @@ export function OrchestratePage() {
   const [isDragging, setIsDragging] = useState(false)
   const [dragDestinationDroppableId, setDragDestinationDroppableId] = useState<string | null>(null)
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
-  const [summaryEditingGroupId, setSummaryEditingGroupId] = useState<string | null>(null)
-  const [summaryGroupEditMode, setSummaryGroupEditMode] = useState<SummaryGroupEditMode | null>(null)
   const autoScrollFrameRef = useRef<number | null>(null)
   const draggingActiveRef = useRef(false)
   const edgeAutoScrollEnabledRef = useRef(false)
@@ -172,7 +211,12 @@ export function OrchestratePage() {
   // Get nodes from query (memoized to avoid dependency issues)
   const nodes = useMemo(() => nodesQuery?.nodes.items ?? [], [nodesQuery?.nodes.items])
   const groups = useMemo(() => groupsQuery?.groups ?? [], [groupsQuery?.groups])
+  const groupSummaries = useMemo(() => groupSummariesQuery?.groups ?? [], [groupSummariesQuery?.groups])
   const subscriptions = useMemo(() => subscriptionsQuery?.subscriptions ?? [], [subscriptionsQuery?.subscriptions])
+  const subscriptionSummaries = useMemo(
+    () => subscriptionSummariesQuery?.subscriptions ?? [],
+    [subscriptionSummariesQuery?.subscriptions],
+  )
   const getGroupById = useCallback(
     (groupId: string) => groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === groupId),
     [groupsQuery?.groups],
@@ -189,9 +233,8 @@ export function OrchestratePage() {
     (groupId: string, subscriptionId: string) => !!getGroupSubscriptionBinding(groupId, subscriptionId),
     [getGroupSubscriptionBinding],
   )
-  const selectedConfig = useMemo(() => configsQuery?.configs.find((config) => config.selected), [configsQuery?.configs])
   const [nodeLatenciesEnabled, setNodeLatenciesEnabled] = useState(false)
-  const startupDataReady = !!configsQuery && !!nodesQuery && !!groupsQuery && !!subscriptionsQuery
+  const startupDataReady = !!configSummariesQuery && !!groupSummariesQuery && !!subscriptionSummariesQuery
   const nodeLatencyRefetchIntervalMs = useMemo(() => {
     const configuredInterval = selectedConfig?.global.checkInterval
     if (!configuredInterval) return 30_000
@@ -244,7 +287,7 @@ export function OrchestratePage() {
 
     return latestTestedAt
   }, [nodeLatencies])
-  const totalNodeCount = useMemo(() => {
+  const loadedNodeCount = useMemo(() => {
     const nodeIds = new Set<string>()
 
     for (const node of nodes) {
@@ -259,6 +302,7 @@ export function OrchestratePage() {
 
     return nodeIds.size
   }, [nodes, subscriptions])
+  const totalNodeCount = generalStateQuery?.general.counts.nodes ?? loadedNodeCount
   const minLatencyMs = useMemo(() => {
     let minLatencyMs: number | undefined
 
@@ -358,16 +402,17 @@ export function OrchestratePage() {
 
     return Array.from(nodeIDs)
   }, [sortedNodes, sortedSubscriptions])
+  const latencyProbeFallbackTotal = allLatencyProbeNodeIds.length || totalNodeCount
 
   const testAllNodeLatencies = useCallback(async () => {
     if (manualLatencyProbeProgress) return
 
     const nodeIDs = allLatencyProbeNodeIds
-    if (nodeIDs.length === 0) return
+    if (latencyProbeFallbackTotal === 0) return
 
     setManualLatencyProbeProgress({
       completed: 0,
-      total: nodeIDs.length,
+      total: latencyProbeFallbackTotal,
       jobId: null,
     })
 
@@ -379,7 +424,7 @@ export function OrchestratePage() {
 
       if (response.job) {
         setManualLatencyProbeProgress({
-          ...progressFromLatencyJob(response.job, nodeIDs.length),
+          ...progressFromLatencyJob(response.job, latencyProbeFallbackTotal),
           jobId: response.job.id,
         })
         if (isLatencyJobActive(response.job)) return
@@ -397,6 +442,7 @@ export function OrchestratePage() {
     }
   }, [
     allLatencyProbeNodeIds,
+    latencyProbeFallbackTotal,
     manualLatencyProbeProgress,
     mergeNodeLatencyResults,
     queryClient,
@@ -456,6 +502,28 @@ export function OrchestratePage() {
 
   const groupSortOrder = appState.groupSortableKeys as string[]
 
+  const sortedGroupSummaryIds = useMemo(() => {
+    if (groupSummaries.length === 0) return []
+    const currentIds = groupSummaries.map((group) => group.id)
+    const currentIdSet = new Set(currentIds)
+    const result = groupSortOrder.filter((id) => currentIdSet.has(id))
+    const resultSet = new Set(result)
+
+    for (const id of currentIds) {
+      if (!resultSet.has(id)) {
+        result.push(id)
+      }
+    }
+
+    return result
+  }, [groupSortOrder, groupSummaries])
+
+  const sortedGroupSummaries = useMemo(() => {
+    if (groupSummaries.length === 0) return []
+    const groupMap = new Map(groupSummaries.map((group) => [group.id, group]))
+    return sortedGroupSummaryIds.map((id) => groupMap.get(id)).filter(Boolean) as typeof groupSummaries
+  }, [groupSummaries, sortedGroupSummaryIds])
+
   const sortedGroupIds = useMemo(() => {
     if (groups.length === 0) return []
     const currentIds = groups.map((group: GroupListView['groups'][number]) => group.id)
@@ -482,8 +550,15 @@ export function OrchestratePage() {
     () => sortedGroups.find((group) => group.id === summaryEditingGroupId) ?? null,
     [sortedGroups, summaryEditingGroupId],
   )
+  const summaryEditingGroupSummary = useMemo(
+    () => sortedGroupSummaries.find((group) => group.id === summaryEditingGroupId) ?? null,
+    [sortedGroupSummaries, summaryEditingGroupId],
+  )
+  const summaryEditingGroupName = summaryEditingGroup?.name || summaryEditingGroupSummary?.name || t('group')
 
   const summaryNodePickerCandidates = useMemo<NodePickerCandidate[]>(() => {
+    if (summaryGroupEditMode !== 'nodes') return []
+
     const candidates: NodePickerCandidate[] = []
     const seenNodeIds = new Set<string>()
     const subscriptionNameById = new Map(
@@ -514,7 +589,7 @@ export function OrchestratePage() {
     }
 
     return candidates
-  }, [sortedNodes, sortedSubscriptions, t])
+  }, [sortedNodes, sortedSubscriptions, summaryGroupEditMode, t])
 
   const toSummaryNodePickerItem = useCallback(
     ({ node, sourceLabel }: NodePickerCandidate): GroupPickerItem => {
@@ -556,30 +631,30 @@ export function OrchestratePage() {
       .filter(Boolean) as string[]
   }, [summaryEditingGroup, summaryNodePickerCandidates])
 
-  const summaryEditableSubscriptionItems = useMemo<GroupPickerItem[]>(
-    () =>
-      sortedSubscriptions.map((subscription) => {
-        const title = subscription.tag || subscription.link
-        const description = subscription.tag && subscription.tag !== subscription.link ? subscription.link : undefined
+  const summaryEditableSubscriptionItems = useMemo<GroupPickerItem[]>(() => {
+    if (summaryGroupEditMode !== 'subscriptions') return []
 
-        return {
-          id: subscription.id,
-          title,
-          description,
-          meta: `${subscription.nodes.items.length} ${t('node')}`,
-          previewNodes: subscription.nodes.items.map((node) => ({
-            id: node.id,
-            title: node.name,
-            protocol: node.protocol || undefined,
-            transport: node.transport || undefined,
-          })),
-          keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(
-            Boolean,
-          ) as string[],
-        }
-      }),
-    [sortedSubscriptions, t],
-  )
+    return sortedSubscriptions.map((subscription) => {
+      const title = subscription.tag || subscription.link
+      const description = subscription.tag && subscription.tag !== subscription.link ? subscription.link : undefined
+
+      return {
+        id: subscription.id,
+        title,
+        description,
+        meta: `${subscription.nodes.items.length} ${t('node')}`,
+        previewNodes: subscription.nodes.items.map((node) => ({
+          id: node.id,
+          title: node.name,
+          protocol: node.protocol || undefined,
+          transport: node.transport || undefined,
+        })),
+        keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(
+          Boolean,
+        ) as string[],
+      }
+    })
+  }, [sortedSubscriptions, summaryGroupEditMode, t])
 
   const summarySelectedSubscriptionItemIds = useMemo(
     () => summaryEditingGroup?.subscriptions.map((binding) => binding.subscription.id) ?? [],
@@ -1015,23 +1090,6 @@ export function OrchestratePage() {
 
   const matchSmallScreen = useMediaQuery('(max-width: 640px)')
 
-  const activeWorkspacePanel = useMemo(() => {
-    const panel = searchParams.get('panel')
-    if (!panel || panel === 'overview') return null
-    if (
-      panel === 'config' ||
-      panel === 'log' ||
-      panel === 'dns' ||
-      panel === 'routing' ||
-      panel === 'group' ||
-      panel === 'node' ||
-      panel === 'subscription'
-    ) {
-      return panel
-    }
-    return null
-  }, [searchParams])
-
   const openWorkspacePanel = useCallback(
     (panel: 'config' | 'dns' | 'routing' | 'group' | 'node' | 'subscription') => {
       const nextSearchParams = new URLSearchParams(searchParams)
@@ -1072,17 +1130,18 @@ export function OrchestratePage() {
             <TrafficOverview
               runtimeOverview={runtimeOverview}
               nodeCount={totalNodeCount}
-              subscriptionCount={subscriptions.length}
+              subscriptionCount={generalStateQuery?.general.counts.subscriptions ?? subscriptionSummaries.length}
               minLatencyMs={minLatencyMs}
             />
           </section>
 
           <WorkspaceSummaryCards
             selectedConfig={selectedConfig}
-            configs={configsQuery?.configs ?? []}
-            groups={sortedGroups}
+            configs={configSummariesQuery?.configs ?? []}
+            groups={sortedGroupSummaries}
             sortedNodes={sortedNodes}
-            subscriptions={sortedSubscriptions}
+            expandedSubscriptions={sortedSubscriptions}
+            subscriptions={subscriptionSummaries}
             interfaces={interfaces ?? []}
             nodeLatencies={nodeLatencies}
             onOpenConfig={() => openWorkspacePanel('config')}
@@ -1100,9 +1159,7 @@ export function OrchestratePage() {
       <Dialog open={summaryGroupEditMode === 'actions'} onOpenChange={(open) => !open && closeSummaryGroupEdit()}>
         <ScrollableDialogContent size="md">
           <ScrollableDialogHeader>
-            <DialogTitle>
-              {t('groupPicker.editGroupResourcesTitle', { name: summaryEditingGroup?.name || t('group') })}
-            </DialogTitle>
+            <DialogTitle>{t('groupPicker.editGroupResourcesTitle', { name: summaryEditingGroupName })}</DialogTitle>
           </ScrollableDialogHeader>
           <ScrollableDialogBody className="grid gap-3 p-4 sm:p-5">
             <button
@@ -1151,8 +1208,8 @@ export function OrchestratePage() {
       <GroupAddNodesModal
         opened={summaryGroupEditMode === 'nodes'}
         onClose={closeSummaryGroupEdit}
-        groupName={summaryEditingGroup?.name || t('group')}
-        title={t('groupPicker.editNodesTitle', { name: summaryEditingGroup?.name || t('group') })}
+        groupName={summaryEditingGroupName}
+        title={t('groupPicker.editNodesTitle', { name: summaryEditingGroupName })}
         submitLabel={t('groupPicker.saveNodeSelection')}
         items={summaryEditableNodeItems}
         initialSelectedIds={summarySelectedNodeItemIds}
@@ -1192,8 +1249,8 @@ export function OrchestratePage() {
       <GroupAddSubscriptionsModal
         opened={summaryGroupEditMode === 'subscriptions'}
         onClose={closeSummaryGroupEdit}
-        groupName={summaryEditingGroup?.name || t('group')}
-        title={t('groupPicker.editSubscriptionsTitle', { name: summaryEditingGroup?.name || t('group') })}
+        groupName={summaryEditingGroupName}
+        title={t('groupPicker.editSubscriptionsTitle', { name: summaryEditingGroupName })}
         submitLabel={t('groupPicker.saveSubscriptionSelection')}
         items={summaryEditableSubscriptionItems}
         initialSelectedIds={summarySelectedSubscriptionItemIds}

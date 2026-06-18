@@ -183,6 +183,36 @@ export class MockAPIClient implements APIClientInterface {
           })),
         } as T
       case 'GET /groups':
+        if (toQueryBool(query?.summary)) {
+          return {
+            items: mockGroups.groups.map((group) => {
+              const firstSubscription = group.subscriptions[0]
+              return {
+                id: numericID(group.id),
+                name: group.name,
+                policy: group.policy,
+                policyParams: group.policyParams,
+                version: 1,
+                nodeCount: group.nodes.length,
+                subscriptionCount: group.subscriptions.length,
+                firstNode: group.nodes[0] ? toMockNodeAPI(group.nodes[0]) : null,
+                firstSubscription: firstSubscription
+                  ? {
+                      subscriptionId: numericID(firstSubscription.subscription.id),
+                      nameFilterRegex: firstSubscription.nameFilterRegex,
+                      matchedCount: firstSubscription.matchedCount,
+                      sampleMatchedNodes: firstSubscription.matchedNodes.slice(0, 5).map((node) => toMockNodeAPI(node)),
+                      updatedAt: firstSubscription.subscription.updatedAt,
+                      status: firstSubscription.subscription.status,
+                      info: firstSubscription.subscription.info,
+                      link: firstSubscription.subscription.link,
+                      tag: firstSubscription.subscription.tag,
+                    }
+                  : null,
+              }
+            }),
+          } as T
+        }
         return {
           items: mockGroups.groups.map((group) => ({
             id: numericID(group.id),
@@ -204,6 +234,18 @@ export class MockAPIClient implements APIClientInterface {
           })),
         } as T
       case 'GET /routings':
+        if (toQueryBool(query?.summary)) {
+          return {
+            items: mockRoutings.routings.map((routing, index) => ({
+              id: numericID(routing.id),
+              name: routing.name,
+              selected: routing.selected,
+              version: index + 1,
+              parseStatus: 'ok',
+              parseError: null,
+            })),
+          } as T
+        }
         return {
           items: mockRoutings.routings.map((routing) => ({
             id: numericID(routing.id),
@@ -213,6 +255,18 @@ export class MockAPIClient implements APIClientInterface {
           })),
         } as T
       case 'GET /dns':
+        if (toQueryBool(query?.summary)) {
+          return {
+            items: mockDNSs.dnss.map((dns, index) => ({
+              id: numericID(dns.id),
+              name: dns.name,
+              selected: dns.selected,
+              version: index + 1,
+              parseStatus: 'ok',
+              parseError: null,
+            })),
+          } as T
+        }
         return {
           items: mockDNSs.dnss.map((dns) => ({
             id: numericID(dns.id),
@@ -222,6 +276,18 @@ export class MockAPIClient implements APIClientInterface {
           })),
         } as T
       case 'GET /configs':
+        if (toQueryBool(query?.summary)) {
+          return {
+            items: mockConfigs.configs.map((config, index) => ({
+              id: numericID(config.id),
+              name: config.name,
+              selected: config.selected,
+              version: index + 1,
+              parseStatus: 'ok',
+              parseError: null,
+            })),
+          } as T
+        }
         return {
           items: mockConfigs.configs.map((config) => ({
             id: numericID(config.id),
@@ -231,6 +297,21 @@ export class MockAPIClient implements APIClientInterface {
             parsedGlobal: config.global,
           })),
         } as T
+    }
+
+    if (method === 'GET' && path.startsWith('/configs/')) {
+      const id = path.split('/')[2]
+      const config = mockConfigs.configs.find((item) => item.id === id || String(numericID(item.id)) === id)
+      if (!config) {
+        throw new Error(`Mock config not found: ${id}`)
+      }
+      return {
+        id: numericID(config.id),
+        name: config.name,
+        global: 'global {}',
+        selected: config.selected,
+        parsedGlobal: config.global,
+      } as T
     }
 
     if (method === 'GET' && path.startsWith('/subscriptions/') && path.endsWith('/nodes')) {
@@ -500,6 +581,10 @@ function toQueryArray(value: APIQueryValue): string[] {
     return []
   }
   return [String(value)]
+}
+
+function toQueryBool(value: APIQueryValue): boolean {
+  return toQueryArray(value).some((item) => item === 'true' || item === '1' || item === 'yes' || item === 'on')
 }
 
 function toQueryNumber(value: APIQueryValue, fallback: number): number {
