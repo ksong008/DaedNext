@@ -19,7 +19,11 @@ function i18nInit() {
     .init({
       fallbackLng: {
         'zh-CN': ['zh-Hans'],
+        zh: ['zh-Hans'],
+        default: ['en'],
       },
+      nonExplicitSupportedLngs: true,
+      supportedLngs: ['en', 'zh-Hans', 'zh-CN', 'zh'],
       defaultNS,
       resources,
     })

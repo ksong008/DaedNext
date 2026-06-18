@@ -13,6 +13,7 @@ import { Input } from '~/components/ui/input'
 import { DEFAULT_ENDPOINT_URL } from '~/constants'
 import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
+import { accountPasswordSchema } from '~/utils/password_policy'
 
 const endpointURLSchema = z.object({
   endpointURL: z.string().url().min(1),
@@ -20,7 +21,7 @@ const endpointURLSchema = z.object({
 
 const signupSchema = z.object({
   username: z.string().min(4).max(20),
-  password: z.string().min(6).max(20),
+  password: accountPasswordSchema,
 })
 
 const loginSchema = z.object({

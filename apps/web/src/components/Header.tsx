@@ -55,6 +55,7 @@ import { i18n } from '~/i18n'
 import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { fileToBase64 } from '~/utils'
+import { accountPasswordSchema } from '~/utils/password_policy'
 
 import { useCommandPaletteActions } from './CommandPaletteActions'
 import { FormActions } from './FormActions'
@@ -74,7 +75,7 @@ const accountSettingsSchema = z.object({
 const passwordChangeSchema = z
   .object({
     currentPassword: z.string().min(1, 'Current password is required'),
-    newPassword: z.string().min(6, 'New password must be at least 6 characters'),
+    newPassword: accountPasswordSchema,
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
