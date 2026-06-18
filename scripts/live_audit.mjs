@@ -8,7 +8,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'http://127.0.0.1:4199/#/setup'
 const API_BASE = process.env.API_BASE || 'http://127.0.0.1:2023/api'
 const SUBSCRIPTION_SOURCE = process.env.SUBSCRIPTION_SOURCE || 'http://127.0.0.1:18080/sub.txt'
 const USERNAME = process.env.AUDIT_USERNAME || 'admin'
-const PASSWORD = process.env.AUDIT_PASSWORD || 'abc123'
+const PASSWORD = process.env.AUDIT_PASSWORD || 'DaedTest123'
 const AUDIT_ARTIFACT_DIR = process.env.AUDIT_ARTIFACT_DIR || ''
 const AUDIT_ARTIFACT_PREFIX = process.env.AUDIT_ARTIFACT_PREFIX || 'live-audit'
 const APP_ROOT_URL = `${FRONTEND_URL.split('#')[0]}#/`
@@ -260,9 +260,9 @@ async function main() {
     throw new Error(`Node fetch failed: ${nodeResp.status}`)
   }
   const node = await nodeResp.json()
-  console.log(`[audit] created node transport=${node.transport}`)
-  if (node.transport !== 'http') {
-    throw new Error(`Expected backend-supplied transport=http, got ${JSON.stringify(node)}`)
+  console.log(`[audit] created node protocol=${node.protocol} transport=${node.transport}`)
+  if (node.protocol !== 'http' || (node.transport !== null && node.transport !== undefined && node.transport !== 'http')) {
+    throw new Error(`Expected backend HTTP node shape, got ${JSON.stringify(node)}`)
   }
   const cleanupSmokeNodeResp = await fetch(`${API_BASE}/nodes`, {
     method: 'DELETE',
@@ -506,7 +506,15 @@ async function main() {
   await editNodeDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
     const data = await apiJson('/nodes')
-    return data.items?.some((item) => item.tag === updatedNodeTag && item.address === '127.0.0.2:8081') ? data : null
+    return data.items?.some(
+      (item) =>
+        item.tag === updatedNodeTag &&
+        (item.address === '127.0.0.2' || item.address === '127.0.0.2:8081') &&
+        typeof item.link === 'string' &&
+        item.link.includes('127.0.0.2:8081'),
+    )
+      ? data
+      : null
   }, 'edited node tag to appear')
   console.log('[audit] node edit flow passed')
   const updatedNodeCard = nodeSection.locator('[data-testid="node-card"]').filter({ hasText: updatedNodeTag }).first()
