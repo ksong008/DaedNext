@@ -74,7 +74,7 @@ function arrayMove<T>(array: T[], from: number, to: number): T[] {
 }
 
 const MANUAL_LATENCY_PROBE_START_TIMEOUT_MS = 8_000
-const MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS = 1_000
+const MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS = 500
 const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
 const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
 const EMPTY_CONFIG_SUMMARIES: SectionSummaryResource[] = []
@@ -487,6 +487,8 @@ export function OrchestratePage() {
     if (!manualLatencyProbeProgress.jobId || job.id !== manualLatencyProbeProgress.jobId) return
 
     const nextProgress = progressFromLatencyJob(job, manualLatencyProbeProgress.total)
+    const jobActive = isLatencyJobActive(job)
+    const hasNewLatencyResults = job.completed > manualLatencyProbeProgress.completed || !jobActive
     setManualLatencyProbeProgress((currentProgress) => {
       if (!currentProgress) return currentProgress
       if (currentProgress.completed === nextProgress.completed && currentProgress.total === nextProgress.total) {
@@ -495,8 +497,11 @@ export function OrchestratePage() {
       return { ...nextProgress, jobId: currentProgress.jobId }
     })
 
-    if (!isLatencyJobActive(job)) {
+    if (hasNewLatencyResults) {
       void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+    }
+
+    if (!jobActive) {
       setManualLatencyProbeProgress(null)
     }
   }, [manualLatencyProbeProgress, nodeLatencyJobQuery.data?.job, queryClient])
