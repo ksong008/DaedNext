@@ -59,7 +59,7 @@ endif
 daed: daed-rust-native
 
 daed-rust-native: dist
-	DAE_DAEMON_VERSION="$(DAED_PRODUCT_VERSION)" CARGO_TARGET_DIR="$(RUST_TARGET_DIR)" cargo build $(RUST_BUILD_ARGS)
+	cd "$(RUST_WORKSPACE)" && DAE_DAEMON_VERSION="$(DAED_PRODUCT_VERSION)" CARGO_TARGET_DIR="$(RUST_TARGET_DIR)" cargo build $(RUST_BUILD_ARGS)
 	cp "$(RUST_BIN)" "$(OUTPUT)"
 	strip "$(OUTPUT)" 2>/dev/null || true
 ## End Bundle
