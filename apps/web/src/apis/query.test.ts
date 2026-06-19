@@ -76,7 +76,7 @@ describe('mergeRuntimeOverviewDelta', () => {
       udpSessions: 4,
       cpuUsagePercent: 1.5,
       rssBytes: '30',
-      heapAllocBytes: '40',
+      heapLiveBytes: '40',
       goroutines: 5,
       runtime: {
         running: true,
@@ -104,7 +104,7 @@ describe('mergeRuntimeOverviewDelta', () => {
         udpSessions: 9,
         cpuUsagePercent: 12.5,
         rssBytes: '31',
-        heapAllocBytes: '41',
+        heapLiveBytes: '41',
         goroutines: 10,
         samples: [{ timestamp: '2026-05-03T13:00:01.000Z', uploadRate: '12', downloadRate: '22' }],
       },
@@ -138,7 +138,7 @@ describe('mergeRuntimeOverviewDelta', () => {
       udpSessions: 4,
       cpuUsagePercent: 1.5,
       rssBytes: '30',
-      heapAllocBytes: '40',
+      heapLiveBytes: '40',
       goroutines: 5,
       samples: [
         { timestamp: '2026-05-03T13:00:00.000Z', uploadRate: 1, downloadRate: 2 },
@@ -159,7 +159,7 @@ describe('mergeRuntimeOverviewDelta', () => {
         udpSessions: 12,
         cpuUsagePercent: 2.5,
         rssBytes: '31',
-        heapAllocBytes: '41',
+        heapLiveBytes: '41',
         goroutines: 13,
         samples: [
           { timestamp: '2026-05-03T13:00:02.000Z', uploadRate: '30', downloadRate: '40' },

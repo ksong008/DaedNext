@@ -87,7 +87,7 @@ interface RuntimeOverviewAPI {
   udpSessions: number
   cpuUsagePercent?: number
   rssBytes?: string
-  heapAllocBytes?: string
+  heapLiveBytes?: string | null
   goroutines?: number
   runtime?: RuntimeOverviewRuntimeState
   samples?: Array<{

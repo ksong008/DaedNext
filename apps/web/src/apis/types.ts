@@ -395,7 +395,7 @@ export interface TrafficOverviewQueryData {
   udpSessions: number
   cpuUsagePercent: number
   rssBytes: string
-  heapAllocBytes: string
+  heapLiveBytes: string
   goroutines: number
   runtime?: RuntimeOverviewRuntimeState
   samples: Array<{
