@@ -365,7 +365,7 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
       udpSessions: runtimeOverview?.udpSessions ?? 0,
       cpuUsagePercent: runtimeOverview?.cpuUsagePercent ?? 0,
       rssBytes: toNumber(runtimeOverview?.rssBytes),
-      heapAllocBytes: toNumber(runtimeOverview?.heapAllocBytes),
+      heapLiveBytes: toNumber(runtimeOverview?.heapLiveBytes),
       goroutines: runtimeOverview?.goroutines ?? 0,
     }),
     [runtimeOverview],
@@ -572,8 +572,8 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
           />
           <OverviewMetricCard
             title={t('trafficOverview.heapAlloc')}
-            amount={formatBytes(latestSample.heapAllocBytes).split(' ')[0]}
-            unit={formatBytes(latestSample.heapAllocBytes).split(' ')[1] ?? ''}
+            amount={formatBytes(latestSample.heapLiveBytes).split(' ')[0]}
+            unit={formatBytes(latestSample.heapLiveBytes).split(' ')[1] ?? ''}
           />
           <OverviewMetricCard title={t('trafficOverview.goroutines')} amount={latestSample.goroutines.toString()} />
           <OverviewMetricCard

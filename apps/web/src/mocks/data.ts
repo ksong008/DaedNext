@@ -91,7 +91,7 @@ interface MockRuntimeOverviewResponse {
   udpSessions: number
   cpuUsagePercent: number
   rssBytes: string
-  heapAllocBytes: string
+  heapLiveBytes: string
   goroutines: number
   runtime: {
     running: boolean
@@ -159,7 +159,7 @@ export function getMockRuntimeOverview(windowSec = 60, maxPoints = 240): MockRun
     udpSessions: 37,
     cpuUsagePercent: 8.6,
     rssBytes: String(Math.round(96.2 * 1024 ** 2)),
-    heapAllocBytes: String(Math.round(31.4 * 1024 ** 2)),
+    heapLiveBytes: String(Math.round(31.4 * 1024 ** 2)),
     goroutines: 42,
     runtime: {
       running: true,

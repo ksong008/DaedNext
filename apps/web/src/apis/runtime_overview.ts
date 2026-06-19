@@ -10,7 +10,7 @@ interface RuntimeOverviewAPI {
   udpSessions: number
   cpuUsagePercent?: number
   rssBytes?: string
-  heapAllocBytes?: string
+  heapLiveBytes?: string | null
   goroutines?: number
   runtime?: RuntimeOverviewRuntimeState
   samples?: Array<{
@@ -63,7 +63,7 @@ export function adaptRuntimeOverview(data: RuntimeOverviewAPI): TrafficOverviewQ
     udpSessions: data.udpSessions,
     cpuUsagePercent: data.cpuUsagePercent ?? 0,
     rssBytes: data.rssBytes || '0',
-    heapAllocBytes: data.heapAllocBytes || '0',
+    heapLiveBytes: data.heapLiveBytes || '0',
     goroutines: data.goroutines ?? 0,
     runtime: data.runtime,
     samples: (data.samples ?? []).map((sample) => ({
@@ -100,7 +100,7 @@ export function mergeRuntimeOverviewDelta(
     udpSessions: delta.udpSessions,
     cpuUsagePercent: delta.cpuUsagePercent ?? previousData.cpuUsagePercent ?? 0,
     rssBytes: delta.rssBytes || previousData.rssBytes || '0',
-    heapAllocBytes: delta.heapAllocBytes || previousData.heapAllocBytes || '0',
+    heapLiveBytes: delta.heapLiveBytes || previousData.heapLiveBytes || '0',
     goroutines: delta.goroutines ?? previousData.goroutines ?? 0,
     runtime: delta.runtime ?? previousData.runtime,
     samples: trimRuntimeOverviewSamples(
