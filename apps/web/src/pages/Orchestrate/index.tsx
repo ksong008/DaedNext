@@ -49,7 +49,7 @@ import { useMediaQuery } from '~/hooks'
 import { cn } from '~/lib/utils'
 import { appStateAtom, groupSortOrdersAtom } from '~/store'
 import { deriveTime } from '~/utils'
-import { formatNodeLatencyCardLabel } from '~/utils/node_display'
+import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 import { NODE_DROPPABLE_ID } from './dndConstants'
 import { TrafficOverviewIsland } from './TrafficOverviewIsland'
 import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
@@ -639,8 +639,9 @@ export function OrchestratePage() {
       const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
       const latencyResult = nodeLatencies[node.id]
       const latency = formatNodeLatencyCardLabel(latencyResult, t('latency.unavailable'))
+      const latencyCardTone = getNodeLatencyCardTone(latencyResult)
       const latencyTone: GroupPickerItem['latencyTone'] =
-        typeof latencyResult?.latencyMs === 'number' ? 'primary' : 'default'
+        latencyCardTone === 'success' ? 'primary' : latencyCardTone === 'failure' ? 'destructive' : 'default'
 
       return {
         id: node.id,

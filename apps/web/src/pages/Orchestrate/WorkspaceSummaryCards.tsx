@@ -16,7 +16,7 @@ import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
 import { cn } from '~/lib/utils'
-import { formatNodeLatencyCardLabel } from '~/utils/node_display'
+import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 
 const summaryShellStyle = {
   background: 'color-mix(in oklab, var(--card) 97%, var(--primary) 3%)',
@@ -185,6 +185,7 @@ function CurrentGroupPathCard({
   destination,
   latencyTitle,
   latencyLabel,
+  latencyTone = 'unavailable',
   editGroupLabel,
   onEditGroup,
 }: {
@@ -195,6 +196,7 @@ function CurrentGroupPathCard({
   destination?: SummaryDestination
   latencyTitle: string
   latencyLabel?: string
+  latencyTone?: 'success' | 'failure' | 'unavailable'
   editGroupLabel?: string
   onEditGroup?: () => void
 }) {
@@ -282,7 +284,9 @@ function CurrentGroupPathCard({
           className={cn(summaryLatencyPillClassName, 'shrink-0 justify-self-end px-2 text-[11px] sm:px-2.5 sm:text-xs')}
         >
           <span className="mr-1 opacity-70">{latencyTitle}</span>
-          <span className="font-semibold text-primary">{latencyLabel || '—'}</span>
+          <span className={cn('font-semibold', latencyTone === 'failure' ? 'text-destructive' : 'text-primary')}>
+            {latencyLabel || '—'}
+          </span>
         </Badge>
       </div>
     </article>
@@ -389,6 +393,10 @@ function formatLatencyLabel(result?: NodeLatencyProbeResult) {
   return formatNodeLatencyCardLabel(result, '') || undefined
 }
 
+function formatLatencyTone(result?: NodeLatencyProbeResult) {
+  return getNodeLatencyCardTone(result)
+}
+
 function formatBestLatencyLabel(nodes: NodeResource[], nodeLatencies?: Record<string, NodeLatencyProbeResult>) {
   const results = nodes.map((node) => nodeLatencies?.[node.id]).filter(Boolean) as NodeLatencyProbeResult[]
   const latencies = results
@@ -400,6 +408,17 @@ function formatBestLatencyLabel(nodes: NodeResource[], nodeLatencies?: Record<st
   }
 
   return `${Math.min(...latencies)} ms`
+}
+
+function formatBestLatencyTone(nodes: NodeResource[], nodeLatencies?: Record<string, NodeLatencyProbeResult>) {
+  const results = nodes.map((node) => nodeLatencies?.[node.id]).filter(Boolean) as NodeLatencyProbeResult[]
+  if (results.some((result) => typeof result.latencyMs === 'number' && Number.isFinite(result.latencyMs))) {
+    return 'success'
+  }
+  if (results.length > 0) {
+    return 'failure'
+  }
+  return 'unavailable'
 }
 
 function getNodeDisplayName(node: NodeResource) {
@@ -554,6 +573,11 @@ export const WorkspaceSummaryCards = memo(
               : subscriptionBinding
                 ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
                 : '—',
+            latencyTone: directNode
+              ? formatLatencyTone(nodeLatencies?.[directNode.id])
+              : subscriptionBinding
+                ? formatBestLatencyTone(subscriptionNodes, nodeLatencies)
+                : 'unavailable',
           }
         }),
       [groups, nodeLatencies, subscriptionNameById, t],
@@ -639,7 +663,7 @@ export const WorkspaceSummaryCards = memo(
           onAction={onOpenGroup}
         >
           <div className="min-h-0 max-h-[340px] flex-1 space-y-2.5 overflow-y-auto overscroll-contain py-0.5 pr-1 lg:max-h-none">
-            {groupPathCards.map(({ group, destination, latencyLabel }) => (
+            {groupPathCards.map(({ group, destination, latencyLabel, latencyTone }) => (
               <CurrentGroupPathCard
                 key={group.id}
                 groupName={group.name || '—'}
@@ -649,6 +673,7 @@ export const WorkspaceSummaryCards = memo(
                 destination={destination}
                 latencyTitle={t('latency.label')}
                 latencyLabel={latencyLabel}
+                latencyTone={latencyTone}
                 editGroupLabel={t('groupPicker.editGroupResources')}
                 onEditGroup={onEditGroupResources ? () => onEditGroupResources(group.id) : undefined}
               />

@@ -7,7 +7,7 @@ import { SortableResourceBadge } from '~/components/SortableResourceBadge'
 import { Button } from '~/components/ui/button'
 import { cn } from '~/lib/utils'
 import { groupSortOrdersAtom } from '~/store'
-import { formatNodeLatencyCardLabel } from '~/utils/node_display'
+import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 
 interface GroupNode {
   id: string
@@ -258,19 +258,25 @@ export function SortableGroupContent({
         onAdd={onOpenAddNodes}
         emptyLabel={t('empty')}
       >
-        {sortedNodes.map(({ id: nodeId, tag, name, protocol, transport, address }, index) => (
-          <SortableResourceBadge
-            key={nodeId}
-            id={`${groupId}-node-${nodeId}`}
-            index={index}
-            name={tag || name}
-            protocol={protocol}
-            transport={transport || undefined}
-            address={address}
-            meta={formatNodeLatencyCardLabel(nodeLatencies?.[nodeId], t('latency.unavailable'))}
-            onRemove={() => onDelNode(nodeId)}
-          />
-        ))}
+        {sortedNodes.map(({ id: nodeId, tag, name, protocol, transport, address }, index) => {
+          const latencyResult = nodeLatencies?.[nodeId]
+          const latencyTone = getNodeLatencyCardTone(latencyResult)
+
+          return (
+            <SortableResourceBadge
+              key={nodeId}
+              id={`${groupId}-node-${nodeId}`}
+              index={index}
+              name={tag || name}
+              protocol={protocol}
+              transport={transport || undefined}
+              address={address}
+              meta={formatNodeLatencyCardLabel(latencyResult, t('latency.unavailable'))}
+              metaTone={latencyTone}
+              onRemove={() => onDelNode(nodeId)}
+            />
+          )
+        })}
       </GroupDropZone>
 
       <GroupDropZone

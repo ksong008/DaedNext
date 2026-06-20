@@ -1,31 +1,29 @@
-import { formatNodeLatencyCardLabel } from './node_display'
+import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from './node_display'
 
 it('formats successful latency without failure message details', () => {
-  expect(
-    formatNodeLatencyCardLabel(
-      {
-        latencyMs: 123,
-        message: 'resident TCP probe got empty response; handler_error=long failure',
-      },
-      'Unavailable',
-    ),
-  ).toBe('123 ms')
+  const result = {
+    latencyMs: 123,
+    message: 'resident TCP probe got empty response; handler_error=long failure',
+  }
+
+  expect(formatNodeLatencyCardLabel(result, 'Unavailable')).toBe('123 ms')
+  expect(getNodeLatencyCardTone(result)).toBe('success')
 })
 
 it('formats failed latency as fail without exposing the reason', () => {
-  expect(
-    formatNodeLatencyCardLabel(
-      {
-        latencyMs: null,
-        message: 'resident TCP probe got empty response; handler_error=long failure',
-      },
-      'Unavailable',
-    ),
-  ).toBe('fail')
+  const result = {
+    latencyMs: null,
+    message: 'resident TCP probe got empty response; handler_error=long failure',
+  }
+
+  expect(formatNodeLatencyCardLabel(result, 'Unavailable')).toBe('fail')
+  expect(getNodeLatencyCardTone(result)).toBe('failure')
 })
 
 it('keeps no-result latency unavailable', () => {
-  expect(formatNodeLatencyCardLabel({ latencyMs: null, message: 'no latency result' }, 'Unavailable')).toBe(
-    'Unavailable',
-  )
+  const result = { latencyMs: null, message: 'no latency result' }
+
+  expect(formatNodeLatencyCardLabel(result, 'Unavailable')).toBe('Unavailable')
+  expect(getNodeLatencyCardTone(result)).toBe('failure')
+  expect(getNodeLatencyCardTone(undefined)).toBe('unavailable')
 })

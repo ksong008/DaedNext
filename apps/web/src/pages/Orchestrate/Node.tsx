@@ -14,7 +14,7 @@ import { Section } from '~/components/Section.tsx'
 import { Button } from '~/components/ui/button.tsx'
 import { SimpleTooltip } from '~/components/ui/tooltip.tsx'
 import { cn } from '~/lib/utils'
-import { formatNodeLatencyCardLabel } from '~/utils/node_display'
+import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 import { NODE_DROPPABLE_ID } from './dndConstants'
 
 export function NodeResource({
@@ -68,63 +68,73 @@ export function NodeResource({
               snapshot.isDraggingOver && 'bg-primary/5 rounded-lg',
             )}
           >
-            {sortedNodes.map(({ id, name, tag, protocol, transport, link }, index) => (
-              <SortableNodeCard
-                key={id}
-                id={`node-${id}`}
-                index={index}
-                name={tag || name}
-                protocol={protocol}
-                transport={transport}
-                actions={
-                  <Fragment>
-                    <SimpleTooltip label={t('actions.edit')}>
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          setEditingNode({
-                            id,
-                            link,
-                            tag: tag || '',
-                            name: name || '',
-                          })
-                          setOpenedEditNodeFormModal(true)
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                    </SimpleTooltip>
-                    <SimpleTooltip label={t('actions.viewQRCode')}>
-                      <Button
-                        variant="ghost"
-                        size="xs"
-                        className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => {
-                          qrCodeModalRef.current?.setProps({
-                            name: tag || name!,
-                            link,
-                          })
-                          setOpenedQRCodeModal(true)
-                        }}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                      </Button>
-                    </SimpleTooltip>
-                  </Fragment>
-                }
-                onRemove={() => removeNodesMutation.mutate([id])}
-              >
-                {nodeLatencies?.[id] && (
-                  <p className="text-xs font-medium text-primary">
-                    {formatNodeLatencyCardLabel(nodeLatencies[id], t('latency.unavailable'))}
-                  </p>
-                )}
-                {name && name !== tag && <p className="text-xs opacity-70">{name}</p>}
-                <Spoiler label={link} showLabel={t('actions.show sensitive')} hideLabel={t('actions.hide')} />
-              </SortableNodeCard>
-            ))}
+            {sortedNodes.map(({ id, name, tag, protocol, transport, link }, index) => {
+              const latencyResult = nodeLatencies?.[id]
+              const latencyTone = getNodeLatencyCardTone(latencyResult)
+
+              return (
+                <SortableNodeCard
+                  key={id}
+                  id={`node-${id}`}
+                  index={index}
+                  name={tag || name}
+                  protocol={protocol}
+                  transport={transport}
+                  actions={
+                    <Fragment>
+                      <SimpleTooltip label={t('actions.edit')}>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setEditingNode({
+                              id,
+                              link,
+                              tag: tag || '',
+                              name: name || '',
+                            })
+                            setOpenedEditNodeFormModal(true)
+                          }}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </SimpleTooltip>
+                      <SimpleTooltip label={t('actions.viewQRCode')}>
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            qrCodeModalRef.current?.setProps({
+                              name: tag || name!,
+                              link,
+                            })
+                            setOpenedQRCodeModal(true)
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                      </SimpleTooltip>
+                    </Fragment>
+                  }
+                  onRemove={() => removeNodesMutation.mutate([id])}
+                >
+                  {latencyResult && (
+                    <p
+                      className={cn(
+                        'text-xs font-medium',
+                        latencyTone === 'failure' ? 'text-destructive' : 'text-primary',
+                      )}
+                    >
+                      {formatNodeLatencyCardLabel(latencyResult, t('latency.unavailable'))}
+                    </p>
+                  )}
+                  {name && name !== tag && <p className="text-xs opacity-70">{name}</p>}
+                  <Spoiler label={link} showLabel={t('actions.show sensitive')} hideLabel={t('actions.hide')} />
+                </SortableNodeCard>
+              )
+            })}
             {provided.placeholder}
           </div>
         )}

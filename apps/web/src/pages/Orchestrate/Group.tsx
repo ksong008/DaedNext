@@ -41,7 +41,7 @@ import { useDisclosure } from '~/hooks'
 import { cn } from '~/lib/utils'
 import { appStateAtom, defaultResourcesAtom } from '~/store'
 import { getInstantDropStyle } from '~/utils'
-import { formatNodeLatencyCardLabel } from '~/utils/node_display'
+import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 
 const GROUP_DROPPABLE_ID = 'group-list'
 
@@ -181,8 +181,9 @@ export function GroupResource({
       const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
       const latencyResult = nodeLatencies?.[node.id]
       const latency = formatNodeLatencyCardLabel(latencyResult, t('latency.unavailable'))
+      const latencyCardTone = getNodeLatencyCardTone(latencyResult)
       const latencyTone: GroupPickerItem['latencyTone'] =
-        typeof latencyResult?.latencyMs === 'number' ? 'primary' : 'default'
+        latencyCardTone === 'success' ? 'primary' : latencyCardTone === 'failure' ? 'destructive' : 'default'
 
       return {
         id: node.id,
