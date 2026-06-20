@@ -27,6 +27,7 @@ import { SimpleTooltip } from '~/components/ui/tooltip'
 import { UpdateSubscriptionAction } from '~/components/UpdateSubscriptionAction'
 import { useDisclosure } from '~/hooks'
 import { cn } from '~/lib/utils'
+import { formatNodeLatencyCardLabel } from '~/utils/node_display'
 
 export function SubscriptionResource({
   sortedSubscriptions,
@@ -305,13 +306,7 @@ function formatLatencyMeta(result?: NodeLatencyProbeResult) {
   if (!result) {
     return undefined
   }
-  if (typeof result.latencyMs === 'number') {
-    return result.message ? `${result.latencyMs}ms · ${result.message}` : `${result.latencyMs}ms`
-  }
-  if (result.message) {
-    return result.message === 'no latency result' ? 'N/A' : 'Fail'
-  }
-  return 'N/A'
+  return formatNodeLatencyCardLabel(result, 'N/A')
 }
 
 function Spoiler({ label, showLabel, hideLabel }: { label: string; showLabel: string; hideLabel: string }) {

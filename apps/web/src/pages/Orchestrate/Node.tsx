@@ -14,6 +14,7 @@ import { Section } from '~/components/Section.tsx'
 import { Button } from '~/components/ui/button.tsx'
 import { SimpleTooltip } from '~/components/ui/tooltip.tsx'
 import { cn } from '~/lib/utils'
+import { formatNodeLatencyCardLabel } from '~/utils/node_display'
 import { NODE_DROPPABLE_ID } from './dndConstants'
 
 export function NodeResource({
@@ -117,7 +118,7 @@ export function NodeResource({
               >
                 {nodeLatencies?.[id] && (
                   <p className="text-xs font-medium text-primary">
-                    {formatLatencyDisplay(nodeLatencies[id], t('latency.unavailable'))}
+                    {formatNodeLatencyCardLabel(nodeLatencies[id], t('latency.unavailable'))}
                   </p>
                 )}
                 {name && name !== tag && <p className="text-xs opacity-70">{name}</p>}
@@ -152,13 +153,6 @@ export function NodeResource({
       />
     </Section>
   )
-}
-
-function formatLatencyDisplay(result: NodeLatencyProbeResult, unavailableLabel: string) {
-  if (typeof result.latencyMs === 'number') {
-    return result.message ? `${result.latencyMs} ms · ${result.message}` : `${result.latencyMs} ms`
-  }
-  return result.message || unavailableLabel
 }
 
 function Spoiler({ label, showLabel, hideLabel }: { label: string; showLabel: string; hideLabel: string }) {

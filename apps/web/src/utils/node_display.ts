@@ -3,6 +3,11 @@ export interface NodeProtocolParts {
   transport?: string
 }
 
+export interface NodeLatencyCardResult {
+  latencyMs?: number | null
+  message?: string | null
+}
+
 export function formatNodeProtocolParts(protocol?: string | null, transport?: string | null): NodeProtocolParts | null {
   const normalizedProtocol = protocol?.trim()
   const normalizedTransport = transport?.trim()
@@ -29,4 +34,21 @@ export function formatNodeProtocolLabel(protocol?: string | null, transport?: st
   const parts = formatNodeProtocolParts(protocol, transport)
   if (!parts) return null
   return [parts.protocol, parts.transport].filter(Boolean).join(' ')
+}
+
+export function formatNodeLatencyCardLabel(
+  result: NodeLatencyCardResult | undefined,
+  unavailableLabel: string,
+  failLabel = 'fail',
+): string {
+  if (!result) {
+    return unavailableLabel
+  }
+  if (typeof result.latencyMs === 'number') {
+    return `${result.latencyMs} ms`
+  }
+  if (result.message && result.message !== 'no latency result') {
+    return failLabel
+  }
+  return unavailableLabel
 }

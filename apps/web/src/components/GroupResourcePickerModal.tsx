@@ -265,7 +265,7 @@ function SelectionDialog({
                             {item.latency && (
                               <span
                                 className={cn(
-                                  'shrink-0 self-start rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none sm:mt-0.5',
+                                  'inline-block min-w-0 max-w-full truncate self-start rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none sm:mt-0.5 sm:max-w-[13rem]',
                                   item.latencyTone === 'primary'
                                     ? 'bg-primary/10 text-primary'
                                     : 'bg-muted text-muted-foreground',
