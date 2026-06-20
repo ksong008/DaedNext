@@ -29,7 +29,7 @@ export interface GroupPickerItem {
   meta?: string
   metaTone?: 'default' | 'primary'
   latency?: string
-  latencyTone?: 'default' | 'primary'
+  latencyTone?: 'default' | 'primary' | 'destructive'
   badge?: ReactNode
   keywords?: string[]
   previewNodes?: GroupPickerPreviewNode[]
@@ -268,7 +268,9 @@ function SelectionDialog({
                                   'inline-block min-w-0 max-w-full truncate self-start rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none sm:mt-0.5 sm:max-w-[13rem]',
                                   item.latencyTone === 'primary'
                                     ? 'bg-primary/10 text-primary'
-                                    : 'bg-muted text-muted-foreground',
+                                    : item.latencyTone === 'destructive'
+                                      ? 'bg-destructive/10 text-destructive'
+                                      : 'bg-muted text-muted-foreground',
                                 )}
                               >
                                 {item.latency}

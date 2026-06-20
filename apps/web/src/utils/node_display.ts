@@ -5,8 +5,11 @@ export interface NodeProtocolParts {
 
 export interface NodeLatencyCardResult {
   latencyMs?: number | null
+  alive?: boolean
   message?: string | null
 }
+
+export type NodeLatencyCardTone = 'success' | 'failure' | 'unavailable'
 
 export function formatNodeProtocolParts(protocol?: string | null, transport?: string | null): NodeProtocolParts | null {
   const normalizedProtocol = protocol?.trim()
@@ -51,4 +54,14 @@ export function formatNodeLatencyCardLabel(
     return failLabel
   }
   return unavailableLabel
+}
+
+export function getNodeLatencyCardTone(result: NodeLatencyCardResult | undefined): NodeLatencyCardTone {
+  if (!result) {
+    return 'unavailable'
+  }
+  if (typeof result.latencyMs === 'number' && Number.isFinite(result.latencyMs)) {
+    return 'success'
+  }
+  return 'failure'
 }

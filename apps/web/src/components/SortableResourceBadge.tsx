@@ -16,6 +16,7 @@ export function SortableResourceBadge({
   subtitle,
   address,
   meta,
+  metaTone = 'success',
   onRemove,
   children,
 }: {
@@ -27,6 +28,7 @@ export function SortableResourceBadge({
   subtitle?: string | null
   address?: string | null
   meta?: React.ReactNode
+  metaTone?: 'success' | 'failure' | 'unavailable'
   onRemove?: () => void
   children?: React.ReactNode
 }) {
@@ -65,7 +67,16 @@ export function SortableResourceBadge({
       </div>
 
       {meta && (
-        <span className="col-start-2 col-end-4 row-start-2 w-fit max-w-full truncate rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 sm:col-auto sm:row-auto sm:ml-auto sm:shrink-0">
+        <span
+          className={cn(
+            'col-start-2 col-end-4 row-start-2 w-fit max-w-full truncate rounded-full px-2.5 py-1 text-[10px] font-semibold sm:col-auto sm:row-auto sm:ml-auto sm:shrink-0',
+            metaTone === 'failure'
+              ? 'bg-destructive/10 text-destructive'
+              : metaTone === 'success'
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'bg-muted text-muted-foreground',
+          )}
+        >
           {meta}
         </span>
       )}

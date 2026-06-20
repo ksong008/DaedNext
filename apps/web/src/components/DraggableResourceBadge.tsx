@@ -15,6 +15,7 @@ export function DraggableResourceBadge({
   transport,
   subtitle,
   meta,
+  metaTone = 'success',
   onRemove,
   children,
 }: {
@@ -25,6 +26,7 @@ export function DraggableResourceBadge({
   transport?: string | null
   subtitle?: React.ReactNode
   meta?: React.ReactNode
+  metaTone?: 'success' | 'failure' | 'unavailable'
   onRemove?: () => void
   children?: React.ReactNode
 }) {
@@ -56,7 +58,20 @@ export function DraggableResourceBadge({
         {subtitle && <span className="block truncate text-[10px] text-muted-foreground">{subtitle}</span>}
       </div>
 
-      {meta && <span className="shrink-0 text-[10px] font-medium text-primary">{meta}</span>}
+      {meta && (
+        <span
+          className={cn(
+            'shrink-0 text-[10px] font-medium',
+            metaTone === 'failure'
+              ? 'text-destructive'
+              : metaTone === 'success'
+                ? 'text-primary'
+                : 'text-muted-foreground',
+          )}
+        >
+          {meta}
+        </span>
+      )}
 
       {/* Remove button */}
       {onRemove && (

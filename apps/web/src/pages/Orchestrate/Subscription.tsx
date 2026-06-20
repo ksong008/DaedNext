@@ -27,7 +27,7 @@ import { SimpleTooltip } from '~/components/ui/tooltip'
 import { UpdateSubscriptionAction } from '~/components/UpdateSubscriptionAction'
 import { useDisclosure } from '~/hooks'
 import { cn } from '~/lib/utils'
-import { formatNodeLatencyCardLabel } from '~/utils/node_display'
+import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 
 export function SubscriptionResource({
   sortedSubscriptions,
@@ -222,19 +222,24 @@ export function SubscriptionResource({
                               {...droppableProvided.droppableProps}
                               className="flex flex-wrap gap-2 pt-2"
                             >
-                              {nodes.items.map(({ id, name, protocol, transport }, nodeIndex) => (
-                                <DraggableResourceBadge
-                                  key={id}
-                                  id={`subscription-node-${id}`}
-                                  index={nodeIndex}
-                                  name={name}
-                                  protocol={protocol}
-                                  transport={transport}
-                                  meta={formatLatencyMeta(nodeLatencies?.[id])}
-                                >
-                                  {name}
-                                </DraggableResourceBadge>
-                              ))}
+                              {nodes.items.map(({ id, name, protocol, transport }, nodeIndex) => {
+                                const latencyResult = nodeLatencies?.[id]
+
+                                return (
+                                  <DraggableResourceBadge
+                                    key={id}
+                                    id={`subscription-node-${id}`}
+                                    index={nodeIndex}
+                                    name={name}
+                                    protocol={protocol}
+                                    transport={transport}
+                                    meta={formatLatencyMeta(latencyResult)}
+                                    metaTone={getNodeLatencyCardTone(latencyResult)}
+                                  >
+                                    {name}
+                                  </DraggableResourceBadge>
+                                )
+                              })}
                               {droppableProvided.placeholder}
                             </div>
                           )}
