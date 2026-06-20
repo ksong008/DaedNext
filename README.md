@@ -1,27 +1,28 @@
 <div align="center">
   <img src="apps/web/public/logo-rounded.png" alt="daed logo" width="120" />
   <h1>daed</h1>
-  <p><strong>A modern web dashboard for dae</strong></p>
+  <p><strong>Product shell and web dashboard for dae</strong></p>
 
   <p>
     <a href="https://github.com/ksong008/DaedNext/actions/workflows/release-please.yml"><img src="https://img.shields.io/github/actions/workflow/status/ksong008/daednext/release-please.yml?style=for-the-badge" alt="Build Status" /></a>
     <a href="https://github.com/ksong008/DaedNext/releases"><img src="https://img.shields.io/github/v/release/ksong008/daednext?style=for-the-badge" alt="Release" /></a>
-    <a href="https://github.com/ksong008/DaedNext/blob/main/LICENSE"><img src="https://img.shields.io/github/license/ksong008/daednext?style=for-the-badge" alt="License" /></a>
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT%20%2F%20AGPL--3.0-blue?style=for-the-badge" alt="License: MIT / AGPL-3.0" /></a>
     <a href="https://github.com/ksong008/DaedNext/pulls"><img src="https://img.shields.io/github/issues-pr-closed/ksong008/daednext?style=for-the-badge" alt="Pull Requests" /></a>
   </p>
 
   <p>
-    <a href="#features">Features</a> •
-    <a href="#getting-started">Getting Started</a> •
-    <a href="#development">Development</a> •
-    <a href="#contributing">Contributing</a> •
+    <a href="#features">Features</a> |
+    <a href="#getting-started">Getting Started</a> |
+    <a href="#docker-deployment">Docker</a> |
+    <a href="#build-from-source">Build</a> |
+    <a href="#development">Development</a> |
     <a href="#license">License</a>
   </p>
 </div>
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
 <details open>
 <summary><b>Desktop Screenshots</b></summary>
@@ -43,32 +44,39 @@
 
 ---
 
-## ✨ Features
+## Features
 
-- 🎨 **Beautiful UI** — Modern, intuitive interface with light/dark mode support
-- ⌨️ **Keyboard First** — Built-in keyboard navigation and shortcuts for power users
-- 📱 **Responsive** — Fully mobile-friendly design
-- 🚀 **Fast** — Built with React and optimized for performance
+- Web dashboard for managing a running `daed` instance, including setup and
+  orchestration workflows.
+- Product build shell that bundles the WebUI with the Rust-native daemon from
+  the [DaeNext](https://github.com/ksong008/DaeNext) workspace.
+- Release workflow for Linux x86_64 v1/v2/v3 binaries and distro packages
+  (`deb`, `rpm`, and `pkg.tar.zst`).
+- Docker images for host-network deployments that need access to Linux eBPF,
+  system networking, and `/etc/daed` state.
+- Shared RoutingA tooling packages: Monaco editor support, node parser, language
+  server, and VS Code extension package.
+- Screenshot, integration-audit, type-check, lint, and package-publish tooling
+  for the WebUI and companion packages.
 
-## 🌐 Online Demo
+## Getting Started
 
-Try daed directly in your browser without installation:
+Please refer to the [Quick Start Guide](./docs/getting-started.md) to install
+and run daed.
 
-**🔗 [ksong008.github.io/DaedNext](https://ksong008.github.io/DaedNext)**
+Once daed is running, open the dashboard at:
 
-> ⚠️ **Important:** Since GitHub Pages uses HTTPS, your daed API endpoint must also be served over HTTPS. Browsers block mixed content (HTTPS page connecting to HTTP backend). Configure a reverse proxy with TLS or use a self-signed certificate for local development.
-
-## 🚀 Getting Started
-
-Please refer to the [Quick Start Guide](./docs/getting-started.md) to start using daed right away!
-
-## 🐳 Docker Deployment
-
-Pull the prebuilt image:
-
-```bash
-docker pull ghcr.io/ksong008/daednext
+```text
+http://localhost:2023
 ```
+
+## Docker Deployment
+
+Prebuilt images are published under:
+
+- `ghcr.io/ksong008/daednext`
+- `quay.io/ksong008/daednext`
+- `ksong008/daednext`
 
 Run the container:
 
@@ -90,7 +98,7 @@ Or use Docker Compose:
 # docker-compose.yml
 services:
   daed:
-    image: ghcr.io/ksong008/daednext
+    image: ghcr.io/ksong008/daednext:latest
     container_name: daed
     privileged: true
     network_mode: host
@@ -105,26 +113,51 @@ services:
 docker compose up -d
 ```
 
-Access the dashboard at `http://localhost:2023`.
+## Build From Source
 
-## 💻 Development
+The default product build creates a Rust-native `daed` binary by building the
+WebUI first, then compiling `dae-daemon --bin daed` from the DaeNext Cargo
+workspace.
 
-### Prerequisites
+Prerequisites:
 
-- [Node.js](https://nodejs.org/) >= 20
-- [pnpm](https://pnpm.io/) >= 9
+- [Node.js](https://nodejs.org/) >= 22.12.0
+- [pnpm](https://pnpm.io/) 10.x
+- [Rust](https://www.rust-lang.org/) stable
+- Rust nightly with `rust-src` for native eBPF builds
+- `clang`, `llvm`, and `bpf-linker`
+
+Recommended checkout layout:
+
+```bash
+git clone https://github.com/ksong008/DaedNext.git
+git clone https://github.com/ksong008/DaeNext.git
+cd DaedNext
+```
+
+Build the product binary:
+
+```bash
+pnpm install
+make RUST_WORKSPACE=../DaeNext
+```
+
+The Makefile auto-detects `./DaeNext`, `../DaeNext`, or `../../DaeNext`. Use
+`RUST_WORKSPACE=/path/to/DaeNext` when your checkout uses a different layout.
+
+For more detail, see [Build from Source](./docs/build.md).
+
+## Development
+
+### WebUI Prerequisites
+
+- [Node.js](https://nodejs.org/) >= 22.12.0
+- [pnpm](https://pnpm.io/) 10.x
 
 ### Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/ksong008/DaedNext.git
-cd daed
-
-# Install dependencies
 pnpm install
-
-# Start development server
 pnpm dev
 ```
 
@@ -132,32 +165,52 @@ pnpm dev
 
 | Command                 | Description                                        |
 | ----------------------- | -------------------------------------------------- |
-| `pnpm dev`              | Start development server                           |
-| `pnpm build`            | Build for production                               |
+| `pnpm dev`              | Start the WebUI development server                 |
+| `pnpm build`            | Build packages and the WebUI                       |
+| `pnpm test`             | Run package and app tests                          |
+| `pnpm check-types`      | Run TypeScript checks                              |
 | `pnpm test:integration` | Run the browser audit against an existing daed API |
-| `pnpm lint`             | Lint and fix code                                  |
+| `pnpm lint`             | Lint and fix source files                          |
+| `pnpm screenshot`       | Regenerate README screenshots from mock mode       |
+| `make`                  | Build the bundled Rust-native product binary       |
 
-## 🤝 Contributing
+## Repository Layout
 
-Contributions are welcome! Whether it's bug reports, feature requests, or pull requests — all are appreciated.
+- `apps/web/`: React/Vite WebUI for daed.
+- `packages/`: RoutingA editor, parser, LSP, language core, and VS Code support.
+- `install/`: systemd unit, desktop metadata, icons, and package hooks.
+- `docs/`: user-facing install/build docs and README screenshots.
+- `scripts/`: screenshot generation, integration audit, and repository checks.
+- `Makefile`: product bundling entrypoint for WebUI plus DaeNext Rust core.
 
-Please read our [Contributing Guide](./CONTRIBUTING.md) before submitting a PR.
+## Release Boundary
 
-Special thanks to all [contributors](https://github.com/ksong008/DaedNext/graphs/contributors)! ❤️
+This repository owns the daed product shell: WebUI assets, package metadata,
+installer layout, Docker image layout, and the top-level product build flow.
+
+The daemon core is built from the DaeNext Rust workspace. Release workflows
+checkout `ksong008/DaeNext`, build the Rust-native `daed` binary with native
+eBPF support, then package it with this repository's WebUI and install assets.
+
+## Contributing
+
+Contributions are welcome. Please read the [Contributing Guide](./CONTRIBUTING.md)
+before submitting a PR.
+
+Special thanks to all [contributors](https://github.com/ksong008/DaedNext/graphs/contributors).
 
 <a href="https://github.com/ksong008/DaedNext/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=ksong008/daednext" alt="Contributors" />
 </a>
 
-## 📄 License
+## License
 
 This project is licensed as follows:
 
-- Frontend (daed): [MIT License](./LICENSE)
+- Frontend, WebUI, and JavaScript packages: [MIT License](./LICENSE)
 - Rust-native daemon workspace: [AGPL-3.0 License](https://github.com/ksong008/DaeNext)
 
----
+## Original Source
 
-<div align="center">
-  Made with ❤️ by <a href="https://github.com/daeuniverse">@daeuniverse</a>
-</div>
+This project originates from the daed project:
+[https://github.com/daeuniverse/daed](https://github.com/daeuniverse/daed).
