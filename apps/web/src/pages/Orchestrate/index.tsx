@@ -49,6 +49,7 @@ import { useMediaQuery } from '~/hooks'
 import { cn } from '~/lib/utils'
 import { appStateAtom, groupSortOrdersAtom } from '~/store'
 import { deriveTime } from '~/utils'
+import { formatNodeLatencyCardLabel } from '~/utils/node_display'
 import { NODE_DROPPABLE_ID } from './dndConstants'
 import { TrafficOverviewIsland } from './TrafficOverviewIsland'
 import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
@@ -637,7 +638,7 @@ export function OrchestratePage() {
       const title = node.tag || node.name || node.address || node.id
       const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
       const latencyResult = nodeLatencies[node.id]
-      const latency = formatLatencyMeta(latencyResult, t('latency.unavailable'))
+      const latency = formatNodeLatencyCardLabel(latencyResult, t('latency.unavailable'))
       const latencyTone: GroupPickerItem['latencyTone'] =
         typeof latencyResult?.latencyMs === 'number' ? 'primary' : 'default'
 
@@ -1409,19 +1410,6 @@ export function OrchestratePage() {
       </Dialog>
     </div>
   )
-}
-
-function formatLatencyMeta(result: NodeLatencyProbeResult | undefined, unavailableLabel: string) {
-  if (!result) {
-    return unavailableLabel
-  }
-  if (typeof result.latencyMs === 'number') {
-    return result.message ? `${result.latencyMs} ms · ${result.message}` : `${result.latencyMs} ms`
-  }
-  if (result.message) {
-    return result.message === 'no latency result' ? unavailableLabel : result.message
-  }
-  return unavailableLabel
 }
 
 function getNodeIdentityKeys(node: {

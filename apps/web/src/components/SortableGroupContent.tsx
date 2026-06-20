@@ -7,6 +7,7 @@ import { SortableResourceBadge } from '~/components/SortableResourceBadge'
 import { Button } from '~/components/ui/button'
 import { cn } from '~/lib/utils'
 import { groupSortOrdersAtom } from '~/store'
+import { formatNodeLatencyCardLabel } from '~/utils/node_display'
 
 interface GroupNode {
   id: string
@@ -266,7 +267,7 @@ export function SortableGroupContent({
             protocol={protocol}
             transport={transport || undefined}
             address={address}
-            meta={formatLatencyMeta(nodeLatencies?.[nodeId], t('latency.unavailable'))}
+            meta={formatNodeLatencyCardLabel(nodeLatencies?.[nodeId], t('latency.unavailable'))}
             onRemove={() => onDelNode(nodeId)}
           />
         ))}
@@ -316,17 +317,4 @@ export function SortableGroupContent({
       </GroupDropZone>
     </div>
   )
-}
-
-function formatLatencyMeta(result: NodeLatencyProbeResult | undefined, unavailableLabel: string) {
-  if (!result) {
-    return unavailableLabel
-  }
-  if (typeof result.latencyMs === 'number') {
-    return result.message ? `${result.latencyMs} ms · ${result.message}` : `${result.latencyMs} ms`
-  }
-  if (result.message) {
-    return result.message === 'no latency result' ? unavailableLabel : result.message
-  }
-  return unavailableLabel
 }

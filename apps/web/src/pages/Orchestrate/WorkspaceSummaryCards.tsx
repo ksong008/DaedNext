@@ -16,6 +16,7 @@ import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
 import { cn } from '~/lib/utils'
+import { formatNodeLatencyCardLabel } from '~/utils/node_display'
 
 const summaryShellStyle = {
   background: 'color-mix(in oklab, var(--card) 97%, var(--primary) 3%)',
@@ -384,16 +385,19 @@ function SummarySplitActions({
 }
 
 function formatLatencyLabel(result?: NodeLatencyProbeResult) {
-  if (!result || typeof result.latencyMs !== 'number') return undefined
-  return `${result.latencyMs} ms`
+  if (!result) return undefined
+  return formatNodeLatencyCardLabel(result, '') || undefined
 }
 
 function formatBestLatencyLabel(nodes: NodeResource[], nodeLatencies?: Record<string, NodeLatencyProbeResult>) {
-  const latencies = nodes
-    .map((node) => nodeLatencies?.[node.id]?.latencyMs)
+  const results = nodes.map((node) => nodeLatencies?.[node.id]).filter(Boolean) as NodeLatencyProbeResult[]
+  const latencies = results
+    .map((result) => result.latencyMs)
     .filter((latency): latency is number => typeof latency === 'number')
 
-  if (latencies.length === 0) return undefined
+  if (latencies.length === 0) {
+    return results.some((result) => result.message && result.message !== 'no latency result') ? 'fail' : undefined
+  }
 
   return `${Math.min(...latencies)} ms`
 }
