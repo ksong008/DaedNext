@@ -145,29 +145,35 @@ export function ImportResourceFormModal({
               ))}
             </div>
 
-            {showUseProxySubscription && (
-              <div className="mt-5 flex items-center justify-between rounded-lg border border-[color:var(--shell-line)] bg-[color:var(--shell-control)] px-3 py-2">
-                <Label htmlFor="import-use-proxy-subscription" className="text-sm font-medium">
-                  {t('useProxySubscription')}
-                </Label>
-                <Switch
-                  id="import-use-proxy-subscription"
-                  checked={useProxySubscription}
-                  onCheckedChange={(checked) => setValue('useProxySubscription', checked)}
-                />
-              </div>
-            )}
-
             <div className="flex items-center justify-between mt-5">
-              <Button
-                type="button"
-                variant="default"
-                size="icon"
-                className="bg-green-600 hover:bg-green-700"
-                onClick={() => append({ link: '', tag: '' })}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  variant="default"
+                  size="icon"
+                  className="bg-green-600 hover:bg-green-700"
+                  onClick={() => append({ link: '', tag: '' })}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+
+                {showUseProxySubscription && (
+                  <div className="flex items-center gap-1.5">
+                    <Switch
+                      id="import-use-proxy-subscription"
+                      size="xs"
+                      checked={useProxySubscription}
+                      onCheckedChange={(checked) => setValue('useProxySubscription', checked)}
+                    />
+                    <Label
+                      htmlFor="import-use-proxy-subscription"
+                      className="whitespace-nowrap text-xs font-medium text-muted-foreground"
+                    >
+                      {t('useProxySubscription')}
+                    </Label>
+                  </div>
+                )}
+              </div>
 
               <FormActions reset={() => reset(defaultValues)} isDirty={isDirty} errors={errors} />
             </div>
