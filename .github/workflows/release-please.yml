@@ -21,16 +21,16 @@ jobs:
   release-please:
     runs-on: macos-latest
     outputs:
-      manual_release: ${{ inputs.tag_name != '' && 'true' || 'false' }}
+      manual_release: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && 'true' || 'false' }}
       release_branch: ${{ github.ref_name }}
-      checkout_ref: ${{ (inputs.tag_name != '' && github.sha) || steps.release.outputs['apps/web--tag_name'] || github.sha }}
+      checkout_ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && github.sha) || steps.release.outputs['apps/web--tag_name'] || github.sha }}
       tag_name: ${{ steps.release.outputs['apps/web--tag_name'] || inputs.tag_name }}
-      release_created: ${{ steps.release.outputs['apps/web--release_created'] || (inputs.tag_name != '' && 'true') || 'false' }}
-      publish_extras: ${{ (steps.release.outputs['apps/web--release_created'] == 'true' || inputs.tag_name != '') && 'true' || 'false' }}
+      release_created: ${{ steps.release.outputs['apps/web--release_created'] || (github.event_name == 'workflow_dispatch' && inputs.tag_name != '' && 'true') || 'false' }}
+      publish_extras: ${{ (steps.release.outputs['apps/web--release_created'] == 'true' || (github.event_name == 'workflow_dispatch' && inputs.tag_name != '')) && 'true' || 'false' }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
-        if: ${{ inputs.tag_name == '' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag_name == '' }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target-branch: ${{ github.ref_name }}
@@ -44,6 +44,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v5.0.0
 
@@ -53,7 +54,7 @@ jobs:
           node-version: '22.12.0'
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
@@ -92,11 +93,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
+          persist-credentials: false
       - uses: actions/checkout@v6
         with:
           repository: ksong008/DaeNext
           ref: main
           path: DaeNext
+          persist-credentials: false
 
       - name: Verify Rust native source archive inputs
         run: |
@@ -121,6 +124,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v5.0.0
 
@@ -133,7 +137,7 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: |
-          pnpm install
+          pnpm install --frozen-lockfile
           pnpm build --filter daed
 
       - uses: actions/upload-artifact@v7
@@ -165,18 +169,110 @@ jobs:
     strategy:
       matrix:
         include:
+          # BEGIN Linux x86_32 / RISC-V / ARM64
+          - target_os: linux
+            target_arch: x86_32
+            rust_target: i686-unknown-linux-gnu
+            cargo_target_env: I686_UNKNOWN_LINUX_GNU
+            cross_packages: gcc-i686-linux-gnu g++-i686-linux-gnu
+            linker: i686-linux-gnu-gcc
+            cc: i686-linux-gnu-gcc
+            cxx: i686-linux-gnu-g++
+            ar: i686-linux-gnu-ar
+          - target_os: linux
+            target_arch: riscv64
+            rust_target: riscv64gc-unknown-linux-gnu
+            cargo_target_env: RISCV64GC_UNKNOWN_LINUX_GNU
+            cross_packages: gcc-riscv64-linux-gnu g++-riscv64-linux-gnu
+            linker: riscv64-linux-gnu-gcc
+            cc: riscv64-linux-gnu-gcc
+            cxx: riscv64-linux-gnu-g++
+            ar: riscv64-linux-gnu-ar
+          - target_os: linux
+            target_arch: aarch64
+            rust_target: aarch64-unknown-linux-gnu
+            cargo_target_env: AARCH64_UNKNOWN_LINUX_GNU
+            cross_packages: gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+            linker: aarch64-linux-gnu-gcc
+            cc: aarch64-linux-gnu-gcc
+            cxx: aarch64-linux-gnu-g++
+            ar: aarch64-linux-gnu-ar
+          # END Linux x86_32 / RISC-V / ARM64
+
+          # BEGIN Linux x86_64 v1 v2 v3
           - target_os: linux
             target_arch: x86_64
             cpu_level: v1
             rustflags: -C target-cpu=x86-64
+            rust_target: ''
+            cargo_target_env: ''
+            cross_packages: ''
+            linker: ''
+            cc: ''
+            cxx: ''
+            ar: ''
           - target_os: linux
             target_arch: x86_64
             cpu_level: v2
             rustflags: -C target-cpu=x86-64-v2
+            rust_target: ''
+            cargo_target_env: ''
+            cross_packages: ''
+            linker: ''
+            cc: ''
+            cxx: ''
+            ar: ''
           - target_os: linux
             target_arch: x86_64
             cpu_level: v3
             rustflags: -C target-cpu=x86-64-v3
+            rust_target: ''
+            cargo_target_env: ''
+            cross_packages: ''
+            linker: ''
+            cc: ''
+            cxx: ''
+            ar: ''
+          # END Linux x86_64 v1 v2 v3
+
+          # BEGIN Linux MIPS
+          - target_os: linux
+            target_arch: mips64
+            rust_target: mips64-unknown-linux-gnuabi64
+            cargo_target_env: MIPS64_UNKNOWN_LINUX_GNUABI64
+            cross_packages: gcc-mips64-linux-gnuabi64 g++-mips64-linux-gnuabi64
+            linker: mips64-linux-gnuabi64-gcc
+            cc: mips64-linux-gnuabi64-gcc
+            cxx: mips64-linux-gnuabi64-g++
+            ar: mips64-linux-gnuabi64-ar
+          - target_os: linux
+            target_arch: mips64le
+            rust_target: mips64el-unknown-linux-gnuabi64
+            cargo_target_env: MIPS64EL_UNKNOWN_LINUX_GNUABI64
+            cross_packages: gcc-mips64el-linux-gnuabi64 g++-mips64el-linux-gnuabi64
+            linker: mips64el-linux-gnuabi64-gcc
+            cc: mips64el-linux-gnuabi64-gcc
+            cxx: mips64el-linux-gnuabi64-g++
+            ar: mips64el-linux-gnuabi64-ar
+          - target_os: linux
+            target_arch: mipsle
+            rust_target: mipsel-unknown-linux-gnu
+            cargo_target_env: MIPSEL_UNKNOWN_LINUX_GNU
+            cross_packages: gcc-mipsel-linux-gnu g++-mipsel-linux-gnu
+            linker: mipsel-linux-gnu-gcc
+            cc: mipsel-linux-gnu-gcc
+            cxx: mipsel-linux-gnu-g++
+            ar: mipsel-linux-gnu-ar
+          - target_os: linux
+            target_arch: mips
+            rust_target: mips-unknown-linux-gnu
+            cargo_target_env: MIPS_UNKNOWN_LINUX_GNU
+            cross_packages: gcc-mips-linux-gnu g++-mips-linux-gnu
+            linker: mips-linux-gnu-gcc
+            cc: mips-linux-gnu-gcc
+            cxx: mips-linux-gnu-g++
+            ar: mips-linux-gnu-ar
+          # END Linux MIPS
       fail-fast: false
 
     env:
@@ -190,23 +286,69 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/checkout@v6
         with:
           repository: ksong008/DaeNext
           ref: main
           path: DaeNext
+          persist-credentials: false
 
       - name: Setup Rust
         run: |
           rustup toolchain install stable --profile minimal
           rustup toolchain install nightly --profile minimal --component rust-src
           rustup default stable
+          if [ -n "${{ matrix.rust_target }}" ]; then
+            rustup target add "${{ matrix.rust_target }}"
+          fi
           cargo install bpf-linker --version 0.10.3 --locked
 
       - name: Install native build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm
+          set -euo pipefail
+          cross_packages="${{ matrix.cross_packages }}"
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          for attempt in 1 2 3; do
+            if sudo apt-get update \
+              -o Acquire::Retries=3 \
+              -o Acquire::http::Timeout=30 \
+              -o Acquire::https::Timeout=30; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            clang \
+            cmake \
+            libelf-dev \
+            llvm \
+            perl \
+            pkg-config \
+            $cross_packages
+
+      - name: Configure Rust cross target
+        run: |
+          set -euo pipefail
+          rust_target="${{ matrix.rust_target }}"
+          cargo_target_env="${{ matrix.cargo_target_env }}"
+          linker="${{ matrix.linker }}"
+          cc="${{ matrix.cc }}"
+          cxx="${{ matrix.cxx }}"
+          ar="${{ matrix.ar }}"
+          if [ -z "$rust_target" ]; then
+            exit 0
+          fi
+          rust_target_env="${rust_target//-/_}"
+          echo "RUST_TARGET=${rust_target}" >>"${GITHUB_ENV}"
+          echo "CARGO_TARGET_${cargo_target_env}_LINKER=${linker}" >>"${GITHUB_ENV}"
+          echo "CC_${rust_target_env}=${cc}" >>"${GITHUB_ENV}"
+          echo "CXX_${rust_target_env}=${cxx}" >>"${GITHUB_ENV}"
+          echo "AR_${rust_target_env}=${ar}" >>"${GITHUB_ENV}"
 
       - name: Get the version
         id: get_version
@@ -224,7 +366,7 @@ jobs:
       - name: Get the filename
         id: get_filename
         run: |
-          target_key="${TARGET_OS}-${TARGET_ARCH}-${CPU_LEVEL}"
+          target_key="${TARGET_OS}-${TARGET_ARCH}${CPU_LEVEL:+-${CPU_LEVEL}}"
           _NAME=$(jq --arg target "$target_key" '.[$target].friendlyName' -r < install/friendly-filenames.json)
           test "$_NAME" != "null"
           echo "target_os: $TARGET_OS, target_arch: $TARGET_ARCH, cpu_level: $CPU_LEVEL, release_name: $_NAME"
@@ -265,9 +407,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ./output_packages/
-          sudo apt install -y libarchive-tools rpm
+          sudo apt-get install -y --no-install-recommends libarchive-tools rpm
           sudo gem install fpm -v 1.15.1
-          package_file_base="daed-${TARGET_OS}-${TARGET_ARCH}-${CPU_LEVEL}"
+          target_key="${TARGET_OS}-${TARGET_ARCH}${CPU_LEVEL:+-${CPU_LEVEL}}"
+          package_file_base="daed-${target_key}"
           pushd bundled || exit 1
           ./${{ steps.get_filename.outputs.BUNDLE_NAME }} --version | grep -F 'bpf-btf'
           rm -rf package-root
@@ -290,11 +433,21 @@ jobs:
           install -m 0644 ./icons/512x512.png package-root/usr/share/icons/hicolor/512x512/apps/daed.png
           install -m 0644 ./icons/1024x1024.png package-root/usr/share/icons/hicolor/1024x1024/apps/daed.png
           ARCH_PACMAN='pacman'
+          case "$TARGET_ARCH" in
+            mips*) ARCH_PACMAN='' ;;
+          esac
           for package_manager in deb rpm $ARCH_PACMAN; do
             case "$package_manager:$TARGET_ARCH" in
+              deb:x86_32) package_arch='i386' ;;
               deb:x86_64) package_arch='amd64' ;;
               deb:aarch64) package_arch='arm64' ;;
+              deb:mips64le) package_arch='mips64el' ;;
+              deb:mipsle) package_arch='mipsel' ;;
+              rpm:x86_32) package_arch='i386' ;;
               rpm:x86_64|pacman:x86_64) package_arch='x86_64' ;;
+              rpm:mips64le) package_arch='mips64el' ;;
+              rpm:mipsle) package_arch='mipsel' ;;
+              pacman:x86_32) package_arch='i686' ;;
               rpm:aarch64|pacman:aarch64) package_arch='aarch64' ;;
               *) package_arch="$TARGET_ARCH" ;;
             esac
@@ -311,8 +464,10 @@ jobs:
           dpkg-deb -c "$package_file_base.deb" | grep -F './usr/share/daed/web/index.html'
           rpm -qpl "$package_file_base.rpm" | grep -F '/usr/bin/daed'
           rpm -qpl "$package_file_base.rpm" | grep -F '/usr/share/daed/web/index.html'
-          bsdtar -tf "$package_file_base.pacman" | grep -F 'usr/bin/daed'
-          bsdtar -tf "$package_file_base.pacman" | grep -F 'usr/share/daed/web/index.html'
+          if [ -n "$ARCH_PACMAN" ]; then
+            bsdtar -tf "$package_file_base.pacman" | grep -F 'usr/bin/daed'
+            bsdtar -tf "$package_file_base.pacman" | grep -F 'usr/share/daed/web/index.html'
+          fi
           popd || exit 1
           cp "bundled/$package_file_base.deb" ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.deb
           cp "bundled/$package_file_base.rpm" ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.rpm
@@ -336,11 +491,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
+          persist-credentials: false
       - uses: actions/checkout@v6
         with:
           repository: ksong008/DaeNext
           ref: main
           path: DaeNext
+          persist-credentials: false
 
       - uses: actions/download-artifact@v8
         with:
@@ -369,6 +526,46 @@ jobs:
           while IFS= read -r f; do
             cp "$f" ./
           done < "$release_file_list"
+
+          expected_installers=(
+            installer-daed-linux-x86_32.deb
+            installer-daed-linux-x86_32.rpm
+            installer-daed-linux-x86_32.pkg.tar.zst
+            installer-daed-linux-riscv64.deb
+            installer-daed-linux-riscv64.rpm
+            installer-daed-linux-riscv64.pkg.tar.zst
+            installer-daed-linux-arm64.deb
+            installer-daed-linux-arm64.rpm
+            installer-daed-linux-arm64.pkg.tar.zst
+            installer-daed-linux-x86_64.deb
+            installer-daed-linux-x86_64.rpm
+            installer-daed-linux-x86_64.pkg.tar.zst
+            installer-daed-linux-x86_64_v2_sse.deb
+            installer-daed-linux-x86_64_v2_sse.rpm
+            installer-daed-linux-x86_64_v2_sse.pkg.tar.zst
+            installer-daed-linux-x86_64_v3_avx2.deb
+            installer-daed-linux-x86_64_v3_avx2.rpm
+            installer-daed-linux-x86_64_v3_avx2.pkg.tar.zst
+            installer-daed-linux-mips64.deb
+            installer-daed-linux-mips64.rpm
+            installer-daed-linux-mips64le.deb
+            installer-daed-linux-mips64le.rpm
+            installer-daed-linux-mips32le.deb
+            installer-daed-linux-mips32le.rpm
+            installer-daed-linux-mips32.deb
+            installer-daed-linux-mips32.rpm
+          )
+          for installer in "${expected_installers[@]}"; do
+            test -f "$installer" || {
+              echo "Missing expected release installer: $installer" >&2
+              exit 1
+            }
+          done
+          installer_count="$(find . -maxdepth 1 -type f -name 'installer-daed-linux-*' | wc -l | tr -d ' ')"
+          if [ "$installer_count" -lt "${#expected_installers[@]}" ]; then
+            echo "Expected at least ${#expected_installers[@]} release installers, found $installer_count" >&2
+            exit 1
+          fi
 
           # Create zip archives in parallel
           create_zip() {
@@ -462,6 +659,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
+          persist-credentials: false
 
       - uses: actions/download-artifact@v8
         with:
