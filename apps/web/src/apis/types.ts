@@ -14,6 +14,7 @@ export interface PolicyParam {
 export interface ImportArgument {
   link: string
   tag?: string | null
+  useProxy?: boolean
 }
 
 export interface GlobalInput {
@@ -77,6 +78,7 @@ export interface SubscriptionResource {
   updatedAt: string
   cronExp: string
   cronEnable: boolean
+  useProxy: boolean
   nodeCount: number
   nodes: NodeCollection
 }
@@ -90,6 +92,7 @@ export interface SubscriptionSummaryResource {
   updatedAt: string
   cronExp: string
   cronEnable: boolean
+  useProxy: boolean
   nodeCount: number
 }
 
@@ -220,6 +223,7 @@ export interface DAEBundleSubscription {
   link: string
   cronExp: string
   cronEnable: boolean
+  useProxy: boolean
   status: string
   info: string
   tag?: string | null

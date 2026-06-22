@@ -465,6 +465,7 @@
   "software options": "软件选项",
   "step": "步骤",
   "subscription": "订阅",
+  "useProxySubscription": "使用代理订阅",
   "editNode": "编辑节点",
   "editSubscription": "编辑订阅",
   "autoUpdate": "自动更新",

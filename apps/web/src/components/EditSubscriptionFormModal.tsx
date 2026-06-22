@@ -17,6 +17,7 @@ const schema = z.object({
   tag: z.string().min(1, 'Tag is required'),
   cronExp: z.string().min(1, 'Cron expression is required'),
   cronEnable: z.boolean(),
+  useProxy: z.boolean(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -30,6 +31,7 @@ export interface EditSubscriptionFormModalProps {
     tag: string
     cronExp: string
     cronEnable: boolean
+    useProxy: boolean
   }
   onSubmit: (values: FormValues & { id: string }) => Promise<void>
 }
@@ -39,7 +41,7 @@ export function EditSubscriptionFormModal({ opened, onClose, subscription, onSub
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true },
+    defaultValues: { link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true, useProxy: false },
     mode: 'onChange',
   })
 
@@ -62,6 +64,7 @@ export function EditSubscriptionFormModal({ opened, onClose, subscription, onSub
         tag: subscription.tag,
         cronExp: subscription.cronExp,
         cronEnable: subscription.cronEnable,
+        useProxy: subscription.useProxy,
       })
     }
   }, [opened, subscription, reset])
@@ -70,7 +73,7 @@ export function EditSubscriptionFormModal({ opened, onClose, subscription, onSub
     (open: boolean) => {
       if (!open) {
         onClose()
-        reset({ link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true })
+        reset({ link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true, useProxy: false })
       }
     },
     [onClose, reset],
@@ -106,6 +109,14 @@ export function EditSubscriptionFormModal({ opened, onClose, subscription, onSub
           />
           <div className="space-y-4">
             <div className="flex items-center justify-between">
+              <Label htmlFor="useProxy">{t('useProxySubscription')}</Label>
+              <Switch
+                id="useProxy"
+                checked={formValues.useProxy}
+                onCheckedChange={(checked) => setValue('useProxy', checked)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
               <Label htmlFor="cronEnable">{t('autoUpdate')}</Label>
               <Switch
                 id="cronEnable"
@@ -125,7 +136,7 @@ export function EditSubscriptionFormModal({ opened, onClose, subscription, onSub
             )}
           </div>
           <FormActions
-            reset={() => reset({ link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true })}
+            reset={() => reset({ link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true, useProxy: false })}
             isDirty={isDirty}
             errors={errors}
           />

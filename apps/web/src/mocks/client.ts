@@ -180,6 +180,7 @@ export class MockAPIClient implements APIClientInterface {
             updatedAt: subscription.updatedAt,
             cronExp: subscription.cronExp,
             cronEnable: subscription.cronEnable,
+            useProxy: subscription.useProxy,
             nodeCount: subscription.nodes.items.length,
             ...(toQueryArray(query?.expand).includes('nodes')
               ? {
@@ -390,6 +391,7 @@ export class MockAPIClient implements APIClientInterface {
           link: subscription.link,
           cronExp: subscription.cronExp,
           cronEnable: subscription.cronEnable,
+          useProxy: subscription.useProxy,
           status: subscription.status,
           info: subscription.info,
           tag: subscription.tag ?? null,

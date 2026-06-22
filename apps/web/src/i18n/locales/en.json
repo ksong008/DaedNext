@@ -465,6 +465,7 @@
   "software options": "Software Options",
   "step": "Step",
   "subscription": "Subscription",
+  "useProxySubscription": "Use proxy subscription",
   "editNode": "Edit Node",
   "editSubscription": "Edit Subscription",
   "autoUpdate": "Auto Update",

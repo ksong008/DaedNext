@@ -270,9 +270,7 @@ function arrayDiff(label: string, current: string[], incoming: string[]) {
 }
 
 function keyValList(values: { key?: string | null; val: string }[]) {
-  return values
-    .map((item) => `${item.key ?? ''}:${item.val}`)
-    .sort((a, b) => a.localeCompare(b))
+  return values.map((item) => `${item.key ?? ''}:${item.val}`).sort((a, b) => a.localeCompare(b))
 }
 
 function groupSignature(bundle: DAEBundle, item: DAEBundleGroup) {
@@ -281,11 +279,12 @@ function groupSignature(bundle: DAEBundle, item: DAEBundleGroup) {
   return signatureJSON({
     name: item.name,
     policy: item.policy,
-    policyParams: [...item.policyParams].map((param) => ({ key: param.key ?? null, val: param.val })).sort((a, b) => {
-      const ak = `${a.key ?? ''}:${a.val}`
-      const bk = `${b.key ?? ''}:${b.val}`
-      return ak.localeCompare(bk)
-    }),
+    policyParams: Array.from(item.policyParams, (param) => ({ key: param.key ?? null, val: param.val }))
+      .sort((a, b) => {
+        const ak = `${a.key ?? ''}:${a.val}`
+        const bk = `${b.key ?? ''}:${b.val}`
+        return ak.localeCompare(bk)
+      }),
     nodeLabels: item.nodeIds.map((id) => nodes.get(id) ?? `#${id}`).sort((a, b) => a.localeCompare(b)),
     subscriptionBindings: item.subscriptionBindings
       .map((binding) => ({
@@ -304,7 +303,7 @@ function nodeSignature(bundle: DAEBundle, item: DAEBundleNode) {
     address: item.address,
     protocol: item.protocol,
     tag: item.tag ?? null,
-    subscription: item.subscriptionId != null ? subs.get(item.subscriptionId) ?? `#${item.subscriptionId}` : null,
+    subscription: item.subscriptionId != null ? (subs.get(item.subscriptionId) ?? `#${item.subscriptionId}`) : null,
   })
 }
 
@@ -318,36 +317,59 @@ function choiceDiff(current: string | null, incoming: string | null): BundleChoi
 
 export function createBundleDiffPreview(current: DAEBundle, incoming: DAEBundle): BundleDiffPreview {
   const collections: BundleCollectionDiff[] = [
-    compareCollections('configs', current.configs, incoming.configs, (item) => item.name, configLabel, (item) =>
-      signatureJSON({ name: item.name, global: item.global }),
+    compareCollections(
+      'configs',
+      current.configs,
+      incoming.configs,
+      (item) => item.name,
+      configLabel,
+      (item) => signatureJSON({ name: item.name, global: item.global }),
       (item) => signatureJSON({ name: item.name, global: item.global }),
       (currentItem, incomingItem) => diffSectionEntries(currentItem.global, incomingItem.global, 'global'),
     ),
-    compareCollections('dnss', current.dnss, incoming.dnss, (item) => item.name, dnsLabel, (item) =>
-      signatureJSON({ name: item.name, dns: item.dns }),
+    compareCollections(
+      'dnss',
+      current.dnss,
+      incoming.dnss,
+      (item) => item.name,
+      dnsLabel,
+      (item) => signatureJSON({ name: item.name, dns: item.dns }),
       (item) => signatureJSON({ name: item.name, dns: item.dns }),
       (currentItem, incomingItem) => diffSectionEntries(currentItem.dns, incomingItem.dns, 'dns'),
     ),
-    compareCollections('routings', current.routings, incoming.routings, (item) => item.name, routingLabel, (item) =>
-      signatureJSON({ name: item.name, routing: item.routing }),
+    compareCollections(
+      'routings',
+      current.routings,
+      incoming.routings,
+      (item) => item.name,
+      routingLabel,
+      (item) => signatureJSON({ name: item.name, routing: item.routing }),
       (item) => signatureJSON({ name: item.name, routing: item.routing }),
       (currentItem, incomingItem) => diffSectionEntries(currentItem.routing, incomingItem.routing, 'routing'),
     ),
-    compareCollections('subscriptions', current.subscriptions, incoming.subscriptions, (item) => item.tag?.trim() || item.link, subscriptionLabel, (item) =>
-      signatureJSON({
-        tag: item.tag ?? null,
-        link: item.link,
-        cronExp: item.cronExp,
-        cronEnable: item.cronEnable,
-        status: item.status,
-        info: item.info,
-      }),
+    compareCollections(
+      'subscriptions',
+      current.subscriptions,
+      incoming.subscriptions,
+      (item) => item.tag?.trim() || item.link,
+      subscriptionLabel,
       (item) =>
         signatureJSON({
           tag: item.tag ?? null,
           link: item.link,
           cronExp: item.cronExp,
           cronEnable: item.cronEnable,
+          useProxy: item.useProxy,
+          status: item.status,
+          info: item.info,
+        }),
+      (item) =>
+        signatureJSON({
+          tag: item.tag ?? null,
+          link: item.link,
+          cronExp: item.cronExp,
+          cronEnable: item.cronEnable,
+          useProxy: item.useProxy,
           status: item.status,
           info: item.info,
         }),
@@ -356,13 +378,19 @@ export function createBundleDiffPreview(current: DAEBundle, incoming: DAEBundle)
           diffField('link', currentItem.link, incomingItem.link),
           diffField('cronExp', currentItem.cronExp, incomingItem.cronExp),
           diffField('cronEnable', currentItem.cronEnable, incomingItem.cronEnable),
+          diffField('useProxy', currentItem.useProxy, incomingItem.useProxy),
           diffField('status', currentItem.status, incomingItem.status),
           diffField('info', currentItem.info, incomingItem.info),
           diffField('tag', currentItem.tag ?? '', incomingItem.tag ?? ''),
         ].filter((item): item is string => Boolean(item)),
     ),
-    compareCollections('nodes', current.nodes, incoming.nodes, (item) => item.tag?.trim() || item.link, nodeLabel, (item) =>
-      nodeSignature(current, item),
+    compareCollections(
+      'nodes',
+      current.nodes,
+      incoming.nodes,
+      (item) => item.tag?.trim() || item.link,
+      nodeLabel,
+      (item) => nodeSignature(current, item),
       (item) => nodeSignature(incoming, item),
       (currentItem, incomingItem) =>
         [
@@ -374,8 +402,13 @@ export function createBundleDiffPreview(current: DAEBundle, incoming: DAEBundle)
           diffField('subscriptionId', currentItem.subscriptionId ?? '', incomingItem.subscriptionId ?? ''),
         ].filter((item): item is string => Boolean(item)),
     ),
-    compareCollections('groups', current.groups, incoming.groups, (item) => item.name, groupLabel, (item) =>
-      groupSignature(current, item),
+    compareCollections(
+      'groups',
+      current.groups,
+      incoming.groups,
+      (item) => item.name,
+      groupLabel,
+      (item) => groupSignature(current, item),
       (item) => groupSignature(incoming, item),
       (currentItem, incomingItem) =>
         [
@@ -393,7 +426,10 @@ export function createBundleDiffPreview(current: DAEBundle, incoming: DAEBundle)
 
   const mode = choiceDiff(current.mode || null, incoming.mode || null)
   const defaults = {
-    config: choiceDiff(configChoice(current, current.defaults.configId), configChoice(incoming, incoming.defaults.configId)),
+    config: choiceDiff(
+      configChoice(current, current.defaults.configId),
+      configChoice(incoming, incoming.defaults.configId),
+    ),
     dns: choiceDiff(dnsChoice(current, current.defaults.dnsId), dnsChoice(incoming, incoming.defaults.dnsId)),
     routing: choiceDiff(
       routingChoice(current, current.defaults.routingId),
@@ -402,7 +438,10 @@ export function createBundleDiffPreview(current: DAEBundle, incoming: DAEBundle)
     group: choiceDiff(groupChoice(current, current.defaults.groupId), groupChoice(incoming, incoming.defaults.groupId)),
   }
   const selected = {
-    config: choiceDiff(configChoice(current, current.selected.configId), configChoice(incoming, incoming.selected.configId)),
+    config: choiceDiff(
+      configChoice(current, current.selected.configId),
+      configChoice(incoming, incoming.selected.configId),
+    ),
     dns: choiceDiff(dnsChoice(current, current.selected.dnsId), dnsChoice(incoming, incoming.selected.dnsId)),
     routing: choiceDiff(
       routingChoice(current, current.selected.routingId),

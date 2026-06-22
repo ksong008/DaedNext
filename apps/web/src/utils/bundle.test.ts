@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import type {DAEBundle} from '~/apis/types';
 
-import { Policy, type DAEBundle } from '~/apis/types'
+import { describe, expect, it } from 'vitest'
+import {  Policy } from '~/apis/types'
 
 import { createBundleDiffPreview } from './bundle'
 
@@ -21,6 +22,7 @@ function makeBundle(overrides?: Partial<DAEBundle>): DAEBundle {
         link: 'https://example.invalid/sub',
         cronExp: '10 */6 * * *',
         cronEnable: true,
+        useProxy: false,
         status: 'ok',
         info: 'info',
         tag: 'sub',
@@ -63,9 +65,9 @@ describe('createBundleDiffPreview', () => {
     const configDiff = preview.collections.find((item) => item.key === 'configs')
     expect(configDiff?.added).toContain('cfg-new')
     expect(configDiff?.changed).toContain('cfg')
-    expect(configDiff?.changedDetails[0]?.changes.some((item) => item.includes('log_level') && item.includes('->'))).toBe(
-      true,
-    )
+    expect(
+      configDiff?.changedDetails[0]?.changes.some((item) => item.includes('log_level') && item.includes('->')),
+    ).toBe(true)
 
     const nodeDiff = preview.collections.find((item) => item.key === 'nodes')
     expect(nodeDiff?.changed).toContain('node')
@@ -77,6 +79,10 @@ describe('createBundleDiffPreview', () => {
     const preview = createBundleDiffPreview(current, makeBundle())
 
     expect(preview.hasChanges).toBe(false)
-    expect(preview.collections.every((item) => item.added.length === 0 && item.removed.length === 0 && item.changed.length === 0)).toBe(true)
+    expect(
+      preview.collections.every(
+        (item) => item.added.length === 0 && item.removed.length === 0 && item.changed.length === 0,
+      ),
+    ).toBe(true)
   })
 })

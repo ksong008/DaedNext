@@ -295,6 +295,7 @@ export const mockSubscriptions: SubscriptionListView = {
       updatedAt: '2024-11-28T10:30:00Z',
       cronExp: '0 0 * * *',
       cronEnable: true,
+      useProxy: false,
       nodes: {
         items: [
           {
@@ -339,6 +340,7 @@ export const mockSubscriptions: SubscriptionListView = {
       updatedAt: '2024-11-27T15:45:00Z',
       cronExp: '0 12 * * 1',
       cronEnable: false,
+      useProxy: true,
       nodes: {
         items: [
           {

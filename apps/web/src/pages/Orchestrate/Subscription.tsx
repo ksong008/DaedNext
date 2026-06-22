@@ -14,6 +14,7 @@ import {
   useUpdateSubscriptionCronMutation,
   useUpdateSubscriptionLinkMutation,
   useUpdateSubscriptionsMutation,
+  useUpdateSubscriptionUseProxyMutation,
 } from '~/apis'
 import { DraggableResourceBadge } from '~/components/DraggableResourceBadge'
 import { EditSubscriptionFormModal } from '~/components/EditSubscriptionFormModal'
@@ -23,6 +24,8 @@ import { Section } from '~/components/Section'
 import { SortableSubscriptionCard } from '~/components/SortableSubscriptionCard'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion'
 import { Button } from '~/components/ui/button'
+import { Label } from '~/components/ui/label'
+import { Switch } from '~/components/ui/switch'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { UpdateSubscriptionAction } from '~/components/UpdateSubscriptionAction'
 import { useDisclosure } from '~/hooks'
@@ -61,7 +64,9 @@ export function SubscriptionResource({
     tag: string
     cronExp: string
     cronEnable: boolean
+    useProxy: boolean
   }>()
+  const [useProxySubscription, setUseProxySubscription] = useState(false)
   const qrCodeModalRef = useRef<QRCodeModalRef>(null)
   const { refetch: refetchSubscriptions } = useSubscriptionsQuery()
   const removeSubscriptionsMutation = useRemoveSubscriptionsMutation()
@@ -71,6 +76,7 @@ export function SubscriptionResource({
   const tagSubscriptionMutation = useTagSubscriptionMutation()
 
   const updateSubscriptionCronMutation = useUpdateSubscriptionCronMutation()
+  const updateSubscriptionUseProxyMutation = useUpdateSubscriptionUseProxyMutation()
   const measuredNodeCount = Object.keys(nodeLatencies || {}).length
   const latencyActionStatus = testingLatencyProgress
     ? `${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
@@ -127,6 +133,21 @@ export function SubscriptionResource({
               </Button>
             </SimpleTooltip>
           )}
+          <div className="flex items-center gap-2 rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-control)] px-2 py-1">
+            <Label
+              htmlFor="use-proxy-subscription"
+              className="hidden whitespace-nowrap text-xs font-medium text-muted-foreground lg:inline"
+            >
+              {t('useProxySubscription')}
+            </Label>
+            <Switch
+              id="use-proxy-subscription"
+              size="sm"
+              checked={useProxySubscription}
+              aria-label={t('useProxySubscription')}
+              onCheckedChange={setUseProxySubscription}
+            />
+          </div>
         </Fragment>
       }
     >
@@ -148,7 +169,7 @@ export function SubscriptionResource({
             )}
           >
             {sortedSubscriptions.map(
-              ({ id: subscriptionID, tag, link, updatedAt, cronExp, cronEnable, nodes }, index) => (
+              ({ id: subscriptionID, tag, link, updatedAt, cronExp, cronEnable, useProxy, nodes }, index) => (
                 <SortableSubscriptionCard
                   key={subscriptionID}
                   id={`subscription-${subscriptionID}`}
@@ -169,6 +190,7 @@ export function SubscriptionResource({
                               tag: tag || '',
                               cronExp,
                               cronEnable,
+                              useProxy,
                             })
                             openEditSubscriptionFormModal()
                           }}
@@ -203,6 +225,11 @@ export function SubscriptionResource({
                       <span className="inline-flex items-center gap-1 text-primary">
                         <span>⏱</span>
                         <span>{cronExp}</span>
+                      </span>
+                    )}
+                    {useProxy && (
+                      <span className="inline-flex items-center rounded-full border border-primary/25 px-1.5 py-0.5 text-[11px] font-medium text-primary">
+                        {t('useProxySubscription')}
                       </span>
                     )}
                   </div>
@@ -262,7 +289,9 @@ export function SubscriptionResource({
         opened={openedImportSubscriptionFormModal}
         onClose={closeImportSubscriptionFormModal}
         handleSubmit={async (values) => {
-          await importSubscriptionsMutation.mutateAsync(values.resources.map(({ link, tag }) => ({ link, tag })))
+          await importSubscriptionsMutation.mutateAsync(
+            values.resources.map(({ link, tag }) => ({ link, tag, useProxy: useProxySubscription })),
+          )
         }}
       />
 
@@ -296,6 +325,13 @@ export function SubscriptionResource({
               id: values.id,
               cronExp: values.cronExp,
               cronEnable: values.cronEnable,
+            })
+          }
+
+          if (values.useProxy !== editingSubscription?.useProxy) {
+            await updateSubscriptionUseProxyMutation.mutateAsync({
+              id: values.id,
+              useProxy: values.useProxy,
             })
           }
 
