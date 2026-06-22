@@ -240,7 +240,10 @@ interface GeodataAPI {
   updated?: 'geosite' | 'geoip'
   runtimeReloadRequired?: boolean
   runtimeReloaded?: boolean
-  runtimeReload?: unknown
+  runtimeReloadSource?: string
+  runtimeReloadElapsed?: string
+  runtimeReloadStatus?: unknown
+  runtimeReloadMessage?: string
 }
 
 function normalizeConfigGlobal(global?: Partial<ConfigGlobal> | null): ConfigGlobal {

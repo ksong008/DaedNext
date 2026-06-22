@@ -11,7 +11,7 @@ import type {
   SubscriptionSummaryResource,
 } from '~/apis/types'
 import { CloudCog, Map as MapIcon, Pencil, RefreshCw, Settings } from 'lucide-react'
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useUpdateGeodataMutation } from '~/apis'
@@ -191,6 +191,7 @@ function SummaryGeodataCard({
   data,
   updateLabel,
   updating,
+  disabled,
   onUpdate,
 }: {
   kind: GeodataKind
@@ -201,6 +202,7 @@ function SummaryGeodataCard({
   data?: GeodataResource
   updateLabel: string
   updating?: boolean
+  disabled?: boolean
   onUpdate?: (kind: GeodataKind) => void | Promise<void>
 }) {
   const formatter = useMemo(() => new Intl.NumberFormat(), [])
@@ -222,7 +224,7 @@ function SummaryGeodataCard({
             size="icon-sm"
             className="absolute top-2 right-2 h-7 w-7 rounded-full border border-primary/10 bg-primary/6 text-primary shadow-none hover:bg-primary/10 hover:text-primary"
             aria-label={updateLabel}
-            disabled={updating}
+            disabled={disabled || updating}
             onClick={() => void onUpdate?.(kind)}
           >
             <RefreshCw className={cn('h-3.5 w-3.5', updating && 'animate-spin')} />
@@ -612,6 +614,7 @@ export const WorkspaceSummaryCards = memo(
   }) => {
     const { t } = useTranslation()
     const updateGeodataMutation = useUpdateGeodataMutation()
+    const [updatingGeodataKind, setUpdatingGeodataKind] = useState<GeodataKind | null>(null)
 
     const selectedConfigSummary = useMemo(() => configs.find((config) => config.selected) ?? configs[0], [configs])
     const activeConfigName = selectedConfig?.name || selectedConfigSummary?.name || 'default'
@@ -704,6 +707,7 @@ export const WorkspaceSummaryCards = memo(
       return formatInterfaceSummary(lanInterfaceItems)
     }, [interfaces, selectedConfig?.global.lanInterface])
     const updateGeodata = async (kind: GeodataKind) => {
+      setUpdatingGeodataKind(kind)
       try {
         const result = await updateGeodataMutation.mutateAsync(kind)
         toast.success(
@@ -713,6 +717,8 @@ export const WorkspaceSummaryCards = memo(
         )
       } catch {
         toast.error(t('error'))
+      } finally {
+        setUpdatingGeodataKind(null)
       }
     }
 
@@ -755,7 +761,8 @@ export const WorkspaceSummaryCards = memo(
               itemLabel={t('workspaceSummary.ruleCount')}
               data={geodata?.geosite}
               updateLabel={t('workspaceSummary.updateGeosite')}
-              updating={updateGeodataMutation.isPending}
+              updating={updatingGeodataKind === 'geosite'}
+              disabled={updateGeodataMutation.isPending}
               onUpdate={updateGeodata}
             />
             <SummaryGeodataCard
@@ -766,7 +773,8 @@ export const WorkspaceSummaryCards = memo(
               itemLabel={t('workspaceSummary.cidrCount')}
               data={geodata?.geoip}
               updateLabel={t('workspaceSummary.updateGeoip')}
-              updating={updateGeodataMutation.isPending}
+              updating={updatingGeodataKind === 'geoip'}
+              disabled={updateGeodataMutation.isPending}
               onUpdate={updateGeodata}
             />
           </div>
