@@ -3,6 +3,9 @@ name: Test Linux x86_64 v2-v3
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: test-linux-x86_64-v2-v3-${{ github.ref }}
   cancel-in-progress: true
@@ -30,11 +33,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/checkout@v6
         with:
           repository: ksong008/DaeNext
           ref: main
           path: DaeNext
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v5.0.0
 
@@ -52,14 +57,32 @@ jobs:
 
       - name: Install native build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang llvm
+          set -euo pipefail
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list /etc/apt/sources.list.d/google-chrome.sources
+          for attempt in 1 2 3; do
+            if sudo apt-get update \
+              -o Acquire::Retries=3 \
+              -o Acquire::http::Timeout=30 \
+              -o Acquire::https::Timeout=30; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+            sleep 5
+          done
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            clang \
+            libelf-dev \
+            llvm \
+            pkg-config
 
       - name: Build web
         env:
           NODE_OPTIONS: --max-old-space-size=4096
         run: |
-          pnpm install
+          pnpm install --frozen-lockfile
           pnpm build --filter daed
 
       - name: Build Rust native daed
