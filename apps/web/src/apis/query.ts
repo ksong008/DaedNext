@@ -217,6 +217,7 @@ interface SubscriptionAPI {
   updatedAt: string
   cronExp: string
   cronEnable: boolean
+  useProxy: boolean
   nodeCount: number
 }
 
@@ -662,6 +663,7 @@ export function useSubscriptionsQuery(enabled = true) {
             updatedAt: subscription.updatedAt,
             cronExp: subscription.cronExp,
             cronEnable: subscription.cronEnable,
+            useProxy: subscription.useProxy,
             nodeCount: subscription.nodeCount,
             nodes: adaptNodesConnection(nodes),
           }
@@ -885,6 +887,7 @@ function adaptSubscriptionSummary(subscription: SubscriptionAPI): SubscriptionSu
     updatedAt: subscription.updatedAt,
     cronExp: subscription.cronExp,
     cronEnable: subscription.cronEnable,
+    useProxy: subscription.useProxy,
     nodeCount: subscription.nodeCount,
   }
 }

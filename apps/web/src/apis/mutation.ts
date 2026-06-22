@@ -767,6 +767,7 @@ export function useImportSubscriptionsMutation() {
             rollbackError: false,
             link: subscription.link,
             tag: subscription.tag ?? null,
+            useProxy: subscription.useProxy ?? false,
           })
           return {
             link: result.link,
@@ -1058,6 +1059,24 @@ export function useUpdateSubscriptionCronMutation() {
         id: toID(subscription.id),
         cronExp: subscription.cronExp,
         cronEnable: subscription.cronEnable,
+      }
+    },
+    onSuccess: () => {
+      void invalidateSubscriptionResource(queryClient)
+    },
+  })
+}
+
+export function useUpdateSubscriptionUseProxyMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id, useProxy }: { id: string; useProxy: boolean }) => {
+      const subscription = await apiClient.put<{ id: number; useProxy: boolean }>(`/subscriptions/${id}`, { useProxy })
+      return {
+        id: toID(subscription.id),
+        useProxy: subscription.useProxy,
       }
     },
     onSuccess: () => {
