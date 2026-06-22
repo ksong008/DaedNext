@@ -21,6 +21,7 @@ import {
   useConfigQuery,
   useConfigSummariesQuery,
   useGeneralStateQuery,
+  useGeodataQuery,
   useGroupAddNodesMutation,
   useGroupAddSubscriptionsMutation,
   useGroupDelNodesMutation,
@@ -177,6 +178,7 @@ export function OrchestratePage() {
   const { data: selectedConfig } = useConfigQuery(selectedConfigSummary?.id, !!selectedConfigSummary?.id)
   const { data: generalStateQuery } = useGeneralStateQuery()
   const { data: interfaces } = useInterfacesQuery()
+  const { data: geodata } = useGeodataQuery()
   const { data: nodesQuery } = useNodesQuery()
   const { data: subscriptionBackedNodesQuery } = useSubscriptionBackedNodesQuery()
   const { data: groupSummariesQuery } = useGroupsSummaryQuery()
@@ -1195,6 +1197,7 @@ export function OrchestratePage() {
             subscriptions={subscriptionSummariesQuery?.subscriptions ?? EMPTY_SUBSCRIPTION_SUMMARIES}
             manualNodeCount={manualNodeCount}
             interfaces={interfaces ?? EMPTY_INTERFACES}
+            geodata={geodata}
             nodeLatencies={nodeLatencies}
             onOpenConfig={openConfigPanel}
             onOpenGroup={openGroupPanel}

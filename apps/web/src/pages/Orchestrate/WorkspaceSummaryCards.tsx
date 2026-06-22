@@ -1,5 +1,8 @@
 import type {
   ConfigResource,
+  GeodataKind,
+  GeodataResource,
+  GeodataView,
   GroupSummaryResource,
   InterfaceResource,
   NodeLatencyProbeResult,
@@ -7,9 +10,11 @@ import type {
   SectionSummaryResource,
   SubscriptionSummaryResource,
 } from '~/apis/types'
-import { CloudCog, Map as MapIcon, Pencil, Settings } from 'lucide-react'
+import { CloudCog, Map as MapIcon, Pencil, RefreshCw, Settings } from 'lucide-react'
 import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { useUpdateGeodataMutation } from '~/apis'
 
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Badge } from '~/components/ui/badge'
@@ -160,7 +165,7 @@ function SummaryConfigCard({
     <div
       className={cn(
         summaryInnerCardClassName,
-        'flex h-[82px] min-w-0 flex-col justify-between px-3 py-2.5 sm:h-[86px] sm:px-3.5 sm:py-3',
+        'flex min-h-[74px] min-w-0 flex-col justify-between px-3 py-2.5 sm:min-h-[78px] sm:px-3.5 sm:py-3',
       )}
     >
       <div className="flex min-w-0 items-start justify-between gap-2">
@@ -172,6 +177,74 @@ function SummaryConfigCard({
       <div className="min-w-0">
         <strong className="block truncate text-base font-bold leading-none text-foreground sm:text-lg">{value}</strong>
         {detail ? <span className="mt-1 block truncate text-xs text-muted-foreground">{detail}</span> : null}
+      </div>
+    </div>
+  )
+}
+
+function SummaryGeodataCard({
+  kind,
+  title,
+  versionLabel,
+  categoryLabel,
+  itemLabel,
+  data,
+  updateLabel,
+  updating,
+  onUpdate,
+}: {
+  kind: GeodataKind
+  title: string
+  versionLabel: string
+  categoryLabel: string
+  itemLabel: string
+  data?: GeodataResource
+  updateLabel: string
+  updating?: boolean
+  onUpdate?: (kind: GeodataKind) => void | Promise<void>
+}) {
+  const formatter = useMemo(() => new Intl.NumberFormat(), [])
+  const itemCount = kind === 'geosite' ? data?.ruleCount : data?.cidrCount
+  const valueOrDash = (value?: number) => (typeof value === 'number' ? formatter.format(value) : '—')
+
+  return (
+    <div
+      className={cn(
+        summaryInnerCardClassName,
+        'relative flex min-h-[74px] min-w-0 flex-col justify-between px-3 py-2.5 pr-10 sm:min-h-[78px] sm:px-3.5 sm:py-3 sm:pr-11',
+      )}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="absolute top-2 right-2 h-7 w-7 rounded-full border border-primary/10 bg-primary/6 text-primary shadow-none hover:bg-primary/10 hover:text-primary"
+            aria-label={updateLabel}
+            disabled={updating}
+            onClick={() => void onUpdate?.(kind)}
+          >
+            <RefreshCw className={cn('h-3.5 w-3.5', updating && 'animate-spin')} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{updateLabel}</TooltipContent>
+      </Tooltip>
+      <div className="min-w-0">
+        <span className="block truncate text-xs font-medium text-muted-foreground">{title}</span>
+      </div>
+      <div className="space-y-1 text-xs text-muted-foreground">
+        <span className="block min-w-0 truncate">
+          {versionLabel} {data?.version || '—'}
+        </span>
+        <div className="grid grid-cols-2 gap-2">
+          <span className="min-w-0 truncate">
+            {categoryLabel} {valueOrDash(data?.categoryCount)}
+          </span>
+          <span className="min-w-0 truncate">
+            {itemLabel} {valueOrDash(itemCount)}
+          </span>
+        </div>
       </div>
     </div>
   )
@@ -493,6 +566,7 @@ function getTopNodes(
 export const WorkspaceSummaryCards = memo(
   ({
     selectedConfig,
+    geodata,
     configs,
     groups,
     sortedNodes,
@@ -511,6 +585,7 @@ export const WorkspaceSummaryCards = memo(
     testingLatencyProgress,
   }: {
     selectedConfig?: ConfigResource
+    geodata?: GeodataView
     configs: SectionSummaryResource[]
     groups: GroupSummaryResource[]
     sortedNodes: NodeResource[]
@@ -529,6 +604,7 @@ export const WorkspaceSummaryCards = memo(
     testingLatencyProgress?: { completed: number; total: number } | null
   }) => {
     const { t } = useTranslation()
+    const updateGeodataMutation = useUpdateGeodataMutation()
 
     const selectedConfigSummary = useMemo(() => configs.find((config) => config.selected) ?? configs[0], [configs])
     const activeConfigName = selectedConfig?.name || selectedConfigSummary?.name || 'default'
@@ -620,6 +696,18 @@ export const WorkspaceSummaryCards = memo(
       })
       return formatInterfaceSummary(lanInterfaceItems)
     }, [interfaces, selectedConfig?.global.lanInterface])
+    const updateGeodata = async (kind: GeodataKind) => {
+      try {
+        const result = await updateGeodataMutation.mutateAsync(kind)
+        toast.success(
+          result.runtimeReloaded
+            ? t('workspaceSummary.geodataUpdateApplied')
+            : t('workspaceSummary.geodataUpdateSuccess'),
+        )
+      } catch {
+        toast.error(t('error'))
+      }
+    }
 
     return (
       <section className="grid items-stretch gap-4 lg:grid-cols-3 lg:gap-5">
@@ -651,6 +739,28 @@ export const WorkspaceSummaryCards = memo(
             <SummaryConfigCard
               label={t('workspaceSummary.fallbackDns')}
               value={selectedConfig?.global.fallbackResolver || '—'}
+            />
+            <SummaryGeodataCard
+              kind="geosite"
+              title={t('workspaceSummary.geosite')}
+              versionLabel={t('workspaceSummary.version')}
+              categoryLabel={t('workspaceSummary.categoryCount')}
+              itemLabel={t('workspaceSummary.ruleCount')}
+              data={geodata?.geosite}
+              updateLabel={t('workspaceSummary.updateGeosite')}
+              updating={updateGeodataMutation.isPending}
+              onUpdate={updateGeodata}
+            />
+            <SummaryGeodataCard
+              kind="geoip"
+              title={t('workspaceSummary.geoip')}
+              versionLabel={t('workspaceSummary.version')}
+              categoryLabel={t('workspaceSummary.categoryCount')}
+              itemLabel={t('workspaceSummary.cidrCount')}
+              data={geodata?.geoip}
+              updateLabel={t('workspaceSummary.updateGeoip')}
+              updating={updateGeodataMutation.isPending}
+              onUpdate={updateGeodata}
             />
           </div>
         </SummaryShell>

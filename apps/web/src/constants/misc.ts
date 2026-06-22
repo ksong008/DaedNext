@@ -105,6 +105,7 @@ export const QUERY_KEY_TRAFFIC = ['traffic']
 export const QUERY_KEY_NODE_LATENCY = ['nodeLatency']
 export const QUERY_KEY_NODE_LATENCY_JOB = [...QUERY_KEY_NODE_LATENCY, 'job']
 export const QUERY_KEY_LOG = ['log']
+export const QUERY_KEY_GEODATA = ['geodata']
 
 export enum DraggableResourceType {
   node = 'node',

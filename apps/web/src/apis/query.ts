@@ -11,6 +11,7 @@ import type {
   GeneralDaemonState,
   GeneralResourceCounts,
   GeneralStateView,
+  GeodataView,
   GroupListView,
   GroupResource,
   GroupSummaryListView,
@@ -219,6 +220,27 @@ interface SubscriptionAPI {
   cronEnable: boolean
   useProxy: boolean
   nodeCount: number
+}
+
+interface GeodataResourceAPI {
+  available: boolean
+  version: string
+  categoryCount: number
+  ruleCount?: number
+  cidrCount?: number
+  fileSize?: number
+  sha256?: string | null
+  updatedAt?: string | null
+  lastError?: string | null
+}
+
+interface GeodataAPI {
+  geosite: GeodataResourceAPI
+  geoip: GeodataResourceAPI
+  updated?: 'geosite' | 'geoip'
+  runtimeReloadRequired?: boolean
+  runtimeReloaded?: boolean
+  runtimeReload?: unknown
 }
 
 function normalizeConfigGlobal(global?: Partial<ConfigGlobal> | null): ConfigGlobal {
@@ -588,6 +610,17 @@ export function useRuntimeLogLevelQuery() {
     queryFn: async (): Promise<{ level: string }> => {
       return apiClient.get<{ level: string }>('/runtime/log-level')
     },
+    enabled,
+  })
+}
+
+export function useGeodataQuery() {
+  const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
+
+  return useQuery({
+    queryKey: webQueryKeys.geodata.status(),
+    queryFn: async (): Promise<GeodataView> => apiClient.get<GeodataAPI>('/geodata'),
     enabled,
   })
 }
