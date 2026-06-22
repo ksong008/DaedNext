@@ -3,10 +3,20 @@ name: Emoji Lint
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: emoji-lint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   emoji-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
       - name: Check for emoji in code
         run: bash ./scripts/check_no_emoji.sh
