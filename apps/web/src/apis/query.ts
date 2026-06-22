@@ -625,6 +625,8 @@ export function useGeodataQuery() {
     queryKey: webQueryKeys.geodata.status(),
     queryFn: async (): Promise<GeodataView> => apiClient.get<GeodataAPI>('/geodata'),
     enabled,
+    staleTime: Infinity,
+    gcTime: Infinity,
   })
 }
 
