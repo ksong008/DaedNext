@@ -7,6 +7,7 @@ import type {
   DAEConfigFileImportResult,
   DAEConfigFilePreviewResult,
   GeodataKind,
+  GeodataUpdateResult,
   GeodataView,
   GlobalInput,
   ImportArgument,
@@ -819,9 +820,17 @@ export function useUpdateGeodataMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (kind: GeodataKind) => apiClient.post<GeodataView>(`/geodata/${kind}/update`),
-    onSuccess: () => {
-      void invalidateQueryKeys(queryClient, [webQueryKeys.geodata.status(), webQueryKeys.general.state()])
+    mutationFn: (kind: GeodataKind) => apiClient.post<GeodataUpdateResult>(`/geodata/${kind}/update`),
+    onSuccess: (result) => {
+      const updatedResource = result[result.updated]
+      if (updatedResource) {
+        queryClient.setQueryData<GeodataView | undefined>(webQueryKeys.geodata.status(), (current) =>
+          current ? { ...current, [result.updated]: updatedResource } : current,
+        )
+      } else {
+        void invalidateQueryKeys(queryClient, [webQueryKeys.geodata.status()])
+      }
+      void invalidateQueryKeys(queryClient, [webQueryKeys.general.state()])
     },
   })
 }

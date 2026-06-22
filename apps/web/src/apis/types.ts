@@ -201,7 +201,22 @@ export interface GeodataView {
   updated?: GeodataKind
   runtimeReloadRequired?: boolean
   runtimeReloaded?: boolean
-  runtimeReload?: unknown
+  runtimeReloadSource?: string
+  runtimeReloadElapsed?: string
+  runtimeReloadStatus?: unknown
+  runtimeReloadMessage?: string
+}
+
+export interface GeodataUpdateResult {
+  geosite?: GeodataResource
+  geoip?: GeodataResource
+  updated: GeodataKind
+  runtimeReloadRequired?: boolean
+  runtimeReloaded?: boolean
+  runtimeReloadSource?: string
+  runtimeReloadElapsed?: string
+  runtimeReloadStatus?: unknown
+  runtimeReloadMessage?: string
 }
 
 export interface ConfigPreviewResult {
