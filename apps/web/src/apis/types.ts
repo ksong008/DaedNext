@@ -181,6 +181,29 @@ export interface ConfigResource {
   parseError?: string | null
 }
 
+export type GeodataKind = 'geosite' | 'geoip'
+
+export interface GeodataResource {
+  available: boolean
+  version: string
+  categoryCount: number
+  ruleCount?: number
+  cidrCount?: number
+  fileSize?: number
+  sha256?: string | null
+  updatedAt?: string | null
+  lastError?: string | null
+}
+
+export interface GeodataView {
+  geosite: GeodataResource
+  geoip: GeodataResource
+  updated?: GeodataKind
+  runtimeReloadRequired?: boolean
+  runtimeReloaded?: boolean
+  runtimeReload?: unknown
+}
+
 export interface ConfigPreviewResult {
   global: string
   parsedGlobal: ConfigGlobal

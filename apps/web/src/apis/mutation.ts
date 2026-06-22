@@ -6,6 +6,8 @@ import type {
   DAEConfigFileExportResult,
   DAEConfigFileImportResult,
   DAEConfigFilePreviewResult,
+  GeodataKind,
+  GeodataView,
   GlobalInput,
   ImportArgument,
   LogSettings,
@@ -808,6 +810,18 @@ export function useUpdateSubscriptionsMutation() {
         webQueryKeys.group.expanded(),
         webQueryKeys.general.state(),
       ])
+    },
+  })
+}
+
+export function useUpdateGeodataMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (kind: GeodataKind) => apiClient.post<GeodataView>(`/geodata/${kind}/update`),
+    onSuccess: () => {
+      void invalidateQueryKeys(queryClient, [webQueryKeys.geodata.status(), webQueryKeys.general.state()])
     },
   })
 }

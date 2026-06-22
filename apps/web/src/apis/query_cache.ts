@@ -6,6 +6,7 @@ import {
   QUERY_KEY_GENERAL,
   QUERY_KEY_GENERAL_INTERFACES,
   QUERY_KEY_GENERAL_STATE,
+  QUERY_KEY_GEODATA,
   QUERY_KEY_GROUP,
   QUERY_KEY_LOG,
   QUERY_KEY_NODE,
@@ -55,6 +56,9 @@ export const webQueryKeys = {
     items: () => childKey(QUERY_KEY_LOG, 'items'),
     settings: () => childKey(QUERY_KEY_LOG, 'settings'),
     runtimeLevel: () => childKey(QUERY_KEY_LOG, 'runtime-level'),
+  },
+  geodata: {
+    status: () => rootKey(QUERY_KEY_GEODATA),
   },
   node: {
     list: () => rootKey(QUERY_KEY_NODE),
