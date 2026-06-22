@@ -10,11 +10,13 @@ import { FormActions } from '~/components/FormActions'
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogTitle } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
 import {
   ScrollableDialogBody,
   ScrollableDialogContent,
   ScrollableDialogHeader,
 } from '~/components/ui/scrollable-dialog'
+import { Switch } from '~/components/ui/switch'
 import { useSetValue } from '~/hooks/useSetValue'
 
 const schema = z.object({
@@ -26,6 +28,7 @@ const schema = z.object({
       }),
     )
     .min(1, 'At least one resource is required'),
+  useProxySubscription: z.boolean(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -36,6 +39,7 @@ type ImportResourceResult = Array<{
 
 const defaultValues: FormValues = {
   resources: [{ link: '', tag: '' }],
+  useProxySubscription: false,
 }
 
 export function ImportResourceFormModal({
@@ -43,11 +47,13 @@ export function ImportResourceFormModal({
   opened,
   onClose,
   handleSubmit: onSubmitProp,
+  showUseProxySubscription = false,
 }: {
   title: string
   opened: boolean
   onClose: () => void
   handleSubmit: (values: FormValues) => Promise<ImportResourceResult | void>
+  showUseProxySubscription?: boolean
 }) {
   const { t } = useTranslation()
 
@@ -73,6 +79,7 @@ export function ImportResourceFormModal({
   })
 
   const resources = useWatch({ control, name: 'resources' })
+  const useProxySubscription = useWatch({ control, name: 'useProxySubscription' })
 
   const handleClose = useCallback(() => {
     onClose()
@@ -137,6 +144,19 @@ export function ImportResourceFormModal({
                 </div>
               ))}
             </div>
+
+            {showUseProxySubscription && (
+              <div className="mt-5 flex items-center justify-between rounded-lg border border-[color:var(--shell-line)] bg-[color:var(--shell-control)] px-3 py-2">
+                <Label htmlFor="import-use-proxy-subscription" className="text-sm font-medium">
+                  {t('useProxySubscription')}
+                </Label>
+                <Switch
+                  id="import-use-proxy-subscription"
+                  checked={useProxySubscription}
+                  onCheckedChange={(checked) => setValue('useProxySubscription', checked)}
+                />
+              </div>
+            )}
 
             <div className="flex items-center justify-between mt-5">
               <Button

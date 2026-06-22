@@ -24,8 +24,6 @@ import { Section } from '~/components/Section'
 import { SortableSubscriptionCard } from '~/components/SortableSubscriptionCard'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion'
 import { Button } from '~/components/ui/button'
-import { Label } from '~/components/ui/label'
-import { Switch } from '~/components/ui/switch'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { UpdateSubscriptionAction } from '~/components/UpdateSubscriptionAction'
 import { useDisclosure } from '~/hooks'
@@ -66,7 +64,6 @@ export function SubscriptionResource({
     cronEnable: boolean
     useProxy: boolean
   }>()
-  const [useProxySubscription, setUseProxySubscription] = useState(false)
   const qrCodeModalRef = useRef<QRCodeModalRef>(null)
   const { refetch: refetchSubscriptions } = useSubscriptionsQuery()
   const removeSubscriptionsMutation = useRemoveSubscriptionsMutation()
@@ -133,21 +130,6 @@ export function SubscriptionResource({
               </Button>
             </SimpleTooltip>
           )}
-          <div className="flex items-center gap-2 rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-control)] px-2 py-1">
-            <Label
-              htmlFor="use-proxy-subscription"
-              className="hidden whitespace-nowrap text-xs font-medium text-muted-foreground lg:inline"
-            >
-              {t('useProxySubscription')}
-            </Label>
-            <Switch
-              id="use-proxy-subscription"
-              size="sm"
-              checked={useProxySubscription}
-              aria-label={t('useProxySubscription')}
-              onCheckedChange={setUseProxySubscription}
-            />
-          </div>
         </Fragment>
       }
     >
@@ -288,9 +270,10 @@ export function SubscriptionResource({
         title={t('subscription')}
         opened={openedImportSubscriptionFormModal}
         onClose={closeImportSubscriptionFormModal}
+        showUseProxySubscription
         handleSubmit={async (values) => {
           await importSubscriptionsMutation.mutateAsync(
-            values.resources.map(({ link, tag }) => ({ link, tag, useProxy: useProxySubscription })),
+            values.resources.map(({ link, tag }) => ({ link, tag, useProxy: values.useProxySubscription })),
           )
         }}
       />
