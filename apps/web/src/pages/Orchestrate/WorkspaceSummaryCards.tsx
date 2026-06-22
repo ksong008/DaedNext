@@ -211,7 +211,7 @@ function SummaryGeodataCard({
     <div
       className={cn(
         summaryInnerCardClassName,
-        'relative flex min-h-[74px] min-w-0 flex-col justify-between px-3 py-2.5 pr-10 sm:min-h-[78px] sm:px-3.5 sm:py-3 sm:pr-11',
+        'relative flex min-h-[108px] min-w-0 flex-col gap-2 px-3 py-2.5 pr-10 sm:min-h-[112px] sm:px-3.5 sm:py-3 sm:pr-11',
       )}
     >
       <Tooltip>
@@ -233,17 +233,24 @@ function SummaryGeodataCard({
       <div className="min-w-0">
         <span className="block truncate text-xs font-medium text-muted-foreground">{title}</span>
       </div>
-      <div className="space-y-1 text-xs text-muted-foreground">
-        <span className="block min-w-0 truncate">
-          {versionLabel} {data?.version || '—'}
-        </span>
-        <div className="grid grid-cols-2 gap-2">
-          <span className="min-w-0 truncate">
-            {categoryLabel} {valueOrDash(data?.categoryCount)}
-          </span>
-          <span className="min-w-0 truncate">
-            {itemLabel} {valueOrDash(itemCount)}
-          </span>
+      <div className="space-y-1.5 text-xs">
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+          <span className="text-muted-foreground">{versionLabel}</span>
+          <strong className="min-w-0 truncate text-right text-sm font-semibold leading-none text-foreground">
+            {data?.version || '—'}
+          </strong>
+        </div>
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+          <span className="text-muted-foreground">{categoryLabel}</span>
+          <strong className="min-w-0 truncate text-right text-sm font-semibold leading-none text-foreground tabular-nums">
+            {valueOrDash(data?.categoryCount)}
+          </strong>
+        </div>
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
+          <span className="text-muted-foreground">{itemLabel}</span>
+          <strong className="min-w-0 truncate text-right text-sm font-semibold leading-none text-foreground tabular-nums">
+            {valueOrDash(itemCount)}
+          </strong>
         </div>
       </div>
     </div>
@@ -718,7 +725,7 @@ export const WorkspaceSummaryCards = memo(
           actionLabel={t('actions.settings')}
           onAction={onOpenConfig}
         >
-          <div className="grid flex-1 auto-rows-fr grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 content-start items-start gap-2">
             <SummaryConfigCard
               label={t('workspaceSummary.currentConfig')}
               value={activeConfigName}
