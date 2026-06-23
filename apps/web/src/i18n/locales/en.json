@@ -464,6 +464,7 @@
     "updateGeoip": "Update Geoip",
     "geodataUpdateSuccess": "Geodata updated",
     "geodataUpdateApplied": "Geodata updated and applied",
+    "geodataUpdateNeedsReload": "Geodata updated. Use the header reload button to apply it.",
     "subscriptionUpdated": "Updated",
     "manualNodes": "Manual Nodes",
     "customNodes": "Custom Nodes",

@@ -711,8 +711,8 @@ export const WorkspaceSummaryCards = memo(
       try {
         const result = await updateGeodataMutation.mutateAsync(kind)
         toast.success(
-          result.runtimeReloaded
-            ? t('workspaceSummary.geodataUpdateApplied')
+          result.runtimeReloadRequired
+            ? t('workspaceSummary.geodataUpdateNeedsReload')
             : t('workspaceSummary.geodataUpdateSuccess'),
         )
       } catch {
