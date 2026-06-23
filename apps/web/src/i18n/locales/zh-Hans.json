@@ -464,6 +464,7 @@
     "updateGeoip": "更新 Geoip",
     "geodataUpdateSuccess": "规则数据已更新",
     "geodataUpdateApplied": "规则数据已更新并已应用",
+    "geodataUpdateNeedsReload": "规则数据已更新，重新加载后生效",
     "subscriptionUpdated": "最近更新",
     "manualNodes": "手动节点",
     "customNodes": "自定义节点",
