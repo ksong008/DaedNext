@@ -212,6 +212,7 @@ function formatRuntimeToken(value: string | null | undefined) {
 }
 
 type HeaderChipTone = 'neutral' | 'tcx' | 'tc' | 'netkit' | 'veth' | 'latency' | 'resource'
+type RuntimeStatusTone = 'default' | 'pnameComm'
 
 function runtimeTokenTone(value: string) {
   switch (value) {
@@ -286,14 +287,36 @@ function parseRuntimeStartMs(startedAt?: string | null, lastTransitionAt?: strin
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function StatusBadge({ running, label }: { running?: boolean; label: string }) {
+function runtimeStatusTone(runtime?: TrafficOverviewQueryData['runtime']): RuntimeStatusTone {
+  const cgroupPname = runtime?.startupEvidence?.cgroupPname
+  const source = cgroupPname?.source?.trim().toLowerCase()
+  const semantics = cgroupPname?.semantics?.trim().toLowerCase()
+
+  if (source === 'current_comm' || semantics === 'non_core_task_comm' || cgroupPname?.nonCoreTaskCommEnabled) {
+    return 'pnameComm'
+  }
+
+  return 'default'
+}
+
+function StatusBadge({
+  running,
+  label,
+  tone = 'default',
+}: {
+  running?: boolean
+  label: string
+  tone?: RuntimeStatusTone
+}) {
   return (
     <span
       className={cn(
         'inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1 sm:text-sm',
-        running
-          ? 'border-primary/12 bg-primary/8 text-primary'
-          : 'border-muted-foreground/16 bg-muted/50 text-muted-foreground',
+        running &&
+          tone === 'pnameComm' &&
+          'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+        running && tone === 'default' && 'border-primary/12 bg-primary/8 text-primary',
+        !running && 'border-muted-foreground/16 bg-muted/50 text-muted-foreground',
       )}
     >
       {label}
@@ -411,6 +434,7 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
       : '—'
   const runtimeStatusLabel =
     typeof runtime?.running === 'boolean' ? (runtime.running ? t('shell.running') : t('shell.stopped')) : '—'
+  const runtimeStatusBadgeTone = runtimeStatusTone(runtime)
   const attachBackendLabel = formatRuntimeToken(runtime?.attachBackend)
   const linkModeLabel = formatRuntimeToken(runtime?.netnsLinkMode)
   const minLatencyLabel =
@@ -427,7 +451,7 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
             <CardTitle className="truncate text-base text-foreground sm:text-lg">
               {t('trafficOverview.title')}
             </CardTitle>
-            <StatusBadge running={runtime?.running} label={runtimeStatusLabel} />
+            <StatusBadge running={runtime?.running} label={runtimeStatusLabel} tone={runtimeStatusBadgeTone} />
           </div>
           <CurrentTimeText now={now} className="justify-self-end lg:col-start-3 lg:row-start-1" />
           <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-1.5 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:flex-nowrap lg:overflow-hidden">

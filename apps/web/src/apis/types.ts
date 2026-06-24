@@ -410,6 +410,16 @@ export interface RuntimeOverviewRuntimeState {
   lastTransitionAt?: string | null
   reloadCount?: number
   stopCount?: number
+  startupEvidence?: {
+    cgroupPname?: {
+      source?: string | null
+      semantics?: string | null
+      coreStatus?: string | null
+      coreEnabled?: boolean
+      currentTaskArgvEnabled?: boolean
+      nonCoreTaskCommEnabled?: boolean
+    } | null
+  } | null
   residentDataplane?: {
     metrics?: {
       resources?: {
