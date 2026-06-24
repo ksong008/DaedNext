@@ -212,7 +212,7 @@ function formatRuntimeToken(value: string | null | undefined) {
 }
 
 type HeaderChipTone = 'neutral' | 'tcx' | 'tc' | 'netkit' | 'veth' | 'latency' | 'resource'
-type RuntimeStatusTone = 'default' | 'pnameComm'
+type RuntimeStatusTone = 'enhanced' | 'comm'
 
 function runtimeTokenTone(value: string) {
   switch (value) {
@@ -292,17 +292,17 @@ function runtimeStatusTone(runtime?: TrafficOverviewQueryData['runtime']): Runti
   const source = cgroupPname?.source?.trim().toLowerCase()
   const semantics = cgroupPname?.semantics?.trim().toLowerCase()
 
-  if (source === 'current_comm' || semantics === 'non_core_task_comm' || cgroupPname?.nonCoreTaskCommEnabled) {
-    return 'pnameComm'
+  if (source === 'current_comm' || semantics === 'non_core_task_comm') {
+    return 'comm'
   }
 
-  return 'default'
+  return 'enhanced'
 }
 
 function StatusBadge({
   running,
   label,
-  tone = 'default',
+  tone = 'enhanced',
 }: {
   running?: boolean
   label: string
@@ -312,10 +312,8 @@ function StatusBadge({
     <span
       className={cn(
         'inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1 sm:text-sm',
-        running &&
-          tone === 'pnameComm' &&
-          'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-        running && tone === 'default' && 'border-primary/12 bg-primary/8 text-primary',
+        running && tone === 'comm' && 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+        running && tone === 'enhanced' && 'border-primary/12 bg-primary/8 text-primary',
         !running && 'border-muted-foreground/16 bg-muted/50 text-muted-foreground',
       )}
     >
