@@ -315,8 +315,8 @@
   "logs": {
     "title": "Logs",
     "subtitle": "View runtime logs, live output, and log cache settings.",
-    "runtimeLevel": "Runtime Level",
-    "queryLevel": "Query Level",
+    "logLevel": "Log Level",
+    "levelFilter": "Level Filter",
     "search": "Keyword",
     "searchPlaceholder": "Search messages or fields",
     "applyQuery": "Apply query",

@@ -315,8 +315,8 @@
   "logs": {
     "title": "日志",
     "subtitle": "查看运行日志、实时输出和日志缓存设置。",
-    "runtimeLevel": "运行等级",
-    "queryLevel": "查询等级",
+    "logLevel": "日志等级",
+    "levelFilter": "级别过滤",
     "search": "关键词",
     "searchPlaceholder": "搜索日志内容或字段",
     "applyQuery": "按条件查询",
