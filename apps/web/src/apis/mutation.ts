@@ -884,7 +884,7 @@ export function useReloadRuntimeMutation() {
       return result.applied
     },
     onSuccess: () => {
-      void invalidateQueryKeys(queryClient, [webQueryKeys.general.state()])
+      void invalidateQueryKeys(queryClient, [webQueryKeys.general.state(), webQueryKeys.log.items()])
     },
   })
 }
@@ -899,7 +899,7 @@ export function useStopRuntimeMutation() {
       return result.stopped
     },
     onSuccess: () => {
-      void invalidateQueryKeys(queryClient, [webQueryKeys.general.state()])
+      void invalidateQueryKeys(queryClient, [webQueryKeys.general.state(), webQueryKeys.log.items()])
     },
   })
 }
