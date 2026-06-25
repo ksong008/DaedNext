@@ -24,7 +24,7 @@ import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 
 const runtimeLevelOptions = ['error', 'warn', 'info', 'debug', 'trace'] as const
-const queryLevelOptions = ['all', ...runtimeLevelOptions] as const
+const levelFilterOptions = ['all', ...runtimeLevelOptions] as const
 const maxRenderedEntries = 500
 const searchDebounceMs = 300
 
@@ -135,7 +135,7 @@ export function LogResource() {
   const { t } = useTranslation()
   const endpointURL = useStore(endpointURLAtom)
   const token = useStore(tokenAtom)
-  const [queryLevel, setQueryLevel] = useState('all')
+  const [levelFilter, setLevelFilter] = useState('all')
   const [searchDraft, setSearchDraft] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
@@ -147,7 +147,7 @@ export function LogResource() {
   const flushFrameRef = useRef<number | null>(null)
   const knownEntryIdsRef = useRef<Set<number>>(new Set())
 
-  const logsQuery = useLogsQuery({ level: queryLevel, query: appliedSearch })
+  const logsQuery = useLogsQuery({ level: levelFilter, query: appliedSearch })
   const settingsQuery = useLogSettingsQuery()
   const runtimeLevelQuery = useRuntimeLogLevelQuery()
   const setRuntimeLogLevelMutation = useSetRuntimeLogLevelMutation()
@@ -182,8 +182,8 @@ export function LogResource() {
 
   const streamURL = useMemo(() => {
     if (isMockMode() || !token || typeof fetch === 'undefined') return null
-    return buildLogEventsURL(endpointURL, queryLevel, appliedSearch)
-  }, [appliedSearch, endpointURL, queryLevel, token])
+    return buildLogEventsURL(endpointURL, levelFilter, appliedSearch)
+  }, [appliedSearch, endpointURL, levelFilter, token])
 
   useEffect(() => {
     if (!streamURL) return
@@ -210,7 +210,7 @@ export function LogResource() {
     const handleEntry = (data: string) => {
       try {
         const entry = JSON.parse(data) as LogEntry
-        if (!logEntryMatchesFilter(entry, queryLevel, appliedSearch)) return
+        if (!logEntryMatchesFilter(entry, levelFilter, appliedSearch)) return
         if (knownEntryIdsRef.current.has(entry.id)) return
         knownEntryIdsRef.current.add(entry.id)
         pendingEntriesRef.current.push(entry)
@@ -238,7 +238,7 @@ export function LogResource() {
         flushFrameRef.current = null
       }
     }
-  }, [appliedSearch, queryLevel, streamURL, token])
+  }, [appliedSearch, levelFilter, streamURL, token])
 
   useLayoutEffect(() => {
     if (!autoScroll || !logViewportRef.current) return
@@ -252,7 +252,7 @@ export function LogResource() {
     debug: t('logs.levels.debug'),
     trace: t('logs.levels.trace'),
   }
-  const queryLevelLabels: Record<(typeof queryLevelOptions)[number], string> = {
+  const levelFilterLabels: Record<(typeof levelFilterOptions)[number], string> = {
     all: t('logs.levels.all'),
     ...logLevelLabels,
   }
@@ -261,9 +261,9 @@ export function LogResource() {
     value: level,
     label: logLevelLabels[level],
   }))
-  const queryLevelData = queryLevelOptions.map((level) => ({
+  const levelFilterData = levelFilterOptions.map((level) => ({
     value: level,
-    label: queryLevelLabels[level],
+    label: levelFilterLabels[level],
   }))
 
   const applySearch = () => {
@@ -295,28 +295,26 @@ export function LogResource() {
         </div>
 
         <div className="grid gap-2 sm:flex sm:flex-wrap sm:items-end">
-          <div className="grid grid-cols-2 gap-2 sm:contents">
-            <Select
-              label={t('logs.runtimeLevel')}
-              data={logLevelData}
-              value={runtimeLevel}
-              onChange={(level) => {
-                if (level) setRuntimeLogLevelMutation.mutate(level)
-              }}
-              className="w-full sm:min-w-[7.5rem]"
-            />
-            <Select
-              label={t('logs.queryLevel')}
-              data={queryLevelData}
-              value={queryLevel}
-              onChange={(level) => {
-                if (level) setQueryLevel(level)
-              }}
-              className="w-full sm:min-w-[7.5rem]"
-            />
-          </div>
+          <Select
+            label={t('logs.logLevel')}
+            data={logLevelData}
+            value={runtimeLevel}
+            onChange={(level) => {
+              if (level) setRuntimeLogLevelMutation.mutate(level)
+            }}
+            className="w-full sm:min-w-[7.5rem] sm:flex-none"
+          />
 
-          <div className="grid grid-cols-[minmax(0,1fr)_2.25rem] items-end gap-2 sm:contents">
+          <div className="grid grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_2.25rem] items-end gap-2 sm:contents">
+            <Select
+              label={t('logs.levelFilter')}
+              data={levelFilterData}
+              value={levelFilter}
+              onChange={(level) => {
+                if (level) setLevelFilter(level)
+              }}
+              className="w-full sm:min-w-[7.5rem]"
+            />
             <Input
               label={t('logs.search')}
               value={searchDraft}
