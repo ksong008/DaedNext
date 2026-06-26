@@ -373,11 +373,19 @@ export interface UserResource {
   avatar?: string | null
 }
 
+export interface InterfaceAddressDetail {
+  family?: string
+  local: string
+  prefixlen?: number
+  scope?: string | null
+}
+
 export interface InterfaceResource {
   name: string
   index: number
   up: boolean
   addresses: string[]
+  addressDetails?: InterfaceAddressDetail[]
   defaultRoutes?: Array<{
     ipVersion?: string
     gateway?: string | null

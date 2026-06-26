@@ -55,6 +55,10 @@ export const mockGeneral: GeneralStateView = {
         index: 2,
         up: true,
         addresses: ['192.168.1.100/24', 'fe80::1/64'],
+        addressDetails: [
+          { family: 'inet', local: '192.168.1.100', prefixlen: 24, scope: 'global' },
+          { family: 'inet6', local: 'fe80::1', prefixlen: 64, scope: 'link' },
+        ],
         defaultRoutes: [{ gateway: '192.168.1.1' }],
       },
       {
@@ -62,6 +66,7 @@ export const mockGeneral: GeneralStateView = {
         index: 3,
         up: true,
         addresses: ['192.168.1.101/24'],
+        addressDetails: [{ family: 'inet', local: '192.168.1.101', prefixlen: 24, scope: 'global' }],
         defaultRoutes: [],
       },
       {
@@ -69,6 +74,7 @@ export const mockGeneral: GeneralStateView = {
         index: 4,
         up: true,
         addresses: ['172.17.0.1/16'],
+        addressDetails: [{ family: 'inet', local: '172.17.0.1', prefixlen: 16, scope: 'global' }],
         defaultRoutes: [],
       },
     ],

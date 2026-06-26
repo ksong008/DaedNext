@@ -18,6 +18,7 @@ import type {
   GroupResource,
   GroupSummaryListView,
   GroupSummaryResource,
+  InterfaceAddressDetail,
   InterfaceResource,
   LogEntry,
   LogSettings,
@@ -73,11 +74,19 @@ interface InterfaceAPI {
   index: number
   up: boolean
   addresses: string[]
+  addressDetails?: InterfaceAddressDetailAPI[]
   defaultRoutes?: Array<{
     ipVersion?: string
     gateway?: string | null
     source?: string | null
   }>
+}
+
+interface InterfaceAddressDetailAPI {
+  family?: string
+  local?: string
+  prefixlen?: number
+  scope?: string | null
 }
 
 interface RuntimeOverviewAPI {
@@ -1032,6 +1041,23 @@ function adaptInterface(iface: InterfaceAPI): InterfaceResource {
     index: iface.index,
     up: iface.up,
     addresses: Array.isArray(iface.addresses) ? iface.addresses : [],
+    addressDetails: Array.isArray(iface.addressDetails)
+      ? iface.addressDetails
+          .map(adaptInterfaceAddressDetail)
+          .filter((detail): detail is InterfaceAddressDetail => detail !== null)
+      : [],
     defaultRoutes: Array.isArray(iface.defaultRoutes) ? iface.defaultRoutes : [],
+  }
+}
+
+function adaptInterfaceAddressDetail(detail: InterfaceAddressDetailAPI): InterfaceAddressDetail | null {
+  if (typeof detail.local !== 'string' || detail.local.trim().length === 0) {
+    return null
+  }
+  return {
+    family: typeof detail.family === 'string' && detail.family.length > 0 ? detail.family : undefined,
+    local: detail.local,
+    prefixlen: Number.isFinite(detail.prefixlen) ? detail.prefixlen : undefined,
+    scope: typeof detail.scope === 'string' ? detail.scope : undefined,
   }
 }
