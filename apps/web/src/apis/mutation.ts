@@ -21,6 +21,7 @@ import type { MODE } from '~/constants'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { useAPIClient } from '~/contexts'
+import { defaultResourcesAtom } from '~/store'
 import { toID, toNumericID } from './client'
 import { adaptNodeLatencyJob, adaptNodeLatencyProbeResults } from './query'
 import { invalidateQueryKeys, webQueryKeys } from './query_cache'
@@ -32,6 +33,11 @@ interface CountResponse {
 
 interface ResourceWithID {
   id: number
+}
+
+interface RemoveGroupPayload {
+  id: string
+  defaultGroupID?: string
 }
 
 interface TokenResponse {
@@ -204,9 +210,9 @@ export function useEnsureDefaultResourcesMutation() {
       dns: string
       routingName: string
       routing: string
-      groupName: string
-      policy: Policy
-      policyParams: PolicyParam[]
+      groupName?: string
+      policy?: Policy
+      policyParams?: PolicyParam[]
       mode: string
     }) => {
       const ensured = await apiClient.post<{
@@ -582,11 +588,27 @@ export function useRemoveGroupMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, defaultGroupID }: RemoveGroupPayload) => {
       await apiClient.delete(`/groups/${id}`)
+      const removedDefaultGroup = defaultGroupID === id
+      if (removedDefaultGroup) {
+        await apiClient.put<CountResponse>('/user/me/storage', {
+          paths: ['defaultGroupID'],
+          values: [''],
+        })
+      }
+      return { id, removedDefaultGroup }
     },
-    onSuccess: () => {
-      void invalidateGroupResource(queryClient, { generalState: true })
+    onSuccess: ({ removedDefaultGroup }) => {
+      if (removedDefaultGroup) {
+        defaultResourcesAtom.setKey('defaultGroupID', '')
+      }
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.group.summary(),
+        webQueryKeys.group.expanded(),
+        webQueryKeys.general.state(),
+        ...(removedDefaultGroup ? [webQueryKeys.storage()] : []),
+      ])
     },
   })
 }

@@ -1,5 +1,5 @@
-import type { RoutingFormModalRef } from '~/components/RoutingFormModal'
 import type { RoutingListView } from '~/apis/types'
+import type { RoutingFormModalRef } from '~/components/RoutingFormModal'
 import { useStore } from '@nanostores/react'
 import { Map, Settings2 } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
@@ -25,7 +25,7 @@ import { defaultResourcesAtom } from '~/store'
 
 export function Routing() {
   const { t } = useTranslation()
-  const { defaultRoutingID, defaultGroupID } = useStore(defaultResourcesAtom)
+  const { defaultGroupID } = useStore(defaultResourcesAtom)
   const { data: routingsQuery } = useRoutingsQuery()
   const { data: groupsQuery } = useGroupsQuery()
   const selectRoutingMutation = useSelectRoutingMutation()
@@ -82,7 +82,7 @@ export function Routing() {
           }
           selected={routing.selected}
           onSelect={() => selectRoutingMutation.mutate({ id: routing.id })}
-          onRemove={routing.id !== defaultRoutingID ? () => removeRoutingMutation.mutate(routing.id) : undefined}
+          onRemove={!routing.selected ? () => removeRoutingMutation.mutate(routing.id) : undefined}
           onRename={(newName) => renameRoutingMutation.mutate({ id: routing.id, name: newName })}
           onDuplicate={async () => {
             await createRoutingMutation.mutateAsync({

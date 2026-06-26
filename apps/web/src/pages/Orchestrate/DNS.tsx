@@ -1,4 +1,3 @@
-import { useStore } from '@nanostores/react'
 import { Route, Settings2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -16,12 +15,10 @@ import { SimpleCard } from '~/components/SimpleCard'
 import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { useDisclosure } from '~/hooks'
-import { defaultResourcesAtom } from '~/store'
 
 export function DNS() {
   const { t } = useTranslation()
 
-  const { defaultDNSID } = useStore(defaultResourcesAtom)
   const { data: dnssQuery } = useDNSsQuery()
   const selectDNSMutation = useSelectDNSMutation()
   const removeDNSMutation = useRemoveDNSMutation()
@@ -62,7 +59,7 @@ export function DNS() {
           }
           selected={dns.selected}
           onSelect={() => selectDNSMutation.mutate({ id: dns.id })}
-          onRemove={dns.id !== defaultDNSID ? () => removeDNSMutation.mutate(dns.id) : undefined}
+          onRemove={!dns.selected ? () => removeDNSMutation.mutate(dns.id) : undefined}
           onRename={(newName) => renameDNSMutation.mutate({ id: dns.id, name: newName })}
           onDuplicate={async () => {
             await createDNSMutation.mutateAsync({
