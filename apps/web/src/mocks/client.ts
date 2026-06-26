@@ -478,6 +478,7 @@ export class MockAPIClient implements APIClientInterface {
             index: iface.index,
             up: iface.up,
             addresses: iface.addresses,
+            addressDetails: iface.addressDetails,
             defaultRoutes: iface.defaultRoutes,
           })),
         } as T
