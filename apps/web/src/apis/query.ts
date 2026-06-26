@@ -11,6 +11,8 @@ import type {
   GeneralDaemonState,
   GeneralResourceCounts,
   GeneralStateView,
+  GeodataKind,
+  GeodataSettingsView,
   GeodataView,
   GroupListView,
   GroupResource,
@@ -244,6 +246,18 @@ interface GeodataAPI {
   runtimeReloadElapsed?: string
   runtimeReloadStatus?: unknown
   runtimeReloadMessage?: string
+}
+
+interface GeodataSourceAPI {
+  kind: GeodataKind
+  url: string
+  defaultUrl: string
+  usingDefault: boolean
+}
+
+interface GeodataSettingsAPI {
+  geosite: GeodataSourceAPI
+  geoip: GeodataSourceAPI
 }
 
 function normalizeConfigGlobal(global?: Partial<ConfigGlobal> | null): ConfigGlobal {
@@ -624,6 +638,19 @@ export function useGeodataQuery() {
   return useQuery({
     queryKey: webQueryKeys.geodata.status(),
     queryFn: async (): Promise<GeodataView> => apiClient.get<GeodataAPI>('/geodata'),
+    enabled,
+    staleTime: Infinity,
+    gcTime: Infinity,
+  })
+}
+
+export function useGeodataSettingsQuery() {
+  const apiClient = useAPIClient()
+  const enabled = useAuthenticatedQueryEnabled()
+
+  return useQuery({
+    queryKey: webQueryKeys.geodata.settings(),
+    queryFn: async (): Promise<GeodataSettingsView> => apiClient.get<GeodataSettingsAPI>('/geodata/settings'),
     enabled,
     staleTime: Infinity,
     gcTime: Infinity,

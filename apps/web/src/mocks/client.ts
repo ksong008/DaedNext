@@ -1,5 +1,5 @@
 import type { APIClientInterface, APIQueryValue } from '~/apis/client'
-import type { ConfigGlobal } from '~/apis/types'
+import type { ConfigGlobal, GeodataKind } from '~/apis/types'
 
 import {
   getMockRuntimeOverview,
@@ -46,8 +46,14 @@ const groupNodesPathPattern = /^\/groups\/([^/]+)\/nodes$/
 const groupSubscriptionsPathPattern = /^\/groups\/([^/]+)\/subscriptions$/
 const groupPathPattern = /^\/groups\/([^/]+)$/
 const subscriptionRefreshPathPattern = /^\/subscriptions\/([^/]+)\/refresh$/
+const geodataSettingsPathPattern = /^\/geodata\/(geosite|geoip)\/settings$/
+const geodataUpdatePathPattern = /^\/geodata\/(geosite|geoip)\/update$/
 const numericIDPattern = /(\d+)/
 const daeIdentifierPattern = /^[A-Z_][\w-]*$/i
+const mockDefaultGeodataSourceUrls: Record<GeodataKind, string> = {
+  geosite: 'https://api.github.com/repos/Loyalsoldier/v2ray-rules-dat/releases/latest',
+  geoip: 'https://api.github.com/repos/Loyalsoldier/geoip/releases/latest',
+}
 
 const mockStorage = new Map<string, string>([
   ['mode', 'rule'],
@@ -61,6 +67,32 @@ const mockLatencyById = new Map<string, MockLatencyResult>()
 let mockLatencyJob: MockLatencyJob | null = null
 let mockNextLatencyJobID = 1
 let mockRuntimeLogLevel = 'error'
+let mockGeodataSourceUrls: Record<GeodataKind, string> = {
+  geosite: '',
+  geoip: '',
+}
+let mockGeodataStatus = {
+  geosite: {
+    available: true,
+    version: '202606222314',
+    categoryCount: 1420,
+    ruleCount: 97240,
+    fileSize: 10834567,
+    sha256: 'mock-geosite-sha256',
+    updatedAt: '2026-06-22T23:14:00Z',
+    lastError: null,
+  },
+  geoip: {
+    available: true,
+    version: '202606182327',
+    categoryCount: 268,
+    cidrCount: 391845,
+    fileSize: 9361728,
+    sha256: 'mock-geoip-sha256',
+    updatedAt: '2026-06-18T23:27:00Z',
+    lastError: null,
+  },
+}
 let mockLogSettings = {
   maxEntries: 10000,
   maxBytes: 50 * 1024 * 1024,
@@ -254,6 +286,83 @@ function generateMockDAEConfigContent() {
   return `${sections.filter(Boolean).join('\n\n')}\n`
 }
 
+function otherMockGeodataKind(kind: GeodataKind): GeodataKind {
+  return kind === 'geosite' ? 'geoip' : 'geosite'
+}
+
+function normalizeMockComparableUrl(value: string) {
+  try {
+    return new URL(value.trim()).href
+  } catch {
+    return value.trim()
+  }
+}
+
+function mockGeodataSource(kind: GeodataKind) {
+  const customUrl = mockGeodataSourceUrls[kind].trim()
+  const defaultUrl = mockDefaultGeodataSourceUrls[kind]
+  return {
+    kind,
+    url: customUrl || defaultUrl,
+    defaultUrl,
+    usingDefault: !customUrl,
+  }
+}
+
+function mockGeodataSettings() {
+  return {
+    geosite: mockGeodataSource('geosite'),
+    geoip: mockGeodataSource('geoip'),
+  }
+}
+
+function validateMockGeodataSource(kind: GeodataKind, rawUrl: string) {
+  const value = rawUrl.trim()
+  if (!value) throw new Error('geodata source url is empty')
+  if (value.length > 2048) throw new Error('geodata source url is too long')
+
+  const url = new URL(value)
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`unsupported geodata source url scheme: ${url.protocol.replace(':', '')}`)
+  }
+
+  const otherKind = otherMockGeodataKind(kind)
+  if (normalizeMockComparableUrl(value) === normalizeMockComparableUrl(mockDefaultGeodataSourceUrls[otherKind])) {
+    throw new Error(`${kind} source cannot use ${otherKind} default update url`)
+  }
+
+  return url.href
+}
+
+function setMockGeodataSource(kind: GeodataKind, body: unknown) {
+  const payload = body as { url?: string; restoreDefault?: boolean }
+  if (payload.restoreDefault) {
+    mockGeodataSourceUrls = { ...mockGeodataSourceUrls, [kind]: '' }
+    return mockGeodataSource(kind)
+  }
+  const url = validateMockGeodataSource(kind, payload.url ?? '')
+  mockGeodataSourceUrls = {
+    ...mockGeodataSourceUrls,
+    [kind]:
+      normalizeMockComparableUrl(url) === normalizeMockComparableUrl(mockDefaultGeodataSourceUrls[kind]) ? '' : url,
+  }
+  return mockGeodataSource(kind)
+}
+
+function updateMockGeodata(kind: GeodataKind) {
+  const resource = {
+    ...mockGeodataStatus[kind],
+    available: true,
+    updatedAt: new Date().toISOString(),
+    lastError: null,
+  }
+  mockGeodataStatus = { ...mockGeodataStatus, [kind]: resource }
+  return {
+    [kind]: resource,
+    updated: kind,
+  }
+}
+
 function buildMockDAEBundle() {
   return {
     schemaVersion: 1,
@@ -380,6 +489,10 @@ export class MockAPIClient implements APIClientInterface {
         return { items: filterMockLogs(query) } as T
       case 'GET /logs/settings':
         return mockLogSettings as T
+      case 'GET /geodata':
+        return mockGeodataStatus as T
+      case 'GET /geodata/settings':
+        return mockGeodataSettings() as T
       case 'GET /nodes/latencies':
         return { items: Array.from(mockLatencyById.values()), job: mockLatencyJob } as T
       case 'POST /nodes/latencies':
@@ -685,6 +798,16 @@ export class MockAPIClient implements APIClientInterface {
         maxBytes: payload.maxBytes ?? mockLogSettings.maxBytes,
       }
       return mockLogSettings as T
+    }
+
+    const geodataSettingsMatch = path.match(geodataSettingsPathPattern)
+    if (method === 'PATCH' && geodataSettingsMatch) {
+      return setMockGeodataSource(geodataSettingsMatch[1] as GeodataKind, body) as T
+    }
+
+    const geodataUpdateMatch = path.match(geodataUpdatePathPattern)
+    if (method === 'POST' && geodataUpdateMatch) {
+      return updateMockGeodata(geodataUpdateMatch[1] as GeodataKind) as T
     }
 
     if (method === 'DELETE' && path === '/logs') {
