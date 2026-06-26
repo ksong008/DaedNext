@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '~/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
 import { cn } from '~/lib/utils'
+import { hasDefaultRoutes, interfaceAddresses } from '~/utils/interfaces'
 import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 
 const summaryShellStyle = {
@@ -604,17 +605,15 @@ function getNodeIdentity(node: NodeResource): SummaryNodeIdentity {
   }
 }
 
-function formatInterfaceSummary(items: Array<{ name: string; address?: string }>) {
+function formatInterfaceSummary(items: Array<{ name: string; addresses?: string[] }>) {
   if (items.length === 0) {
     return { value: '—' }
   }
+  const detail = items.flatMap((item) => item.addresses ?? []).join(', ')
 
   return {
     value: items.map((item) => item.name).join(', '),
-    detail: items
-      .map((item) => item.address)
-      .filter(Boolean)
-      .join(', '),
+    detail: detail || undefined,
   }
 }
 
@@ -787,23 +786,21 @@ export const WorkspaceSummaryCards = memo(
     const wanInterfaceSummary = useMemo(() => {
       const wanInterfaceItems = (selectedConfig?.global.wanInterface ?? []).flatMap((value) => {
         if (value === 'auto') {
-          return interfaces
-            .filter((iface) => iface.defaultRoutes && iface.defaultRoutes.length > 0)
-            .map((iface) => ({
-              name: iface.name,
-              address: iface.addresses[0],
-            }))
+          return interfaces.filter(hasDefaultRoutes).map((iface) => ({
+            name: iface.name,
+            addresses: interfaceAddresses(iface),
+          }))
         }
 
         const iface = interfaces.find((item) => item.name === value)
-        return iface ? [{ name: iface.name, address: iface.addresses[0] }] : [{ name: value }]
+        return iface ? [{ name: iface.name, addresses: interfaceAddresses(iface) }] : [{ name: value }]
       })
       return formatInterfaceSummary(wanInterfaceItems)
     }, [interfaces, selectedConfig?.global.wanInterface])
     const lanInterfaceSummary = useMemo(() => {
       const lanInterfaceItems = (selectedConfig?.global.lanInterface ?? []).map((value) => {
         const iface = interfaces.find((item) => item.name === value)
-        return iface ? { name: iface.name, address: iface.addresses[0] } : { name: value }
+        return iface ? { name: iface.name, addresses: interfaceAddresses(iface) } : { name: value }
       })
       return formatInterfaceSummary(lanInterfaceItems)
     }, [interfaces, selectedConfig?.global.lanInterface])

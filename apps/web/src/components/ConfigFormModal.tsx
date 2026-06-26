@@ -56,6 +56,7 @@ import {
 } from '~/constants'
 import { useSetValue } from '~/hooks/useSetValue'
 import { deriveTime } from '~/utils'
+import { hasDefaultRoutes, interfaceAddressSummary } from '~/utils/interfaces'
 
 import { FormActions } from './FormActions'
 
@@ -335,13 +336,11 @@ export function ConfigFormDrawer({
     if (interfaces) {
       return [
         { label: t('autoDetect'), value: 'auto' },
-        ...interfaces
-          .filter(({ defaultRoutes }: { defaultRoutes?: unknown }) => !!defaultRoutes)
-          .map(({ name, addresses }: { name: string; addresses?: string[] | null }) => ({
-            label: name,
-            value: name,
-            description: Array.isArray(addresses) && addresses.length > 0 ? addresses.join(', ') : undefined,
-          })),
+        ...interfaces.filter(hasDefaultRoutes).map((iface) => ({
+          label: iface.name,
+          value: iface.name,
+          description: interfaceAddressSummary(iface),
+        })),
       ]
     }
 
@@ -350,10 +349,10 @@ export function ConfigFormDrawer({
 
   const lanInterfacesData = useMemo(() => {
     if (interfaces) {
-      return interfaces.map(({ name, addresses }: { name: string; addresses?: string[] | null }) => ({
-        label: name,
-        value: name,
-        description: Array.isArray(addresses) && addresses.length > 0 ? addresses.join(', ') : undefined,
+      return interfaces.map((iface) => ({
+        label: iface.name,
+        value: iface.name,
+        description: interfaceAddressSummary(iface),
       }))
     }
 
