@@ -1,5 +1,4 @@
 import type { ConfigFormModalRef } from '~/components/ConfigFormModal'
-import { useStore } from '@nanostores/react'
 import { Settings, Settings2 } from 'lucide-react'
 
 import { useRef } from 'react'
@@ -17,12 +16,9 @@ import { SimpleCard } from '~/components/SimpleCard'
 import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { useDisclosure } from '~/hooks'
-import { defaultResourcesAtom } from '~/store'
 
 export function Config() {
   const { t } = useTranslation()
-
-  const { defaultConfigID } = useStore(defaultResourcesAtom)
 
   const { data: configsQuery } = useConfigsQuery()
   const selectConfigMutation = useSelectConfigMutation()
@@ -66,7 +62,7 @@ export function Config() {
           }
           selected={config.selected}
           onSelect={() => selectConfigMutation.mutate({ id: config.id })}
-          onRemove={config.id !== defaultConfigID ? () => removeConfigMutation.mutate(config.id) : undefined}
+          onRemove={!config.selected ? () => removeConfigMutation.mutate(config.id) : undefined}
           onRename={(newName) => renameConfigMutation.mutate({ id: config.id, name: newName })}
           onDuplicate={async () => {
             await createConfigMutation.mutateAsync(

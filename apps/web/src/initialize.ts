@@ -6,8 +6,6 @@ import {
   DEFAULT_CONFIG_WITH_LAN_INTERFACEs,
   DEFAULT_DNS,
   DEFAULT_DNS_NAME,
-  DEFAULT_GROUP_NAME,
-  DEFAULT_GROUP_POLICY,
   DEFAULT_ROUTING,
   DEFAULT_ROUTING_NAME,
   MODE,
@@ -35,16 +33,13 @@ export function useInitialize() {
 
     const { defaultConfigID, defaultDNSID, defaultGroupID, defaultRoutingID, mode } =
       await ensureDefaultResourcesMutation.mutateAsync({
-      configName: DEFAULT_CONFIG_NAME,
-      global: DEFAULT_CONFIG_WITH_LAN_INTERFACEs(lanInterfaces),
-      dnsName: DEFAULT_DNS_NAME,
-      dns: DEFAULT_DNS,
-      routingName: DEFAULT_ROUTING_NAME,
-      routing: DEFAULT_ROUTING,
-      groupName: DEFAULT_GROUP_NAME,
-      policy: DEFAULT_GROUP_POLICY,
-      policyParams: [],
-      mode: MODE.simple,
+        configName: DEFAULT_CONFIG_NAME,
+        global: DEFAULT_CONFIG_WITH_LAN_INTERFACEs(lanInterfaces),
+        dnsName: DEFAULT_DNS_NAME,
+        dns: DEFAULT_DNS,
+        routingName: DEFAULT_ROUTING_NAME,
+        routing: DEFAULT_ROUTING,
+        mode: MODE.simple,
       })
 
     modeAtom.set(mode as MODE)

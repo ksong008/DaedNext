@@ -292,7 +292,7 @@ export function GroupResource({
         collapsed={!expandedGroupIds.has(groupId)}
         dragHandleProps={dragHandleProps}
         onToggleCollapsed={() => setGroupExpanded(groupId, !expandedGroupIds.has(groupId))}
-        onRemove={defaultGroupID !== groupId ? () => removeGroupMutation.mutate(groupId) : undefined}
+        onRemove={() => removeGroupMutation.mutate({ id: groupId, defaultGroupID })}
         onRename={(newName) => renameGroupMutation.mutate({ id: groupId, name: newName })}
         actions={
           <SimpleTooltip label={t('actions.settings')}>
