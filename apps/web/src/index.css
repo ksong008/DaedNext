@@ -323,14 +323,30 @@ form {
   bottom: 0;
   left: 0;
   z-index: 30;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  gap: 0.15rem;
+  --shell-mobile-nav-gap: 0.25rem;
+  --shell-mobile-nav-visible-gap: 1.25rem;
+  gap: var(--shell-mobile-nav-gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   padding: 0.3rem 0.75rem calc(0.3rem + env(safe-area-inset-bottom));
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
   border-top: 1px solid color-mix(in oklab, var(--shell-line) 58%, transparent);
   background: color-mix(in oklab, var(--shell-surface) 82%, transparent);
   box-shadow: 0 -4px 16px color-mix(in oklab, var(--foreground) 5%, transparent);
   backdrop-filter: blur(24px) saturate(170%);
   -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+.shell-mobile-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.shell-mobile-nav-item {
+  flex: 0 0 calc((100% - var(--shell-mobile-nav-visible-gap)) / 6);
+  min-width: 0;
+  scroll-snap-align: start;
 }
 
 @media (max-width: 767px) {
@@ -339,7 +355,7 @@ form {
   }
 
   .shell-mobile-nav {
-    display: grid;
+    display: flex;
   }
 }
 
