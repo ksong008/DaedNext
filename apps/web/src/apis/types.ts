@@ -142,7 +142,7 @@ export interface GroupSummaryResource {
   nodeCount: number
   subscriptionCount: number
   firstNode?: NodeResource | null
-  firstSubscription?: GroupSummarySubscriptionResource | null
+  subscriptions: GroupSummarySubscriptionResource[]
 }
 
 export interface ConfigGlobal {

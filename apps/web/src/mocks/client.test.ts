@@ -59,15 +59,15 @@ describe('mock API client group resource mutations', () => {
         nodeCount: number
         subscriptionCount: number
         nodes?: unknown
-        subscriptions?: unknown
-        firstSubscription?: { matchedNodes?: unknown; sampleMatchedNodes?: Array<{ name: string }> } | null
+        subscriptions: Array<{ matchedNodes?: unknown; sampleMatchedNodes?: Array<{ name: string }> }>
       }>
     }>('/groups', { summary: true })
     expect(groups.items[0]?.nodeCount).toBeGreaterThanOrEqual(0)
     expect(groups.items[0]?.subscriptionCount).toBeGreaterThanOrEqual(0)
     expect(groups.items[0]?.nodes).toBeUndefined()
-    expect(groups.items[0]?.subscriptions).toBeUndefined()
-    expect(groups.items[0]?.firstSubscription?.matchedNodes).toBeUndefined()
+    expect(groups.items[0]?.subscriptions.length).toBeGreaterThanOrEqual(0)
+    expect(groups.items[0]?.subscriptions[0]?.matchedNodes).toBeUndefined()
+    expect(groups.items[0]).not.toHaveProperty('firstSubscription')
   })
 
   it('exports mock bundles and dae config files from current mock resources', async () => {
@@ -126,5 +126,50 @@ describe('mock API client group resource mutations', () => {
           subscription.matchedNodes[0]?.name === 'Germany-Backup-03',
       ),
     ).toBe(true)
+  })
+
+  it('recomputes regex subscription bindings from refreshed subscription nodes', async () => {
+    const client = new MockAPIClient('')
+
+    await client.post('/groups/2/subscriptions', {
+      subscriptionIds: [2],
+      nameFilterRegex: 'Refresh',
+    })
+
+    const beforeRefresh = await client.get<{
+      items: Array<{
+        id: number
+        subscriptions: Array<{
+          subscriptionId: number
+          matchedCount: number
+          matchedNodes: Array<{ name: string }>
+        }>
+      }>
+    }>('/groups')
+    const groupBeforeRefresh = beforeRefresh.items.find((group) => group.id === 2)
+    const bindingBeforeRefresh = groupBeforeRefresh?.subscriptions.find(
+      (subscription) => subscription.subscriptionId === 2,
+    )
+    expect(bindingBeforeRefresh?.matchedCount).toBe(0)
+
+    await client.post('/subscriptions/2/refresh')
+
+    const afterRefresh = await client.get<{
+      items: Array<{
+        id: number
+        subscriptions: Array<{
+          subscriptionId: number
+          matchedCount: number
+          matchedNodes: Array<{ name: string }>
+        }>
+      }>
+    }>('/groups')
+    const groupAfterRefresh = afterRefresh.items.find((group) => group.id === 2)
+    const bindingAfterRefresh = groupAfterRefresh?.subscriptions.find(
+      (subscription) => subscription.subscriptionId === 2,
+    )
+
+    expect(bindingAfterRefresh?.matchedCount).toBe(1)
+    expect(bindingAfterRefresh?.matchedNodes[0]?.name).toContain('Refresh')
   })
 })

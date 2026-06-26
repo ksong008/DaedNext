@@ -44,6 +44,8 @@ const subscriptionIDPattern = /^sub-(\d+)$/
 const subscriptionNodeIDPattern = /^sub(\d+)-node-(\d+)$/
 const groupNodesPathPattern = /^\/groups\/([^/]+)\/nodes$/
 const groupSubscriptionsPathPattern = /^\/groups\/([^/]+)\/subscriptions$/
+const groupPathPattern = /^\/groups\/([^/]+)$/
+const subscriptionRefreshPathPattern = /^\/subscriptions\/([^/]+)\/refresh$/
 const numericIDPattern = /(\d+)/
 const daeIdentifierPattern = /^[A-Z_][\w-]*$/i
 
@@ -425,7 +427,7 @@ export class MockAPIClient implements APIClientInterface {
         if (toQueryBool(query?.summary)) {
           return {
             items: mockGroups.groups.map((group) => {
-              const firstSubscription = group.subscriptions[0]
+              const subscriptions = group.subscriptions.map(materializeMockGroupSubscriptionBinding)
               return {
                 id: numericID(group.id),
                 name: group.name,
@@ -435,19 +437,17 @@ export class MockAPIClient implements APIClientInterface {
                 nodeCount: group.nodes.length,
                 subscriptionCount: group.subscriptions.length,
                 firstNode: group.nodes[0] ? toMockNodeAPI(group.nodes[0]) : null,
-                firstSubscription: firstSubscription
-                  ? {
-                      subscriptionId: numericID(firstSubscription.subscription.id),
-                      nameFilterRegex: firstSubscription.nameFilterRegex,
-                      matchedCount: firstSubscription.matchedCount,
-                      sampleMatchedNodes: firstSubscription.matchedNodes.slice(0, 5).map((node) => toMockNodeAPI(node)),
-                      updatedAt: firstSubscription.subscription.updatedAt,
-                      status: firstSubscription.subscription.status,
-                      info: firstSubscription.subscription.info,
-                      link: firstSubscription.subscription.link,
-                      tag: firstSubscription.subscription.tag,
-                    }
-                  : null,
+                subscriptions: subscriptions.map((binding) => ({
+                  subscriptionId: numericID(binding.subscription.id),
+                  nameFilterRegex: binding.nameFilterRegex,
+                  matchedCount: binding.matchedCount,
+                  sampleMatchedNodes: binding.matchedNodes.slice(0, 5).map((node) => toMockNodeAPI(node)),
+                  updatedAt: binding.subscription.updatedAt,
+                  status: binding.subscription.status,
+                  info: binding.subscription.info,
+                  link: binding.subscription.link,
+                  tag: binding.subscription.tag,
+                })),
               }
             }),
           } as T
@@ -459,7 +459,7 @@ export class MockAPIClient implements APIClientInterface {
             policy: group.policy,
             policyParams: group.policyParams,
             nodes: group.nodes.map((node) => toMockNodeAPI(node)),
-            subscriptions: group.subscriptions.map((binding) => ({
+            subscriptions: group.subscriptions.map(materializeMockGroupSubscriptionBinding).map((binding) => ({
               subscriptionId: numericID(binding.subscription.id),
               nameFilterRegex: binding.nameFilterRegex,
               matchedCount: binding.matchedCount,
@@ -716,6 +716,17 @@ export class MockAPIClient implements APIClientInterface {
       return { updated } as T
     }
 
+    const subscriptionRefreshMatch = path.match(subscriptionRefreshPathPattern)
+    if (method === 'POST' && subscriptionRefreshMatch) {
+      const id = refreshMockSubscription(subscriptionRefreshMatch[1])
+      return { id } as T
+    }
+
+    const groupMatch = path.match(groupPathPattern)
+    if (method === 'DELETE' && groupMatch) {
+      return { removed: deleteMockGroup(groupMatch[1]) } as T
+    }
+
     if (method === 'POST' && (path.endsWith('/select') || path.endsWith('/refresh'))) {
       return { applied: 1, selectedId: 1, id: 1 } as T
     }
@@ -850,7 +861,7 @@ function allMockLatencyNodeIds() {
     for (const node of group.nodes) {
       addID(node.id)
     }
-    for (const binding of group.subscriptions) {
+    for (const binding of group.subscriptions.map(materializeMockGroupSubscriptionBinding)) {
       for (const node of binding.matchedNodes) {
         addID(node.id)
       }
@@ -889,6 +900,11 @@ function findMockGroup(groupID: string | number) {
   return mockGroups.groups.find((group) => numericID(group.id) === id)
 }
 
+function findMockSubscription(subscriptionID: string | number) {
+  const id = numericID(subscriptionID)
+  return mockSubscriptions.subscriptions.find((subscription) => numericID(subscription.id) === id)
+}
+
 function findMockNode(nodeID: string | number) {
   const id = numericID(nodeID)
   const manualNode = mockNodes.nodes.items.find((node) => numericID(node.id) === id)
@@ -914,6 +930,47 @@ function findMockNode(nodeID: string | number) {
   }
 
   return null
+}
+
+function compileMockNameFilter(nameFilterRegex?: string | null) {
+  const trimmed = nameFilterRegex?.trim()
+  return trimmed ? new RegExp(trimmed) : null
+}
+
+function mockSubscriptionMatchedNodes(subscriptionID: string | number, nameFilterRegex?: string | null) {
+  const subscription = findMockSubscription(subscriptionID)
+  if (!subscription) return []
+
+  const regex = compileMockNameFilter(nameFilterRegex)
+  return subscription.nodes.items
+    .filter((node) => !regex || regex.test(node.name))
+    .map((node) => ({
+      ...node,
+      address: '',
+      tag: null,
+      subscriptionID: subscription.id,
+    }))
+}
+
+function materializeMockGroupSubscriptionBinding(binding: (typeof mockGroups.groups)[number]['subscriptions'][number]) {
+  const subscription = findMockSubscription(binding.subscription.id)
+  const matchedNodes = mockSubscriptionMatchedNodes(binding.subscription.id, binding.nameFilterRegex)
+
+  return {
+    ...binding,
+    subscription: subscription
+      ? {
+          id: subscription.id,
+          updatedAt: subscription.updatedAt,
+          tag: subscription.tag,
+          link: subscription.link,
+          status: subscription.status,
+          info: subscription.info,
+        }
+      : binding.subscription,
+    matchedCount: matchedNodes.length,
+    matchedNodes,
+  }
 }
 
 function addMockGroupNodes(groupID: string | number, nodeIDs: number[]) {
@@ -953,11 +1010,7 @@ function addMockGroupSubscriptions(
 ) {
   const group = findMockGroup(groupID)
   if (!group) return 0
-
-  let regex: RegExp | null = null
-  if (nameFilterRegex) {
-    regex = new RegExp(nameFilterRegex)
-  }
+  compileMockNameFilter(nameFilterRegex)
 
   let updated = 0
   const existingSubscriptionIDs = new Set(group.subscriptions.map((binding) => numericID(binding.subscription.id)))
@@ -965,20 +1018,11 @@ function addMockGroupSubscriptions(
   for (const subscriptionID of subscriptionIDs) {
     if (existingSubscriptionIDs.has(subscriptionID)) continue
 
-    const subscription = mockSubscriptions.subscriptions.find((item) => numericID(item.id) === subscriptionID)
+    const subscription = findMockSubscription(subscriptionID)
     if (!subscription) continue
 
-    const matchedNodes = subscription.nodes.items
-      .filter((node) => !regex || regex.test(node.name))
-      .map((node) => ({
-        ...node,
-        address: '',
-        tag: null,
-        subscriptionID: subscription.id,
-      }))
-
     group.subscriptions.push({
-      matchedCount: matchedNodes.length,
+      matchedCount: mockSubscriptionMatchedNodes(subscription.id, nameFilterRegex).length,
       nameFilterRegex,
       subscription: {
         id: subscription.id,
@@ -988,7 +1032,7 @@ function addMockGroupSubscriptions(
         status: subscription.status,
         info: subscription.info,
       },
-      matchedNodes,
+      matchedNodes: [],
     })
     existingSubscriptionIDs.add(subscriptionID)
     updated += 1
@@ -1007,6 +1051,29 @@ function deleteMockGroupSubscriptions(groupID: string | number, subscriptionIDs:
     (binding) => !deletedSubscriptionIDs.has(numericID(binding.subscription.id)),
   )
   return before - group.subscriptions.length
+}
+
+function deleteMockGroup(groupID: string | number) {
+  const id = numericID(groupID)
+  const before = mockGroups.groups.length
+  mockGroups.groups = mockGroups.groups.filter((group) => numericID(group.id) !== id)
+  return before - mockGroups.groups.length
+}
+
+function refreshMockSubscription(subscriptionID: string | number) {
+  const subscription = findMockSubscription(subscriptionID)
+  if (!subscription) return 0
+
+  const nextIndex = subscription.nodes.items.length + 1
+  subscription.nodes.items.push({
+    id: `sub${numericID(subscription.id)}-node-${nextIndex}`,
+    link: 'vless://refresh.example.invalid',
+    name: `Subscription-Refresh-${String(nextIndex).padStart(2, '0')}`,
+    address: 'refresh.example.invalid:443',
+    protocol: 'vless',
+  })
+  subscription.updatedAt = new Date().toISOString()
+  return numericID(subscription.id)
 }
 
 function requestedMockLatencyNodeIds(body: unknown) {

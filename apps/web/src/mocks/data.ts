@@ -364,6 +364,33 @@ export const mockSubscriptions: SubscriptionListView = {
         ],
       },
     },
+    {
+      id: 'sub-3',
+      tag: 'Regional Provider',
+      status: 'ok',
+      link: 'https://regional.example.com/subscribe/token',
+      info: 'upload=2147483648; download=8589934592; total=17179869184; expire=1741046400',
+      updatedAt: '2024-11-29T08:15:00Z',
+      cronExp: '0 6 * * *',
+      cronEnable: true,
+      useProxy: false,
+      nodes: {
+        items: [
+          {
+            id: 'sub3-node-1',
+            name: 'Regional-Standard-01',
+            protocol: 'vless',
+            link: 'vless://xxxxx',
+          },
+          {
+            id: 'sub3-node-2',
+            name: 'Regional-Standard-02',
+            protocol: 'trojan',
+            link: 'trojan://xxxxx',
+          },
+        ],
+      },
+    },
   ],
 } as any
 

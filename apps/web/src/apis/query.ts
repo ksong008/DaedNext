@@ -196,7 +196,7 @@ interface GroupSummaryAPI {
   nodeCount: number
   subscriptionCount: number
   firstNode?: NodeAPI | null
-  firstSubscription?: {
+  subscriptions: Array<{
     subscriptionId: number
     nameFilterRegex?: string | null
     matchedCount: number
@@ -206,7 +206,7 @@ interface GroupSummaryAPI {
     info: string
     link: string
     tag?: string | null
-  } | null
+  }>
 }
 
 interface SubscriptionAPI {
@@ -954,7 +954,6 @@ function adaptGroup(group: GroupAPI): GroupResource {
 }
 
 function adaptGroupSummary(group: GroupSummaryAPI): GroupSummaryResource {
-  const firstSubscription = group.firstSubscription
   return {
     id: String(group.id),
     name: group.name,
@@ -964,21 +963,19 @@ function adaptGroupSummary(group: GroupSummaryAPI): GroupSummaryResource {
     nodeCount: group.nodeCount,
     subscriptionCount: group.subscriptionCount,
     firstNode: group.firstNode ? adaptNode(group.firstNode) : null,
-    firstSubscription: firstSubscription
-      ? {
-          nameFilterRegex: firstSubscription.nameFilterRegex ?? null,
-          matchedCount: firstSubscription.matchedCount,
-          subscription: {
-            id: String(firstSubscription.subscriptionId),
-            updatedAt: firstSubscription.updatedAt,
-            tag: firstSubscription.tag ?? null,
-            status: firstSubscription.status,
-            link: firstSubscription.link,
-            info: firstSubscription.info,
-          },
-          sampleMatchedNodes: (firstSubscription.sampleMatchedNodes ?? []).map(adaptNode),
-        }
-      : null,
+    subscriptions: group.subscriptions.map((subscription) => ({
+      nameFilterRegex: subscription.nameFilterRegex ?? null,
+      matchedCount: subscription.matchedCount,
+      subscription: {
+        id: String(subscription.subscriptionId),
+        updatedAt: subscription.updatedAt,
+        tag: subscription.tag ?? null,
+        status: subscription.status,
+        link: subscription.link,
+        info: subscription.info,
+      },
+      sampleMatchedNodes: (subscription.sampleMatchedNodes ?? []).map(adaptNode),
+    })),
   }
 }
 
