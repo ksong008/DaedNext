@@ -4,7 +4,7 @@
     "body": [
       "global {",
       "  tproxy_port: ${1:12345}",
-      "  log_level: ${2|info,debug,warn,error,trace|}",
+      "  log_level: ${2|error,warn,info,debug,trace|}",
       "  tcp_check_url: '${3:http://cp.cloudflare.com}'",
       "  udp_check_dns: '${4:dns.google:53}'",
       "  check_interval: ${5:30s}",
@@ -48,8 +48,8 @@
     "prefix": "group",
     "body": [
       "group {",
-      "  ${1:my_group} {",
-      "    policy: ${2|min_moving_avg,min,min_avg10,random,fixed(0)|}",
+      "  ${1:default} {",
+      "    policy: ${2|random,min_moving_avg,min,min_avg10,fixed(0)|}",
       "    ${0}",
       "  }",
       "}"
@@ -61,7 +61,7 @@
     "body": [
       "${1:my_group} {",
       "  filter: ${2:subtag(my_sub)}",
-      "  policy: ${3|min_moving_avg,min,min_avg10,random,fixed(0)|}",
+      "  policy: ${3|random,min_moving_avg,min,min_avg10,fixed(0)|}",
       "  ${0}",
       "}"
     ],
@@ -103,7 +103,7 @@
   },
   "Policy Min Moving Avg": {
     "prefix": "policy",
-    "body": ["policy: ${1|min_moving_avg,min,min_avg10,random,fixed(0)|}"],
+    "body": ["policy: ${1|random,min_moving_avg,min,min_avg10,fixed(0)|}"],
     "description": "Group policy declaration"
   },
   "Domain Rule": {
@@ -211,7 +211,7 @@
     "body": [
       "global {",
       "  tproxy_port: 12345",
-      "  log_level: info",
+      "  log_level: error",
       "  tcp_check_url: 'http://cp.cloudflare.com,1.1.1.1,2606:4700:4700::1111'",
       "  udp_check_dns: 'dns.google:53,8.8.8.8,2001:4860:4860::8888'",
       "  check_interval: 30s",
@@ -242,8 +242,8 @@
       "}",
       "",
       "group {",
-      "  proxy {",
-      "    policy: min_moving_avg",
+      "  default {",
+      "    policy: random",
       "  }",
       "}",
       "",
@@ -257,7 +257,7 @@
       "  ",
       "  domain(geosite:category-ads-all) -> block",
       "  ",
-      "  fallback: proxy",
+      "  fallback: default",
       "}"
     ],
     "description": "Create a complete dae configuration example"

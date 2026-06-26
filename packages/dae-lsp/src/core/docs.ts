@@ -114,7 +114,7 @@ export const PARAM_DOCS: Record<string, string> = {
   pprof_port: 'Set non-zero value to enable pprof for debugging.\n\nDefault: `0`',
   so_mark_from_dae:
     'If not zero, traffic sent from dae will be set SO_MARK.\nIt is useful to avoid traffic loop with iptables tproxy rules.\n\nDefault: `0`',
-  log_level: 'Log level for dae.\n\n**Values:** `error`, `warn`, `info`, `debug`, `trace`\n\nDefault: `info`',
+  log_level: 'Log level for dae.\n\n**Values:** `error`, `warn`, `info`, `debug`, `trace`\n\nDefault: `error`',
   disable_waiting_network: 'Disable waiting for network before pulling subscriptions.\n\nDefault: `false`',
   enable_local_tcp_fast_redirect:
     'Enable fast redirect for local TCP connections.\n\nWarning: there is a known kernel issue that breaks certain clients/proxies, such as nadoo/glider.\nUsers may enable this experimental option at their own risks.\n\nDefault: `false`',
@@ -198,7 +198,7 @@ Default: \`chrome_auto\``,
   filter:
     "Filter nodes in group from the global node pool.\n\n**Functions:**\n- `subtag(tag)`: Filter by subscription tag\n- `name(keyword: 'pattern')`: Filter by name with keyword match\n- `name(regex: 'pattern')`: Filter by name with regex match\n\n**Modifiers:**\n- `[add_latency: -500ms]`: Add latency offset for failover\n\nMultiple filters indicate 'or' logic.",
   policy:
-    'Load balancing policy for the group.\n\n**Values:**\n- `random`: Randomly select a node for every connection\n- `fixed(n)`: Select the node at index n\n- `min`: Select node with minimum last latency\n- `min_moving_avg`: Select node with minimum moving average latency\n- `min_avg10`: Select node with minimum average of last 10 latencies',
+    'Load balancing policy for the group.\n\n**Values:**\n- `random`: Randomly select a node for every connection\n- `fixed(n)`: Select the node at index n\n- `min`: Select node with minimum last latency\n- `min_moving_avg`: Select node with minimum moving average latency\n- `min_avg10`: Select node with minimum average of last 10 latencies\n\nDefault: `random`',
 }
 
 // Documentation for rule functions

@@ -83,7 +83,7 @@ Available snippets:
 ```dae
 global {
   tproxy_port: 12345
-  log_level: info
+  log_level: error
   tcp_check_url: 'http://cp.cloudflare.com'
   dial_mode: domain
   wan_interface: auto
@@ -107,9 +107,9 @@ dns {
 }
 
 group {
-  proxy {
+  default {
     filter: subtag(my_sub)
-    policy: min_moving_avg
+    policy: random
   }
 }
 
@@ -118,7 +118,7 @@ routing {
   domain(geosite:cn) -> direct
   dip(geoip:cn) -> direct
   domain(geosite:category-ads-all) -> block
-  fallback: proxy
+  fallback: default
 }
 ```
 
