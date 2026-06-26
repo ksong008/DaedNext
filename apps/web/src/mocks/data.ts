@@ -183,7 +183,7 @@ export const mockConfigs: ConfigListView = {
       name: 'default',
       selected: true,
       global: {
-        logLevel: 'info',
+        logLevel: 'error',
         tproxyPort: 12345,
         allowInsecure: false,
         checkInterval: '30s',
@@ -372,8 +372,8 @@ export const mockGroups: GroupListView = {
   groups: [
     {
       id: 'group-1',
-      name: 'Proxy',
-      policy: Policy.MinMovingAvg,
+      name: 'default',
+      policy: Policy.Random,
       policyParams: [],
       nodes: [
         {
@@ -541,7 +541,7 @@ pname(NetworkManager, systemd-resolved) -> must_direct
 dip(geoip:private) -> direct
 dip(geoip:cn) -> direct
 domain(geosite:cn) -> direct
-fallback: proxy`,
+fallback: default`,
       },
     },
     {
@@ -552,7 +552,7 @@ fallback: proxy`,
         string: `# Global proxy routing
 pname(NetworkManager, systemd-resolved) -> must_direct
 dip(geoip:private) -> direct
-fallback: proxy`,
+fallback: default`,
       },
     },
   ],
@@ -570,7 +570,7 @@ export const mockDNSs: DNSListView = {
 upstream {
   googledns: 'tcp+udp://dns.google.com:53'
   alidns: 'udp://dns.alidns.com:53'
-} as any
+}
 
 routing {
   request {
