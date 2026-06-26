@@ -84,7 +84,7 @@ export const DAE_COMPLETION_ITEMS: DaeCompletionItem[] = [
     kind: 'property',
     detail: 'Log Level',
     documentation: 'Logging level for dae output.\n\n**Values:** `error`, `warn`, `info`, `debug`, `trace`',
-    insertText: 'log_level: ${1|info,warn,error,debug,trace|}',
+    insertText: 'log_level: ${1|error,warn,info,debug,trace|}',
     isSnippet: true,
   },
   {
@@ -343,7 +343,7 @@ export const DAE_COMPLETION_ITEMS: DaeCompletionItem[] = [
     kind: 'property',
     detail: 'Policy',
     documentation: 'Load balancing policy',
-    insertText: 'policy: ${1|min_moving_avg,min,min_avg10,random,fixed(0)|}',
+    insertText: 'policy: ${1|random,min_moving_avg,min,min_avg10,fixed(0)|}',
     isSnippet: true,
   },
 
