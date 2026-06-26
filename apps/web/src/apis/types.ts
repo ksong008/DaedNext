@@ -207,6 +207,18 @@ export interface GeodataView {
   runtimeReloadMessage?: string
 }
 
+export interface GeodataSourceResource {
+  kind: GeodataKind
+  url: string
+  defaultUrl: string
+  usingDefault: boolean
+}
+
+export interface GeodataSettingsView {
+  geosite: GeodataSourceResource
+  geoip: GeodataSourceResource
+}
+
 export interface GeodataUpdateResult {
   geosite?: GeodataResource
   geoip?: GeodataResource

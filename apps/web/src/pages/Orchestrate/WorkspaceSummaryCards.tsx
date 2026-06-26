@@ -2,6 +2,7 @@ import type {
   ConfigResource,
   GeodataKind,
   GeodataResource,
+  GeodataSettingsView,
   GeodataView,
   GroupSummaryResource,
   InterfaceResource,
@@ -14,11 +15,13 @@ import { CloudCog, Map as MapIcon, Pencil, RefreshCw, Settings } from 'lucide-re
 import { memo, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useUpdateGeodataMutation } from '~/apis'
+import { useGeodataSettingsQuery, useUpdateGeodataMutation, useUpdateGeodataSourceMutation } from '~/apis'
 
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
+import { Input } from '~/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
 import { cn } from '~/lib/utils'
 import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
@@ -50,6 +53,21 @@ const summaryLatencyPillClassName =
 const summaryTypePillClassName =
   'rounded-full bg-primary/7 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/7 sm:px-2.5 sm:text-xs'
 
+const geodataSourceUrlMaxLength = 2048
+
+type GeodataSourceValidationError =
+  | { key: 'workspaceSummary.geodataSourceRequired' }
+  | { key: 'workspaceSummary.geodataSourceInvalid' }
+  | { key: 'workspaceSummary.geodataSourceTooLong' }
+  | { key: 'workspaceSummary.geodataSourceUnsupportedScheme' }
+  | {
+      key: 'workspaceSummary.geodataSourceWrongKind'
+      options: {
+        kind: string
+        otherKind: string
+      }
+    }
+
 interface SummaryNodeIdentity {
   title: string
   protocol?: string
@@ -59,6 +77,53 @@ interface SummaryNodeIdentity {
 interface SummaryDestination extends SummaryNodeIdentity {
   subtitle: string
   tooltipNodes?: SummaryNodeIdentity[]
+}
+
+function otherGeodataKind(kind: GeodataKind): GeodataKind {
+  return kind === 'geosite' ? 'geoip' : 'geosite'
+}
+
+function normalizeComparableUrl(value: string) {
+  try {
+    return new URL(value.trim()).href
+  } catch {
+    return value.trim()
+  }
+}
+
+function validateGeodataSourceUrl(
+  rawUrl: string,
+  kind: GeodataKind,
+  settings: GeodataSettingsView | undefined,
+): GeodataSourceValidationError | null {
+  const value = rawUrl.trim()
+  if (!value) return { key: 'workspaceSummary.geodataSourceRequired' }
+  if (value.length > geodataSourceUrlMaxLength) return { key: 'workspaceSummary.geodataSourceTooLong' }
+
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return { key: 'workspaceSummary.geodataSourceInvalid' }
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return { key: 'workspaceSummary.geodataSourceUnsupportedScheme' }
+  }
+
+  const otherKind = otherGeodataKind(kind)
+  const otherDefaultUrl = settings?.[otherKind]?.defaultUrl
+  if (otherDefaultUrl && normalizeComparableUrl(value) === normalizeComparableUrl(otherDefaultUrl)) {
+    return {
+      key: 'workspaceSummary.geodataSourceWrongKind',
+      options: {
+        kind: kind === 'geosite' ? 'Geosite' : 'Geoip',
+        otherKind: otherKind === 'geosite' ? 'Geosite' : 'Geoip',
+      },
+    }
+  }
+
+  return null
 }
 
 function SummaryShell({
@@ -189,9 +254,12 @@ function SummaryGeodataCard({
   categoryLabel,
   itemLabel,
   data,
+  settingsLabel,
   updateLabel,
   updating,
   disabled,
+  settingsDisabled,
+  onOpenSettings,
   onUpdate,
 }: {
   kind: GeodataKind
@@ -200,9 +268,12 @@ function SummaryGeodataCard({
   categoryLabel: string
   itemLabel: string
   data?: GeodataResource
+  settingsLabel: string
   updateLabel: string
   updating?: boolean
   disabled?: boolean
+  settingsDisabled?: boolean
+  onOpenSettings?: (kind: GeodataKind) => void
   onUpdate?: (kind: GeodataKind) => void | Promise<void>
 }) {
   const formatter = useMemo(() => new Intl.NumberFormat(), [])
@@ -213,25 +284,43 @@ function SummaryGeodataCard({
     <div
       className={cn(
         summaryInnerCardClassName,
-        'relative flex min-h-[108px] min-w-0 flex-col gap-2 px-3 py-2.5 pr-10 sm:min-h-[112px] sm:px-3.5 sm:py-3 sm:pr-11',
+        'relative flex min-h-[108px] min-w-0 flex-col gap-2 px-3 py-2.5 pr-[4.75rem] sm:min-h-[112px] sm:px-3.5 sm:py-3 sm:pr-20',
       )}
     >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="absolute top-2 right-2 h-7 w-7 rounded-full border border-primary/10 bg-primary/6 text-primary shadow-none hover:bg-primary/10 hover:text-primary"
-            aria-label={updateLabel}
-            disabled={disabled || updating}
-            onClick={() => void onUpdate?.(kind)}
-          >
-            <RefreshCw className={cn('h-3.5 w-3.5', updating && 'animate-spin')} />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{updateLabel}</TooltipContent>
-      </Tooltip>
+      <div className="absolute top-2 right-2 flex items-center gap-1">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="h-7 w-7 rounded-full border border-primary/10 bg-primary/6 text-primary shadow-none hover:bg-primary/10 hover:text-primary"
+              aria-label={settingsLabel}
+              disabled={settingsDisabled}
+              onClick={() => onOpenSettings?.(kind)}
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{settingsLabel}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="h-7 w-7 rounded-full border border-primary/10 bg-primary/6 text-primary shadow-none hover:bg-primary/10 hover:text-primary"
+              aria-label={updateLabel}
+              disabled={disabled || updating}
+              onClick={() => void onUpdate?.(kind)}
+            >
+              <RefreshCw className={cn('h-3.5 w-3.5', updating && 'animate-spin')} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{updateLabel}</TooltipContent>
+        </Tooltip>
+      </div>
       <div className="min-w-0">
         <span className="block truncate text-xs font-medium text-muted-foreground">{title}</span>
       </div>
@@ -613,8 +702,14 @@ export const WorkspaceSummaryCards = memo(
     testingLatencyProgress?: { completed: number; total: number } | null
   }) => {
     const { t } = useTranslation()
+    const geodataSettingsQuery = useGeodataSettingsQuery()
     const updateGeodataMutation = useUpdateGeodataMutation()
+    const updateGeodataSourceMutation = useUpdateGeodataSourceMutation()
     const [updatingGeodataKind, setUpdatingGeodataKind] = useState<GeodataKind | null>(null)
+    const [geodataSettingsKind, setGeodataSettingsKind] = useState<GeodataKind | null>(null)
+    const [geodataSourceUrl, setGeodataSourceUrl] = useState('')
+    const [geodataSourceError, setGeodataSourceError] = useState<string | undefined>()
+    const activeGeodataSource = geodataSettingsKind ? geodataSettingsQuery.data?.[geodataSettingsKind] : undefined
 
     const selectedConfigSummary = useMemo(() => configs.find((config) => config.selected) ?? configs[0], [configs])
     const activeConfigName = selectedConfig?.name || selectedConfigSummary?.name || 'default'
@@ -727,149 +822,237 @@ export const WorkspaceSummaryCards = memo(
         setUpdatingGeodataKind(null)
       }
     }
+    const openGeodataSettings = (kind: GeodataKind) => {
+      setGeodataSettingsKind(kind)
+      setGeodataSourceUrl(geodataSettingsQuery.data?.[kind]?.url ?? '')
+      setGeodataSourceError(undefined)
+    }
+    const closeGeodataSettings = () => {
+      setGeodataSettingsKind(null)
+      setGeodataSourceError(undefined)
+    }
+    const saveGeodataSource = async () => {
+      if (!geodataSettingsKind) return
+      const error = validateGeodataSourceUrl(geodataSourceUrl, geodataSettingsKind, geodataSettingsQuery.data)
+      if (error) {
+        setGeodataSourceError('options' in error ? t(error.key, error.options) : t(error.key))
+        return
+      }
+      try {
+        await updateGeodataSourceMutation.mutateAsync({
+          kind: geodataSettingsKind,
+          url: geodataSourceUrl.trim(),
+        })
+        toast.success(t('workspaceSummary.geodataSourceSaved'))
+        closeGeodataSettings()
+      } catch {
+        toast.error(t('error'))
+      }
+    }
+    const resetGeodataSource = async () => {
+      if (!geodataSettingsKind) return
+      try {
+        await updateGeodataSourceMutation.mutateAsync({
+          kind: geodataSettingsKind,
+          restoreDefault: true,
+        })
+        toast.success(t('workspaceSummary.geodataSourceReset'))
+        closeGeodataSettings()
+      } catch {
+        toast.error(t('error'))
+      }
+    }
+    const geodataSettingsTitle =
+      geodataSettingsKind === 'geoip'
+        ? t('workspaceSummary.geoipSourceTitle')
+        : t('workspaceSummary.geositeSourceTitle')
 
     return (
-      <section className="grid items-stretch gap-4 lg:grid-cols-3 lg:gap-5">
-        <SummaryShell
-          title={t('config')}
-          subtitle={t('workspaceSummary.configSubtitle')}
-          icon={<Settings className="h-4.5 w-4.5" />}
-          actionLabel={t('actions.settings')}
-          onAction={onOpenConfig}
-        >
-          <div className="grid grid-cols-2 content-start items-start gap-2">
-            <SummaryConfigCard
-              label={t('workspaceSummary.currentConfig')}
-              value={activeConfigName}
-              tag={t('workspaceSummary.applied')}
-            />
-            <SummaryConfigCard label={t('tproxyPort')} value={String(selectedConfig?.global.tproxyPort ?? '—')} />
-            <SummaryConfigCard
-              label={t('wanInterface')}
-              value={wanInterfaceSummary.value}
-              detail={wanInterfaceSummary.detail}
-            />
-            <SummaryConfigCard
-              label={t('lanInterface')}
-              value={lanInterfaceSummary.value}
-              detail={lanInterfaceSummary.detail}
-            />
-            <SummaryConfigCard label={t('dialMode')} value={selectedConfig?.global.dialMode || '—'} />
-            <SummaryConfigCard
-              label={t('workspaceSummary.fallbackDns')}
-              value={selectedConfig?.global.fallbackResolver || '—'}
-            />
-            <SummaryGeodataCard
-              kind="geosite"
-              title={t('workspaceSummary.geosite')}
-              versionLabel={t('workspaceSummary.version')}
-              categoryLabel={t('workspaceSummary.categoryCount')}
-              itemLabel={t('workspaceSummary.ruleCount')}
-              data={geodata?.geosite}
-              updateLabel={t('workspaceSummary.updateGeosite')}
-              updating={updatingGeodataKind === 'geosite'}
-              disabled={updateGeodataMutation.isPending}
-              onUpdate={updateGeodata}
-            />
-            <SummaryGeodataCard
-              kind="geoip"
-              title={t('workspaceSummary.geoip')}
-              versionLabel={t('workspaceSummary.version')}
-              categoryLabel={t('workspaceSummary.categoryCount')}
-              itemLabel={t('workspaceSummary.cidrCount')}
-              data={geodata?.geoip}
-              updateLabel={t('workspaceSummary.updateGeoip')}
-              updating={updatingGeodataKind === 'geoip'}
-              disabled={updateGeodataMutation.isPending}
-              onUpdate={updateGeodata}
-            />
-          </div>
-        </SummaryShell>
-
-        <SummaryShell
-          title={t('group')}
-          subtitle={t('workspaceSummary.groupSubtitle')}
-          icon={<MapIcon className="h-4.5 w-4.5" />}
-          actionLabel={t('actions.viewDetails')}
-          onAction={onOpenGroup}
-        >
-          <div className="min-h-0 max-h-[340px] flex-1 space-y-2.5 overflow-y-auto overscroll-contain py-0.5 pr-1 lg:max-h-none">
-            {groupPathCards.map(({ group, destination, latencyLabel, latencyTone }) => (
-              <CurrentGroupPathCard
-                key={group.id}
-                groupName={group.name || '—'}
-                currentLabel={t('workspaceSummary.currentGroup')}
-                policy={group.policy}
-                policyLabel={t('policy')}
-                destination={destination}
-                latencyTitle={t('latency.label')}
-                latencyLabel={latencyLabel}
-                latencyTone={latencyTone}
-                editGroupLabel={t('groupPicker.editGroupResources')}
-                onEditGroup={onEditGroupResources ? () => onEditGroupResources(group.id) : undefined}
+      <>
+        <section className="grid items-stretch gap-4 lg:grid-cols-3 lg:gap-5">
+          <SummaryShell
+            title={t('config')}
+            subtitle={t('workspaceSummary.configSubtitle')}
+            icon={<Settings className="h-4.5 w-4.5" />}
+            actionLabel={t('actions.settings')}
+            onAction={onOpenConfig}
+          >
+            <div className="grid grid-cols-2 content-start items-start gap-2">
+              <SummaryConfigCard
+                label={t('workspaceSummary.currentConfig')}
+                value={activeConfigName}
+                tag={t('workspaceSummary.applied')}
               />
-            ))}
-          </div>
-        </SummaryShell>
-
-        <SummaryShell
-          title={t('workspaceSummary.nodeSubscriptionTitle')}
-          subtitle={t('workspaceSummary.nodeSubscriptionSubtitle')}
-          icon={<CloudCog className="h-4.5 w-4.5" />}
-          actionLabel={nodeLatencyActionLabel}
-          actionDisabled={testingLatencies}
-          onAction={onTestAllNodeLatencies}
-        >
-          <div className="min-h-0 max-h-[326px] space-y-2 overflow-y-auto overscroll-contain pr-1 lg:max-h-[276px]">
-            <div className="space-y-2">
-              {topNodes.map(({ node, latency, source }, index) => {
-                const hasLatency = Number.isFinite(latency)
-                const sourceLabel =
-                  source.type === 'subscription'
-                    ? `${t('workspaceSummary.fromSubscription')} · ${source.name}`
-                    : t('workspaceSummary.customNode')
-                const nodeMeta = [sourceLabel, node.address].filter(Boolean).join(' · ')
-
-                return (
-                  <NodeRow
-                    key={node.id}
-                    rank={index + 1}
-                    title={node.name || node.tag || node.address}
-                    subtitle={nodeMeta}
-                    protocol={node.protocol || undefined}
-                    transport={node.transport || undefined}
-                    latencyLabel={hasLatency ? `${latency} ms` : t('latency.unavailable')}
-                    warn={hasLatency && latency >= 80}
-                    muted={!hasLatency}
-                  />
-                )
-              })}
+              <SummaryConfigCard label={t('tproxyPort')} value={String(selectedConfig?.global.tproxyPort ?? '—')} />
+              <SummaryConfigCard
+                label={t('wanInterface')}
+                value={wanInterfaceSummary.value}
+                detail={wanInterfaceSummary.detail}
+              />
+              <SummaryConfigCard
+                label={t('lanInterface')}
+                value={lanInterfaceSummary.value}
+                detail={lanInterfaceSummary.detail}
+              />
+              <SummaryConfigCard label={t('dialMode')} value={selectedConfig?.global.dialMode || '—'} />
+              <SummaryConfigCard
+                label={t('workspaceSummary.fallbackDns')}
+                value={selectedConfig?.global.fallbackResolver || '—'}
+              />
+              <SummaryGeodataCard
+                kind="geosite"
+                title={t('workspaceSummary.geosite')}
+                versionLabel={t('workspaceSummary.version')}
+                categoryLabel={t('workspaceSummary.categoryCount')}
+                itemLabel={t('workspaceSummary.ruleCount')}
+                data={geodata?.geosite}
+                settingsLabel={t('workspaceSummary.geositeSourceSettings')}
+                updateLabel={t('workspaceSummary.updateGeosite')}
+                updating={updatingGeodataKind === 'geosite'}
+                disabled={updateGeodataMutation.isPending}
+                settingsDisabled={geodataSettingsQuery.isPending}
+                onOpenSettings={openGeodataSettings}
+                onUpdate={updateGeodata}
+              />
+              <SummaryGeodataCard
+                kind="geoip"
+                title={t('workspaceSummary.geoip')}
+                versionLabel={t('workspaceSummary.version')}
+                categoryLabel={t('workspaceSummary.categoryCount')}
+                itemLabel={t('workspaceSummary.cidrCount')}
+                data={geodata?.geoip}
+                settingsLabel={t('workspaceSummary.geoipSourceSettings')}
+                updateLabel={t('workspaceSummary.updateGeoip')}
+                updating={updatingGeodataKind === 'geoip'}
+                disabled={updateGeodataMutation.isPending}
+                settingsDisabled={geodataSettingsQuery.isPending}
+                onOpenSettings={openGeodataSettings}
+                onUpdate={updateGeodata}
+              />
             </div>
-            <div className="space-y-1.5">
-              {visibleSubscriptions.map((subscription) => (
-                <StatusRow
-                  key={subscription.id}
-                  title={subscription.tag || subscription.link}
-                  subtitle={`${t('workspaceSummary.subscriptionUpdated')} · ${subscription.nodeCount} ${t('node')}`}
-                  badge={t('workspaceSummary.healthy')}
+          </SummaryShell>
+
+          <SummaryShell
+            title={t('group')}
+            subtitle={t('workspaceSummary.groupSubtitle')}
+            icon={<MapIcon className="h-4.5 w-4.5" />}
+            actionLabel={t('actions.viewDetails')}
+            onAction={onOpenGroup}
+          >
+            <div className="min-h-0 max-h-[340px] flex-1 space-y-2.5 overflow-y-auto overscroll-contain py-0.5 pr-1 lg:max-h-none">
+              {groupPathCards.map(({ group, destination, latencyLabel, latencyTone }) => (
+                <CurrentGroupPathCard
+                  key={group.id}
+                  groupName={group.name || '—'}
+                  currentLabel={t('workspaceSummary.currentGroup')}
+                  policy={group.policy}
+                  policyLabel={t('policy')}
+                  destination={destination}
+                  latencyTitle={t('latency.label')}
+                  latencyLabel={latencyLabel}
+                  latencyTone={latencyTone}
+                  editGroupLabel={t('groupPicker.editGroupResources')}
+                  onEditGroup={onEditGroupResources ? () => onEditGroupResources(group.id) : undefined}
                 />
               ))}
-              <div className="grid min-h-[48px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-border/35 bg-accent/10 px-3 py-2">
-                <strong className="truncate text-sm font-semibold text-foreground">
-                  {t('workspaceSummary.customNodes')}
-                </strong>
-                <span className="text-sm font-bold text-muted-foreground">{displayedManualNodeCount ?? '—'}</span>
+            </div>
+          </SummaryShell>
+
+          <SummaryShell
+            title={t('workspaceSummary.nodeSubscriptionTitle')}
+            subtitle={t('workspaceSummary.nodeSubscriptionSubtitle')}
+            icon={<CloudCog className="h-4.5 w-4.5" />}
+            actionLabel={nodeLatencyActionLabel}
+            actionDisabled={testingLatencies}
+            onAction={onTestAllNodeLatencies}
+          >
+            <div className="min-h-0 max-h-[326px] space-y-2 overflow-y-auto overscroll-contain pr-1 lg:max-h-[276px]">
+              <div className="space-y-2">
+                {topNodes.map(({ node, latency, source }, index) => {
+                  const hasLatency = Number.isFinite(latency)
+                  const sourceLabel =
+                    source.type === 'subscription'
+                      ? `${t('workspaceSummary.fromSubscription')} · ${source.name}`
+                      : t('workspaceSummary.customNode')
+                  const nodeMeta = [sourceLabel, node.address].filter(Boolean).join(' · ')
+
+                  return (
+                    <NodeRow
+                      key={node.id}
+                      rank={index + 1}
+                      title={node.name || node.tag || node.address}
+                      subtitle={nodeMeta}
+                      protocol={node.protocol || undefined}
+                      transport={node.transport || undefined}
+                      latencyLabel={hasLatency ? `${latency} ms` : t('latency.unavailable')}
+                      warn={hasLatency && latency >= 80}
+                      muted={!hasLatency}
+                    />
+                  )
+                })}
+              </div>
+              <div className="space-y-1.5">
+                {visibleSubscriptions.map((subscription) => (
+                  <StatusRow
+                    key={subscription.id}
+                    title={subscription.tag || subscription.link}
+                    subtitle={`${t('workspaceSummary.subscriptionUpdated')} · ${subscription.nodeCount} ${t('node')}`}
+                    badge={t('workspaceSummary.healthy')}
+                  />
+                ))}
+                <div className="grid min-h-[48px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-[14px] border border-border/35 bg-accent/10 px-3 py-2">
+                  <strong className="truncate text-sm font-semibold text-foreground">
+                    {t('workspaceSummary.customNodes')}
+                  </strong>
+                  <span className="text-sm font-bold text-muted-foreground">{displayedManualNodeCount ?? '—'}</span>
+                </div>
               </div>
             </div>
-          </div>
-          <SummarySplitActions
-            leftLabel={t('node')}
-            rightLabel={t('subscription')}
-            onLeft={onOpenNodes}
-            onRight={onOpenSubscriptions}
-          />
-        </SummaryShell>
-      </section>
+            <SummarySplitActions
+              leftLabel={t('node')}
+              rightLabel={t('subscription')}
+              onLeft={onOpenNodes}
+              onRight={onOpenSubscriptions}
+            />
+          </SummaryShell>
+        </section>
+
+        <Dialog open={geodataSettingsKind !== null} onOpenChange={(open) => !open && closeGeodataSettings()}>
+          <DialogContent className="max-w-[calc(100vw-1rem)] p-4 sm:max-w-xl sm:p-6">
+            <DialogHeader>
+              <DialogTitle>{geodataSettingsTitle}</DialogTitle>
+            </DialogHeader>
+            <Input
+              label={t('workspaceSummary.geodataSource')}
+              value={geodataSourceUrl}
+              placeholder={activeGeodataSource?.defaultUrl}
+              error={geodataSourceError}
+              disabled={geodataSettingsQuery.isPending && !activeGeodataSource}
+              onChange={(event) => {
+                setGeodataSourceUrl(event.target.value)
+                setGeodataSourceError(undefined)
+              }}
+            />
+            <DialogFooter className="!flex-row !justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!geodataSettingsKind || updateGeodataSourceMutation.isPending}
+                onClick={() => void resetGeodataSource()}
+              >
+                {t('workspaceSummary.restoreDefaultSource')}
+              </Button>
+              <Button
+                type="button"
+                disabled={!geodataSettingsKind || !geodataSourceUrl.trim() || updateGeodataSourceMutation.isPending}
+                onClick={() => void saveGeodataSource()}
+              >
+                {t('workspaceSummary.saveSource')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
     )
   },
 )

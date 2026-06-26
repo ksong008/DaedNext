@@ -59,6 +59,7 @@ export const webQueryKeys = {
   },
   geodata: {
     status: () => rootKey(QUERY_KEY_GEODATA),
+    settings: () => childKey(QUERY_KEY_GEODATA, 'settings'),
   },
   node: {
     list: () => rootKey(QUERY_KEY_NODE),

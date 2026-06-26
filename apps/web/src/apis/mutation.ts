@@ -7,6 +7,8 @@ import type {
   DAEConfigFileImportResult,
   DAEConfigFilePreviewResult,
   GeodataKind,
+  GeodataSettingsView,
+  GeodataSourceResource,
   GeodataUpdateResult,
   GeodataView,
   GlobalInput,
@@ -853,6 +855,24 @@ export function useUpdateGeodataMutation() {
         void invalidateQueryKeys(queryClient, [webQueryKeys.geodata.status()])
       }
       void invalidateQueryKeys(queryClient, [webQueryKeys.general.state()])
+    },
+  })
+}
+
+export function useUpdateGeodataSourceMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ kind, url, restoreDefault }: { kind: GeodataKind; url?: string; restoreDefault?: boolean }) =>
+      apiClient.patch<GeodataSourceResource>(
+        `/geodata/${kind}/settings`,
+        restoreDefault ? { restoreDefault: true } : { url: url ?? '' },
+      ),
+    onSuccess: (source) => {
+      queryClient.setQueryData<GeodataSettingsView | undefined>(webQueryKeys.geodata.settings(), (current) =>
+        current ? { ...current, [source.kind]: source } : current,
+      )
     },
   })
 }
