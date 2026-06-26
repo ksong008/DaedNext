@@ -98,6 +98,7 @@ export const SHELL_MOBILE_PRIMARY_ITEMS: OrchestrateSectionKey[] = [
   'overview',
   'log',
   'config',
+  'routing',
   'group',
   'node',
   'subscription',

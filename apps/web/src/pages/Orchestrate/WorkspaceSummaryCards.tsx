@@ -629,8 +629,14 @@ export const WorkspaceSummaryCards = memo(
           const directNodeSubscriptionName = directNode?.subscriptionID
             ? subscriptionNameById.get(directNode.subscriptionID)
             : undefined
-          const subscriptionBinding = group.firstSubscription ?? undefined
-          const subscriptionNodes = subscriptionBinding?.sampleMatchedNodes ?? []
+          const subscriptionBindings = group.subscriptions
+          const subscriptionNodes = subscriptionBindings.flatMap((binding) => binding.sampleMatchedNodes)
+          const subscriptionMatchedCount = subscriptionBindings.reduce((sum, binding) => sum + binding.matchedCount, 0)
+          const firstBinding = subscriptionBindings[0]
+          const subscriptionTitle =
+            subscriptionBindings.length === 1 && firstBinding
+              ? firstBinding.subscription.tag || firstBinding.subscription.link || '—'
+              : t('groupPicker.subscriptionGroupsCount', { count: subscriptionBindings.length })
           const destination = directNode
             ? {
                 ...getNodeIdentity(directNode),
@@ -638,13 +644,13 @@ export const WorkspaceSummaryCards = memo(
                   ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
                   : t('workspaceSummary.manualNode'),
               }
-            : subscriptionBinding
+            : subscriptionBindings.length > 0
               ? {
-                  title: subscriptionBinding.subscription.tag || subscriptionBinding.subscription.link || '—',
+                  title: subscriptionTitle,
                   subtitle: `${t('workspaceSummary.fromSubscription')} · ${t(
                     'groupPicker.subscriptionPreviewMatchedCount',
                     {
-                      count: subscriptionBinding.matchedCount,
+                      count: subscriptionMatchedCount,
                     },
                   )}`,
                   tooltipNodes: subscriptionNodes.map(getNodeIdentity),
@@ -656,12 +662,12 @@ export const WorkspaceSummaryCards = memo(
             destination,
             latencyLabel: directNode
               ? (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
-              : subscriptionBinding
+              : subscriptionBindings.length > 0
                 ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
                 : '—',
             latencyTone: directNode
               ? formatLatencyTone(nodeLatencies?.[directNode.id])
-              : subscriptionBinding
+              : subscriptionBindings.length > 0
                 ? formatBestLatencyTone(subscriptionNodes, nodeLatencies)
                 : 'unavailable',
           }
@@ -672,7 +678,7 @@ export const WorkspaceSummaryCards = memo(
       () => getTopNodes(sortedNodes, subscriptionBackedNodes, subscriptionNameById, nodeLatencies),
       [nodeLatencies, sortedNodes, subscriptionBackedNodes, subscriptionNameById],
     )
-    const topSubscriptions = useMemo(() => subscriptions.slice(0, 2), [subscriptions])
+    const visibleSubscriptions = useMemo(() => subscriptions, [subscriptions])
     const displayedManualNodeCount = useMemo(
       () =>
         manualNodeCount ??
@@ -840,7 +846,7 @@ export const WorkspaceSummaryCards = memo(
               })}
             </div>
             <div className="space-y-1.5">
-              {topSubscriptions.map((subscription) => (
+              {visibleSubscriptions.map((subscription) => (
                 <StatusRow
                   key={subscription.id}
                   title={subscription.tag || subscription.link}
