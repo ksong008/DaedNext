@@ -29,7 +29,7 @@ function defaultEndpointURL() {
 
 export const DEFAULT_ENDPOINT_URL = defaultEndpointURL()
 
-export const DEFAULT_LOG_LEVEL = LogLevel.info
+export const DEFAULT_LOG_LEVEL = LogLevel.error
 export const DEFAULT_TPROXY_PORT = 12345
 export const DEFAULT_TPROXY_PORT_PROTECT = true
 export const DEFAULT_SO_MARK_FROM_DAE = 0
@@ -55,7 +55,7 @@ export const DEFAULT_FALLBACK_RESOLVER = '8.8.8.8:53'
 export const DEFAULT_CONFIG_NAME = 'global'
 export const DEFAULT_DNS_NAME = 'default'
 export const DEFAULT_ROUTING_NAME = 'default'
-export const DEFAULT_GROUP_NAME = 'proxy'
+export const DEFAULT_GROUP_NAME = 'default'
 
 export function DEFAULT_CONFIG_WITH_LAN_INTERFACEs(interfaces: string[] = []): GlobalInput {
   return {
@@ -86,7 +86,7 @@ export function DEFAULT_CONFIG_WITH_LAN_INTERFACEs(interfaces: string[] = []): G
   }
 }
 
-export const DEFAULT_GROUP_POLICY = Policy.MinMovingAvg
+export const DEFAULT_GROUP_POLICY = Policy.Random
 
 export const DEFAULT_ROUTING = `
 pname(NetworkManager, systemd-resolved, dnsmasq) -> must_direct

@@ -154,7 +154,7 @@ export function LogResource() {
   const clearLogsMutation = useClearLogsMutation()
   const updateLogSettingsMutation = useUpdateLogSettingsMutation()
   const [entries, setEntries] = useState<LogEntry[]>([])
-  const runtimeLevel = runtimeLevelQuery.data?.level || 'info'
+  const runtimeLevel = runtimeLevelQuery.data?.level || 'error'
 
   useEffect(() => {
     const queriedEntries = logsQuery.data?.items ?? []
