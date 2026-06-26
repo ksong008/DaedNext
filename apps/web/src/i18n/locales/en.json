@@ -468,7 +468,6 @@
     "geositeSourceSettings": "Configure Geosite Source",
     "geoipSourceSettings": "Configure Geoip Source",
     "restoreDefaultSource": "Restore Default",
-    "saveSource": "Save",
     "geodataSourceSaved": "Data source saved",
     "geodataSourceReset": "Data source restored",
     "geodataSourceRequired": "Enter a data source",
