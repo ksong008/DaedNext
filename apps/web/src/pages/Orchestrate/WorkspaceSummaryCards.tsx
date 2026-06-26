@@ -1044,10 +1044,18 @@ export const WorkspaceSummaryCards = memo(
               </Button>
               <Button
                 type="button"
+                variant="outline"
+                disabled={updateGeodataSourceMutation.isPending}
+                onClick={closeGeodataSettings}
+              >
+                {t('actions.cancel')}
+              </Button>
+              <Button
+                type="button"
                 disabled={!geodataSettingsKind || !geodataSourceUrl.trim() || updateGeodataSourceMutation.isPending}
                 onClick={() => void saveGeodataSource()}
               >
-                {t('workspaceSummary.saveSource')}
+                {t('actions.confirm')}
               </Button>
             </DialogFooter>
           </DialogContent>

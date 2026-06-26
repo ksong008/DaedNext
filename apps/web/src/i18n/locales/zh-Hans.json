@@ -468,7 +468,6 @@
     "geositeSourceSettings": "设置 Geosite 来源",
     "geoipSourceSettings": "设置 Geoip 来源",
     "restoreDefaultSource": "恢复默认",
-    "saveSource": "保存",
     "geodataSourceSaved": "数据来源已保存",
     "geodataSourceReset": "数据来源已恢复默认",
     "geodataSourceRequired": "请输入数据来源",
