@@ -70,6 +70,31 @@ describe('mock API client group resource mutations', () => {
     expect(groups.items[0]?.firstSubscription?.matchedNodes).toBeUndefined()
   })
 
+  it('exports mock bundles and dae config files from current mock resources', async () => {
+    const client = new MockAPIClient('')
+
+    const bundle = await client.get<{
+      configs: Array<{ global: string }>
+      groups: Array<{ name: string; policy: string }>
+    }>('/user/me/dae-bundle')
+    expect(bundle.configs[0]?.global).toContain('global {')
+    expect(bundle.configs[0]?.global).toContain('log_level: error')
+    expect(bundle.configs[0]?.global).not.toBe('global {}')
+    expect(bundle.groups[0]).toMatchObject({ name: 'default', policy: 'random' })
+
+    const exported = await client.get<{ content: string }>('/user/me/dae-config-file')
+    expect(exported.content).toContain('log_level: error')
+    expect(exported.content).toContain('subscription {')
+    expect(exported.content).toContain("'Premium Provider': 'https://example.com/api/v1/client/subscribe?token=xxxxx'")
+    expect(exported.content).toContain('node {')
+    expect(exported.content).toContain("JP-Tokyo-Premium: 'vmess://")
+    expect(exported.content).toContain('policy: random')
+    expect(exported.content).toContain('fallback: default')
+    expect(exported.content).not.toContain('log_level: "info"')
+    expect(exported.content).not.toContain('fallback: proxy')
+    expect(exported.content).not.toContain('} as any')
+  })
+
   it('persists group node and subscription changes for local UI validation', async () => {
     const client = new MockAPIClient('')
 
@@ -90,11 +115,11 @@ describe('mock API client group resource mutations', () => {
         }>
       }>
     }>('/groups')
-    const proxy = groups.items.find((group) => group.id === 1)
+    const defaultGroup = groups.items.find((group) => group.id === 1)
 
-    expect(proxy?.nodes.some((node) => node.id === 3)).toBe(true)
+    expect(defaultGroup?.nodes.some((node) => node.id === 3)).toBe(true)
     expect(
-      proxy?.subscriptions.some(
+      defaultGroup?.subscriptions.some(
         (subscription) =>
           subscription.subscriptionId === 2 &&
           subscription.matchedCount === 1 &&

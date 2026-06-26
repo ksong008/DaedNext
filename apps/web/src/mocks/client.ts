@@ -1,4 +1,5 @@
 import type { APIClientInterface, APIQueryValue } from '~/apis/client'
+import type { ConfigGlobal } from '~/apis/types'
 
 import {
   getMockRuntimeOverview,
@@ -44,6 +45,7 @@ const subscriptionNodeIDPattern = /^sub(\d+)-node-(\d+)$/
 const groupNodesPathPattern = /^\/groups\/([^/]+)\/nodes$/
 const groupSubscriptionsPathPattern = /^\/groups\/([^/]+)\/subscriptions$/
 const numericIDPattern = /(\d+)/
+const daeIdentifierPattern = /^[A-Z_][\w-]*$/i
 
 const mockStorage = new Map<string, string>([
   ['mode', 'rule'],
@@ -56,7 +58,7 @@ const mockStorage = new Map<string, string>([
 const mockLatencyById = new Map<string, MockLatencyResult>()
 let mockLatencyJob: MockLatencyJob | null = null
 let mockNextLatencyJobID = 1
-let mockRuntimeLogLevel = 'info'
+let mockRuntimeLogLevel = 'error'
 let mockLogSettings = {
   maxEntries: 10000,
   maxBytes: 50 * 1024 * 1024,
@@ -87,6 +89,233 @@ let mockLogs = [
     fields: { subscription: 'Backup Provider' },
   },
 ]
+
+interface SelectableMockResource {
+  id: string
+  selected?: boolean
+}
+
+function findStoredMockResource<T extends SelectableMockResource>(items: T[], storageKey: string): T | undefined {
+  const storedID = mockStorage.get(storageKey)
+  if (storedID) {
+    const storedNumericID = optionalNumericID(storedID)
+    const resource = items.find(
+      (item) => item.id === storedID || (storedNumericID != null && numericID(item.id) === storedNumericID),
+    )
+    if (resource) return resource
+  }
+
+  return items.find((item) => item.selected) ?? items[0]
+}
+
+function currentMockConfig() {
+  return findStoredMockResource(mockConfigs.configs, 'defaultConfigID')
+}
+
+function currentMockDNS() {
+  return findStoredMockResource(mockDNSs.dnss, 'defaultDNSID')
+}
+
+function currentMockRouting() {
+  return findStoredMockResource(mockRoutings.routings, 'defaultRoutingID')
+}
+
+function currentMockGroup() {
+  return findStoredMockResource(mockGroups.groups, 'defaultGroupID')
+}
+
+function quoteDAEString(value: string) {
+  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+}
+
+function formatDAEIdentifier(value: string) {
+  const trimmed = value.trim()
+  return daeIdentifierPattern.test(trimmed) ? trimmed : quoteDAEString(trimmed)
+}
+
+function formatDAECSV(values: string[]) {
+  return quoteDAEString(values.join(','))
+}
+
+function pushDAEValue(lines: string[], key: string, value: string | number | boolean | undefined | null) {
+  if (value == null || value === '') return
+  lines.push(`  ${key}: ${value}`)
+}
+
+function pushDAEQuotedValue(lines: string[], key: string, value: string | undefined | null) {
+  if (!value) return
+  lines.push(`  ${key}: ${quoteDAEString(value)}`)
+}
+
+function pushDAECSVValue(lines: string[], key: string, values: string[] | undefined | null) {
+  if (!values?.length) return
+  lines.push(`  ${key}: ${formatDAECSV(values)}`)
+}
+
+function formatMockGlobalConfig(global: ConfigGlobal) {
+  const lines = ['global {']
+  pushDAEValue(lines, 'log_level', global.logLevel)
+  pushDAEValue(lines, 'tproxy_port', global.tproxyPort)
+  pushDAEValue(lines, 'tproxy_port_protect', global.tproxyPortProtect)
+  pushDAEValue(lines, 'pprof_port', global.pprofPort)
+  pushDAEValue(lines, 'so_mark_from_dae', global.soMarkFromDae)
+  pushDAEValue(lines, 'allow_insecure', global.allowInsecure)
+  pushDAECSVValue(lines, 'tcp_check_url', global.tcpCheckUrl)
+  pushDAEValue(lines, 'tcp_check_http_method', global.tcpCheckHttpMethod)
+  pushDAECSVValue(lines, 'udp_check_dns', global.udpCheckDns)
+  pushDAEValue(lines, 'check_interval', global.checkInterval)
+  pushDAEValue(lines, 'check_tolerance', global.checkTolerance)
+  pushDAECSVValue(lines, 'lan_interface', global.lanInterface)
+  pushDAECSVValue(lines, 'wan_interface', global.wanInterface)
+  pushDAEValue(lines, 'dial_mode', global.dialMode)
+  pushDAEValue(lines, 'disable_waiting_network', global.disableWaitingNetwork)
+  pushDAEValue(lines, 'enable_local_tcp_fast_redirect', global.enableLocalTcpFastRedirect)
+  pushDAEValue(lines, 'auto_config_kernel_parameter', global.autoConfigKernelParameter)
+  pushDAEValue(lines, 'sniffing_timeout', global.sniffingTimeout)
+  pushDAEValue(lines, 'tls_implementation', global.tlsImplementation)
+  pushDAEValue(lines, 'utls_imitate', global.utlsImitate)
+  pushDAEValue(lines, 'mptcp', global.mptcp)
+  pushDAEQuotedValue(lines, 'fallback_resolver', global.fallbackResolver)
+  pushDAEQuotedValue(lines, 'bandwidth_max_tx', global.bandwidthMaxTx)
+  pushDAEQuotedValue(lines, 'bandwidth_max_rx', global.bandwidthMaxRx)
+  lines.push('}')
+  return lines.join('\n')
+}
+
+function indentDAESectionBody(value: string) {
+  return value
+    .trim()
+    .split('\n')
+    .map((line) => (line.trim() === '' ? '' : `  ${line}`))
+    .join('\n')
+}
+
+function wrapDAESection(name: string, body: string) {
+  const trimmed = body.trim()
+  if (!trimmed) return ''
+  return `${name} {\n${indentDAESectionBody(trimmed)}\n}`
+}
+
+function formatMockSubscriptionSection() {
+  if (mockSubscriptions.subscriptions.length === 0) return ''
+  const lines = ['subscription {']
+  for (const subscription of mockSubscriptions.subscriptions) {
+    const name = subscription.tag?.trim() || `subscription_${numericID(subscription.id)}`
+    lines.push(`  ${formatDAEIdentifier(name)}: ${quoteDAEString(subscription.link)}`)
+  }
+  lines.push('}')
+  return lines.join('\n')
+}
+
+function formatMockNodeSection() {
+  if (mockNodes.nodes.items.length === 0) return ''
+  const lines = ['node {']
+  for (const node of mockNodes.nodes.items) {
+    const name = node.tag?.trim() || node.name.trim() || `node_${numericID(node.id)}`
+    lines.push(`  ${formatDAEIdentifier(name)}: ${quoteDAEString(node.link)}`)
+  }
+  lines.push('}')
+  return lines.join('\n')
+}
+
+function formatMockGroupPolicy(group: (typeof mockGroups.groups)[number]) {
+  if (group.policy !== 'fixed') return group.policy
+  const fixedIndex = group.policyParams[0]?.val
+  return fixedIndex ? `fixed(${fixedIndex})` : group.policy
+}
+
+function formatMockGroupSection(group: (typeof mockGroups.groups)[number]) {
+  const lines = [
+    'group {',
+    `  ${formatDAEIdentifier(group.name)} {`,
+    `    policy: ${formatMockGroupPolicy(group)}`,
+    '  }',
+    '}',
+  ]
+  return lines.join('\n')
+}
+
+function generateMockDAEConfigContent() {
+  const sections: string[] = []
+  const config = currentMockConfig()
+  const dns = currentMockDNS()
+  const group = currentMockGroup()
+  const routing = currentMockRouting()
+
+  if (config) sections.push(formatMockGlobalConfig(config.global))
+  sections.push(formatMockSubscriptionSection())
+  sections.push(formatMockNodeSection())
+  if (dns) sections.push(wrapDAESection('dns', dns.dns.string))
+  if (group) sections.push(formatMockGroupSection(group))
+  if (routing) sections.push(wrapDAESection('routing', routing.routing.string))
+
+  return `${sections.filter(Boolean).join('\n\n')}\n`
+}
+
+function buildMockDAEBundle() {
+  return {
+    schemaVersion: 1,
+    exportedAt: new Date().toISOString(),
+    mode: mockStorage.get('mode') || 'rule',
+    defaults: {
+      configId: optionalNumericID(mockStorage.get('defaultConfigID')),
+      routingId: optionalNumericID(mockStorage.get('defaultRoutingID')),
+      dnsId: optionalNumericID(mockStorage.get('defaultDNSID')),
+      groupId: optionalNumericID(mockStorage.get('defaultGroupID')),
+    },
+    selected: {
+      configId: optionalNumericID(mockConfigs.configs.find((config) => config.selected)?.id),
+      routingId: optionalNumericID(mockRoutings.routings.find((routing) => routing.selected)?.id),
+      dnsId: optionalNumericID(mockDNSs.dnss.find((dns) => dns.selected)?.id),
+    },
+    configs: mockConfigs.configs.map((config) => ({
+      id: numericID(config.id),
+      name: config.name,
+      global: formatMockGlobalConfig(config.global),
+    })),
+    dnss: mockDNSs.dnss.map((dns) => ({
+      id: numericID(dns.id),
+      name: dns.name,
+      dns: dns.dns.string,
+    })),
+    routings: mockRoutings.routings.map((routing) => ({
+      id: numericID(routing.id),
+      name: routing.name,
+      routing: routing.routing.string,
+    })),
+    subscriptions: mockSubscriptions.subscriptions.map((subscription) => ({
+      id: numericID(subscription.id),
+      updatedAt: subscription.updatedAt,
+      link: subscription.link,
+      cronExp: subscription.cronExp,
+      cronEnable: subscription.cronEnable,
+      useProxy: subscription.useProxy,
+      status: subscription.status,
+      info: subscription.info,
+      tag: subscription.tag ?? null,
+    })),
+    nodes: mockNodes.nodes.items.map((node) => ({
+      id: numericID(node.id),
+      link: node.link,
+      name: node.name,
+      address: node.address,
+      protocol: node.protocol,
+      tag: node.tag ?? null,
+      subscriptionId: optionalNumericID(node.subscriptionID),
+    })),
+    groups: mockGroups.groups.map((group) => ({
+      id: numericID(group.id),
+      name: group.name,
+      policy: group.policy,
+      policyParams: group.policyParams,
+      nodeIds: group.nodes.map((node) => numericID(node.id)),
+      subscriptionBindings: group.subscriptions.map((subscription) => ({
+        subscriptionId: numericID(subscription.subscription.id),
+        nameFilterRegex: subscription.nameFilterRegex ?? null,
+      })),
+    })),
+  }
+}
 
 export class MockAPIClient implements APIClientInterface {
   constructor(private readonly endpoint: string) {}
@@ -302,7 +531,7 @@ export class MockAPIClient implements APIClientInterface {
           items: mockConfigs.configs.map((config) => ({
             id: numericID(config.id),
             name: config.name,
-            global: 'global {}',
+            global: formatMockGlobalConfig(config.global),
             selected: config.selected,
             parsedGlobal: config.global,
           })),
@@ -318,7 +547,7 @@ export class MockAPIClient implements APIClientInterface {
       return {
         id: numericID(config.id),
         name: config.name,
-        global: 'global {}',
+        global: formatMockGlobalConfig(config.global),
         selected: config.selected,
         parsedGlobal: config.global,
       } as T
@@ -355,74 +584,13 @@ export class MockAPIClient implements APIClientInterface {
     }
 
     if (method === 'GET' && path === '/user/me/dae-bundle') {
-      return {
-        schemaVersion: 1,
-        exportedAt: new Date().toISOString(),
-        mode: mockStorage.get('mode') || 'rule',
-        defaults: {
-          configId: optionalNumericID(mockStorage.get('defaultConfigID')),
-          routingId: optionalNumericID(mockStorage.get('defaultRoutingID')),
-          dnsId: optionalNumericID(mockStorage.get('defaultDNSID')),
-          groupId: optionalNumericID(mockStorage.get('defaultGroupID')),
-        },
-        selected: {
-          configId: optionalNumericID(mockConfigs.configs.find((config) => config.selected)?.id),
-          routingId: optionalNumericID(mockRoutings.routings.find((routing) => routing.selected)?.id),
-          dnsId: optionalNumericID(mockDNSs.dnss.find((dns) => dns.selected)?.id),
-        },
-        configs: mockConfigs.configs.map((config) => ({
-          id: numericID(config.id),
-          name: config.name,
-          global: 'global {}',
-        })),
-        dnss: mockDNSs.dnss.map((dns) => ({
-          id: numericID(dns.id),
-          name: dns.name,
-          dns: dns.dns.string,
-        })),
-        routings: mockRoutings.routings.map((routing) => ({
-          id: numericID(routing.id),
-          name: routing.name,
-          routing: routing.routing.string,
-        })),
-        subscriptions: mockSubscriptions.subscriptions.map((subscription) => ({
-          id: numericID(subscription.id),
-          updatedAt: subscription.updatedAt,
-          link: subscription.link,
-          cronExp: subscription.cronExp,
-          cronEnable: subscription.cronEnable,
-          useProxy: subscription.useProxy,
-          status: subscription.status,
-          info: subscription.info,
-          tag: subscription.tag ?? null,
-        })),
-        nodes: mockNodes.nodes.items.map((node) => ({
-          id: numericID(node.id),
-          link: node.link,
-          name: node.name,
-          address: node.address,
-          protocol: node.protocol,
-          tag: node.tag ?? null,
-          subscriptionId: optionalNumericID(node.subscriptionID),
-        })),
-        groups: mockGroups.groups.map((group) => ({
-          id: numericID(group.id),
-          name: group.name,
-          policy: group.policy,
-          policyParams: group.policyParams,
-          nodeIds: group.nodes.map((node) => numericID(node.id)),
-          subscriptionBindings: group.subscriptions.map((subscription) => ({
-            subscriptionId: numericID(subscription.subscription.id),
-            nameFilterRegex: subscription.nameFilterRegex ?? null,
-          })),
-        })),
-      } as T
+      return buildMockDAEBundle() as T
     }
 
     if (method === 'GET' && path === '/user/me/dae-config-file') {
       return {
         filename: 'mock.dae',
-        content: `global {\n  log_level: "info"\n}\n\ndns {\n  upstream {\n    googledns: "udp://8.8.8.8:53"\n  }\n  routing {\n    request {\n      fallback: "googledns"\n    }\n  }\n}\n\nrouting {\n  fallback: "proxy"\n}\n`,
+        content: generateMockDAEConfigContent(),
         warnings: [],
       } as T
     }
