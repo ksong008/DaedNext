@@ -286,7 +286,7 @@ export function MainLayout() {
                   key={item.key}
                   type="button"
                   className={cn(
-                    'flex min-h-9 flex-col items-center justify-center rounded-xl px-1 py-0.5 text-[10px] font-semibold leading-none transition-colors',
+                    'shell-mobile-nav-item flex min-h-9 flex-col items-center justify-center rounded-xl px-1 py-0.5 text-[10px] font-semibold leading-none transition-colors',
                     activeSection === item.key
                       ? 'bg-sidebar-primary/7 text-sidebar-primary'
                       : 'text-sidebar-foreground/52 hover:text-sidebar-foreground/75',
@@ -294,7 +294,7 @@ export function MainLayout() {
                   onClick={() => scrollToSection(item.key)}
                 >
                   <Icon className="mb-0.5 h-3.5 w-3.5" />
-                  <span className="truncate">{t(item.labelKey)}</span>
+                  <span className="max-w-full truncate">{t(item.labelKey)}</span>
                 </button>
               )
             })}
