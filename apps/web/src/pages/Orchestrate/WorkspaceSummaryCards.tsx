@@ -221,11 +221,13 @@ function SummaryConfigCard({
   value,
   tag,
   detail,
+  scrollDetail,
 }: {
   label: string
   value: string
   tag?: string
   detail?: string
+  scrollDetail?: boolean
 }) {
   return (
     <div
@@ -242,7 +244,16 @@ function SummaryConfigCard({
       </div>
       <div className="min-w-0">
         <strong className="block truncate text-base font-bold leading-none text-foreground sm:text-lg">{value}</strong>
-        {detail ? <span className="mt-1 block truncate text-xs text-muted-foreground">{detail}</span> : null}
+        {detail ? (
+          <span
+            className={cn(
+              'mt-1 block text-xs text-muted-foreground',
+              scrollDetail ? 'max-h-8 overflow-y-auto overscroll-contain break-all pr-1 leading-snug' : 'truncate',
+            )}
+          >
+            {detail}
+          </span>
+        ) : null}
       </div>
     </div>
   )
@@ -885,11 +896,13 @@ export const WorkspaceSummaryCards = memo(
                 label={t('wanInterface')}
                 value={wanInterfaceSummary.value}
                 detail={wanInterfaceSummary.detail}
+                scrollDetail
               />
               <SummaryConfigCard
                 label={t('lanInterface')}
                 value={lanInterfaceSummary.value}
                 detail={lanInterfaceSummary.detail}
+                scrollDetail
               />
               <SummaryConfigCard label={t('dialMode')} value={selectedConfig?.global.dialMode || '—'} />
               <SummaryConfigCard
