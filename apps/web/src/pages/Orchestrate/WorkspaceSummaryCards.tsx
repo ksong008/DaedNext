@@ -54,6 +54,11 @@ const summaryLatencyPillClassName =
 const summaryTypePillClassName =
   'rounded-full bg-primary/7 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/7 sm:px-2.5 sm:text-xs'
 
+const geodataActionButtonClassName =
+  'h-6 w-6 rounded-md border-0 bg-transparent text-muted-foreground shadow-none hover:bg-primary/8 hover:text-primary disabled:opacity-40'
+
+const geodataActionIconClassName = 'h-3 w-3'
+
 const geodataSourceUrlMaxLength = 2048
 
 type GeodataSourceValidationError =
@@ -296,22 +301,22 @@ function SummaryGeodataCard({
     <div
       className={cn(
         summaryInnerCardClassName,
-        'relative flex min-h-[108px] min-w-0 flex-col gap-2 px-3 py-2.5 pr-[4.75rem] sm:min-h-[112px] sm:px-3.5 sm:py-3 sm:pr-20',
+        'relative flex min-h-[108px] min-w-0 flex-col gap-2 px-3 py-2.5 pr-14 sm:min-h-[112px] sm:px-3.5 sm:py-3 sm:pr-16',
       )}
     >
-      <div className="absolute top-2 right-2 flex items-center gap-1">
+      <div className="absolute top-2 right-2 flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="h-7 w-7 rounded-full border border-primary/10 bg-primary/6 text-primary shadow-none hover:bg-primary/10 hover:text-primary"
+              className={geodataActionButtonClassName}
               aria-label={settingsLabel}
               disabled={settingsDisabled}
               onClick={() => onOpenSettings?.(kind)}
             >
-              <Settings className="h-3.5 w-3.5" />
+              <Settings className={geodataActionIconClassName} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>{settingsLabel}</TooltipContent>
@@ -322,12 +327,12 @@ function SummaryGeodataCard({
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="h-7 w-7 rounded-full border border-primary/10 bg-primary/6 text-primary shadow-none hover:bg-primary/10 hover:text-primary"
+              className={geodataActionButtonClassName}
               aria-label={updateLabel}
               disabled={disabled || updating}
               onClick={() => void onUpdate?.(kind)}
             >
-              <RefreshCw className={cn('h-3.5 w-3.5', updating && 'animate-spin')} />
+              <RefreshCw className={cn(geodataActionIconClassName, updating && 'animate-spin')} />
             </Button>
           </TooltipTrigger>
           <TooltipContent>{updateLabel}</TooltipContent>
