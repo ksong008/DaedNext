@@ -864,10 +864,20 @@ export function useUpdateGeodataSourceMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ kind, url, restoreDefault }: { kind: GeodataKind; url?: string; restoreDefault?: boolean }) =>
+    mutationFn: ({
+      kind,
+      url,
+      restoreDefault,
+      useProxy,
+    }: {
+      kind: GeodataKind
+      url?: string
+      restoreDefault?: boolean
+      useProxy?: boolean
+    }) =>
       apiClient.patch<GeodataSourceResource>(
         `/geodata/${kind}/settings`,
-        restoreDefault ? { restoreDefault: true } : { url: url ?? '' },
+        restoreDefault ? { restoreDefault: true, useProxy } : { url: url ?? '', useProxy },
       ),
     onSuccess: (source) => {
       queryClient.setQueryData<GeodataSettingsView | undefined>(webQueryKeys.geodata.settings(), (current) =>

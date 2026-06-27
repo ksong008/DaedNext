@@ -22,6 +22,8 @@ import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
+import { Switch } from '~/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '~/components/ui/tooltip'
 import { cn } from '~/lib/utils'
 import { hasDefaultRoutes, interfaceAddresses } from '~/utils/interfaces'
@@ -60,6 +62,10 @@ const geodataActionButtonClassName =
 const geodataActionIconClassName = 'h-3 w-3'
 
 const geodataSourceUrlMaxLength = 2048
+const geodataDataFileNames: Record<GeodataKind, string> = {
+  geosite: 'geosite.dat',
+  geoip: 'geoip.dat',
+}
 
 type GeodataSourceValidationError =
   | { key: 'workspaceSummary.geodataSourceRequired' }
@@ -120,6 +126,16 @@ function validateGeodataSourceUrl(
   const otherKind = otherGeodataKind(kind)
   const otherDefaultUrl = settings?.[otherKind]?.defaultUrl
   if (otherDefaultUrl && normalizeComparableUrl(value) === normalizeComparableUrl(otherDefaultUrl)) {
+    return {
+      key: 'workspaceSummary.geodataSourceWrongKind',
+      options: {
+        kind: kind === 'geosite' ? 'Geosite' : 'Geoip',
+        otherKind: otherKind === 'geosite' ? 'Geosite' : 'Geoip',
+      },
+    }
+  }
+  const lastSegment = url.pathname.split('/').pop() ?? ''
+  if (lastSegment.toLowerCase() === geodataDataFileNames[otherKind].toLowerCase()) {
     return {
       key: 'workspaceSummary.geodataSourceWrongKind',
       options: {
@@ -723,6 +739,7 @@ export const WorkspaceSummaryCards = memo(
     const [updatingGeodataKind, setUpdatingGeodataKind] = useState<GeodataKind | null>(null)
     const [geodataSettingsKind, setGeodataSettingsKind] = useState<GeodataKind | null>(null)
     const [geodataSourceUrl, setGeodataSourceUrl] = useState('')
+    const [geodataSourceUseProxy, setGeodataSourceUseProxy] = useState(false)
     const [geodataSourceError, setGeodataSourceError] = useState<string | undefined>()
     const activeGeodataSource = geodataSettingsKind ? geodataSettingsQuery.data?.[geodataSettingsKind] : undefined
 
@@ -838,10 +855,12 @@ export const WorkspaceSummaryCards = memo(
     const openGeodataSettings = (kind: GeodataKind) => {
       setGeodataSettingsKind(kind)
       setGeodataSourceUrl(geodataSettingsQuery.data?.[kind]?.url ?? '')
+      setGeodataSourceUseProxy(geodataSettingsQuery.data?.[kind]?.useProxy ?? false)
       setGeodataSourceError(undefined)
     }
     const closeGeodataSettings = () => {
       setGeodataSettingsKind(null)
+      setGeodataSourceUseProxy(false)
       setGeodataSourceError(undefined)
     }
     const saveGeodataSource = async () => {
@@ -855,6 +874,7 @@ export const WorkspaceSummaryCards = memo(
         await updateGeodataSourceMutation.mutateAsync({
           kind: geodataSettingsKind,
           url: geodataSourceUrl.trim(),
+          useProxy: geodataSourceUseProxy,
         })
         toast.success(t('workspaceSummary.geodataSourceSaved'))
         closeGeodataSettings()
@@ -868,6 +888,7 @@ export const WorkspaceSummaryCards = memo(
         await updateGeodataSourceMutation.mutateAsync({
           kind: geodataSettingsKind,
           restoreDefault: true,
+          useProxy: geodataSourceUseProxy,
         })
         toast.success(t('workspaceSummary.geodataSourceReset'))
         closeGeodataSettings()
@@ -1048,6 +1069,18 @@ export const WorkspaceSummaryCards = memo(
                 setGeodataSourceError(undefined)
               }}
             />
+            <div className="flex items-center gap-2 pt-1">
+              <Switch
+                id="geodata-use-proxy"
+                size="sm"
+                checked={geodataSourceUseProxy}
+                disabled={updateGeodataSourceMutation.isPending}
+                onCheckedChange={(checked) => setGeodataSourceUseProxy(checked)}
+              />
+              <Label htmlFor="geodata-use-proxy" className="cursor-pointer font-normal">
+                {t('workspaceSummary.geodataUseProxy')}
+              </Label>
+            </div>
             <DialogFooter className="!flex-row !justify-end">
               <Button
                 type="button"

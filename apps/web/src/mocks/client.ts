@@ -51,8 +51,16 @@ const geodataUpdatePathPattern = /^\/geodata\/(geosite|geoip)\/update$/
 const numericIDPattern = /(\d+)/
 const daeIdentifierPattern = /^[A-Z_][\w-]*$/i
 const mockDefaultGeodataSourceUrls: Record<GeodataKind, string> = {
+  geosite: 'https://fastly.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat',
+  geoip: 'https://fastly.jsdelivr.net/gh/Loyalsoldier/geoip@release/geoip.dat',
+}
+const mockLegacyGeodataReleaseApiUrls: Record<GeodataKind, string> = {
   geosite: 'https://api.github.com/repos/Loyalsoldier/v2ray-rules-dat/releases/latest',
   geoip: 'https://api.github.com/repos/Loyalsoldier/geoip/releases/latest',
+}
+const mockGeodataDataFileNames: Record<GeodataKind, string> = {
+  geosite: 'geosite.dat',
+  geoip: 'geoip.dat',
 }
 
 const mockStorage = new Map<string, string>([
@@ -70,6 +78,10 @@ let mockRuntimeLogLevel = 'error'
 let mockGeodataSourceUrls: Record<GeodataKind, string> = {
   geosite: '',
   geoip: '',
+}
+let mockGeodataSourceUseProxy: Record<GeodataKind, boolean> = {
+  geosite: false,
+  geoip: false,
 }
 let mockGeodataStatus = {
   geosite: {
@@ -301,11 +313,14 @@ function normalizeMockComparableUrl(value: string) {
 function mockGeodataSource(kind: GeodataKind) {
   const customUrl = mockGeodataSourceUrls[kind].trim()
   const defaultUrl = mockDefaultGeodataSourceUrls[kind]
+  const url = customUrl || defaultUrl
   return {
     kind,
-    url: customUrl || defaultUrl,
+    url,
     defaultUrl,
     usingDefault: !customUrl,
+    sourceType: mockGeodataSourceType(kind, url),
+    useProxy: mockGeodataSourceUseProxy[kind],
   }
 }
 
@@ -327,17 +342,42 @@ function validateMockGeodataSource(kind: GeodataKind, rawUrl: string) {
   }
 
   const otherKind = otherMockGeodataKind(kind)
-  if (normalizeMockComparableUrl(value) === normalizeMockComparableUrl(mockDefaultGeodataSourceUrls[otherKind])) {
+  if (
+    normalizeMockComparableUrl(value) === normalizeMockComparableUrl(mockDefaultGeodataSourceUrls[otherKind]) ||
+    normalizeMockComparableUrl(value) === normalizeMockComparableUrl(mockLegacyGeodataReleaseApiUrls[otherKind])
+  ) {
     throw new Error(`${kind} source cannot use ${otherKind} default update url`)
+  }
+  const lastSegment = url.pathname.split('/').pop() ?? ''
+  if (lastSegment.toLowerCase() === mockGeodataDataFileNames[otherKind].toLowerCase()) {
+    throw new Error(`${kind} source cannot use ${otherKind} data file url`)
   }
 
   return url.href
 }
 
+function mockGeodataSourceType(kind: GeodataKind, rawUrl: string): 'release' | 'direct' {
+  if (normalizeMockComparableUrl(rawUrl) === normalizeMockComparableUrl(mockLegacyGeodataReleaseApiUrls[kind])) {
+    return 'release'
+  }
+  const url = new URL(rawUrl)
+  const segments = url.pathname.split('/').filter(Boolean)
+  if (segments.at(-1) === 'latest' && segments.at(-2) === 'releases') {
+    return 'release'
+  }
+  return 'direct'
+}
+
 function setMockGeodataSource(kind: GeodataKind, body: unknown) {
-  const payload = body as { url?: string; restoreDefault?: boolean }
+  const payload = body as { url?: string; restoreDefault?: boolean; useProxy?: boolean }
+  if (typeof payload.useProxy === 'boolean') {
+    mockGeodataSourceUseProxy = { ...mockGeodataSourceUseProxy, [kind]: payload.useProxy }
+  }
   if (payload.restoreDefault) {
     mockGeodataSourceUrls = { ...mockGeodataSourceUrls, [kind]: '' }
+    return mockGeodataSource(kind)
+  }
+  if (payload.url === undefined) {
     return mockGeodataSource(kind)
   }
   const url = validateMockGeodataSource(kind, payload.url ?? '')
