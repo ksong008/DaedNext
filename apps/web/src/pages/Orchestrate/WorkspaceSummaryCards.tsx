@@ -1038,7 +1038,7 @@ export const WorkspaceSummaryCards = memo(
               <DialogTitle>{geodataSettingsTitle}</DialogTitle>
             </DialogHeader>
             <Input
-              label={t('workspaceSummary.geodataSource')}
+              aria-label={geodataSettingsTitle}
               value={geodataSourceUrl}
               placeholder={activeGeodataSource?.defaultUrl}
               error={geodataSourceError}
