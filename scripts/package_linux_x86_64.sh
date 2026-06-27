@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${OUT_DIR:-"$ROOT_DIR/build/packages-linux-x86_64-$(date +%Y%m%d-%H%M%S)"}"
-PACKAGE_RELEASE="${PACKAGE_RELEASE:-1}"
+PACKAGE_RELEASE="${PACKAGE_RELEASE:-2}"
 PACKAGE_VERSION="${PACKAGE_VERSION:-}"
 
 version_from_binary() {
@@ -59,6 +59,7 @@ package_flavor() {
 
   rm -rf "$package_root"
   mkdir -p \
+    "$package_root/etc/daed" \
     "$package_root/usr/bin" \
     "$package_root/usr/lib/systemd/system" \
     "$package_root/usr/share/applications" \
