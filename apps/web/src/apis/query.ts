@@ -262,6 +262,8 @@ interface GeodataSourceAPI {
   url: string
   defaultUrl: string
   usingDefault: boolean
+  sourceType?: 'release' | 'direct'
+  useProxy?: boolean
 }
 
 interface GeodataSettingsAPI {
