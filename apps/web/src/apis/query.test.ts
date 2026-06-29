@@ -26,22 +26,40 @@ describe('deriveTransport', () => {
     ).toBe('ss2022')
   })
 
-  it('uses VLESS flow instead of plain tcp for Vision links', () => {
+  it('shows Reality underlay together with VLESS Vision flow', () => {
     expect(
       deriveTransport(
         'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=reality&sni=example.com&fp=chrome&pbk=abc&sid=123&type=tcp&flow=xtls-rprx-vision#vision',
         'vless',
       ),
-    ).toBe('vision')
+    ).toBe('reality/vision')
   })
 
-  it('keeps the VLESS Vision udp443 flow suffix', () => {
+  it('keeps the Reality VLESS Vision udp443 flow suffix', () => {
     expect(
       deriveTransport(
         'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=reality&sni=example.com&fp=chrome&pbk=abc&sid=123&type=tcp&flow=xtls-rprx-vision-udp443#vision-udp443',
         'vless',
       ),
-    ).toBe('vision-udp443')
+    ).toBe('reality/vision-udp443')
+  })
+
+  it('uses VLESS flow instead of plain tcp for TLS Vision links', () => {
+    expect(
+      deriveTransport(
+        'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=tls&sni=example.com&fp=chrome&type=tcp&flow=xtls-rprx-vision#vision',
+        'vless',
+      ),
+    ).toBe('vision')
+  })
+
+  it('shows Reality even when a VLESS Reality link has no flow', () => {
+    expect(
+      deriveTransport(
+        'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=reality&sni=example.com&fp=chrome&pbk=abc&sid=123&type=tcp#reality',
+        'vless',
+      ),
+    ).toBe('reality')
   })
 
   it('keeps VLESS non-Vision transport from net', () => {
@@ -53,14 +71,14 @@ describe('deriveTransport', () => {
     ).toBe('ws')
   })
 
-  it('prefers derived VLESS Vision flow over API tcp transport', () => {
+  it('prefers derived VLESS Reality Vision flow over API tcp transport', () => {
     expect(
       resolveNodeTransport(
         'vless://00000000-0000-0000-0000-000000000000@example.com:443?encryption=none&security=reality&sni=example.com&fp=chrome&pbk=abc&sid=123&type=tcp&flow=xtls-rprx-vision#vision',
         'vless',
         'tcp',
       ),
-    ).toBe('vision')
+    ).toBe('reality/vision')
   })
 })
 
