@@ -6,18 +6,23 @@ function formatVlessFlowTransport(flow: string): string {
   return flow.replace(VLESS_FLOW_PREFIX_REGEX, '')
 }
 
+function formatVlessRealityTransport(flow?: string): string {
+  if (!flow || flow === 'none') return 'reality'
+  return `reality/${formatVlessFlowTransport(flow)}`
+}
+
 export function deriveTransport(link: string, protocol: string): string | null {
   const parsed = parseNodeUrl(link)
   if (parsed?.type === 'v2ray' && parsed.data && typeof parsed.data === 'object' && 'net' in parsed.data) {
-    if (
-      'protocol' in parsed.data &&
-      parsed.data.protocol === 'vless' &&
-      'flow' in parsed.data &&
-      typeof parsed.data.flow === 'string' &&
-      parsed.data.flow &&
-      parsed.data.flow !== 'none'
-    ) {
-      return formatVlessFlowTransport(parsed.data.flow)
+    if ('protocol' in parsed.data && parsed.data.protocol === 'vless') {
+      const flow = 'flow' in parsed.data && typeof parsed.data.flow === 'string' ? parsed.data.flow : undefined
+      const security = 'tls' in parsed.data && typeof parsed.data.tls === 'string' ? parsed.data.tls : undefined
+      if (security === 'reality') {
+        return formatVlessRealityTransport(flow)
+      }
+      if (flow && flow !== 'none') {
+        return formatVlessFlowTransport(flow)
+      }
     }
 
     const net = parsed.data.net
