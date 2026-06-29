@@ -14,9 +14,13 @@ import type {
   GlobalInput,
   ImportArgument,
   LogSettings,
+  NodeLatencyProbeResult,
   NodeLatencyProbeResponse,
+  NodeListView,
   Policy,
   PolicyParam,
+  SubscriptionListView,
+  SubscriptionSummaryListView,
 } from './types'
 import type { MODE } from '~/constants'
 
@@ -160,6 +164,57 @@ function invalidateSubscriptionResource(queryClient: QueryClient, { generalState
     webQueryKeys.subscription.expanded(),
     ...(generalState ? [webQueryKeys.general.state()] : []),
   ])
+}
+
+function pruneDeletedSubscriptionResources(queryClient: QueryClient, ids: string[]) {
+  const deletedSubscriptionIds = new Set(ids)
+  const removedNodeIds = new Set<string>()
+
+  queryClient.setQueryData<SubscriptionSummaryListView | undefined>(
+    webQueryKeys.subscription.summary(),
+    (current) =>
+      current
+        ? {
+            ...current,
+            subscriptions: current.subscriptions.filter((subscription) => !deletedSubscriptionIds.has(subscription.id)),
+          }
+        : current,
+  )
+  queryClient.setQueryData<SubscriptionListView | undefined>(
+    webQueryKeys.subscription.expanded(),
+    (current) =>
+      current
+        ? {
+            ...current,
+            subscriptions: current.subscriptions.filter((subscription) => !deletedSubscriptionIds.has(subscription.id)),
+          }
+        : current,
+  )
+  queryClient.setQueryData<NodeListView | undefined>(webQueryKeys.node.subscriptionBackedList(), (current) => {
+    if (!current) return current
+
+    const nodes = current.nodes.items.filter((node) => {
+      if (node.subscriptionID && deletedSubscriptionIds.has(node.subscriptionID)) {
+        removedNodeIds.add(node.id)
+        return false
+      }
+      return true
+    })
+
+    return {
+      ...current,
+      nodes: {
+        ...current.nodes,
+        items: nodes,
+        totalCount: nodes.length,
+      },
+    }
+  })
+  if (removedNodeIds.size > 0) {
+    queryClient.setQueryData<NodeLatencyProbeResult[] | undefined>(webQueryKeys.node.latency(), (current) =>
+      current?.filter((result) => !removedNodeIds.has(result.id)),
+    )
+  }
 }
 
 export function useSetJsonStorageMutation() {
@@ -914,10 +969,14 @@ export function useRemoveSubscriptionsMutation() {
       const result = await apiClient.delete<{ removed: number }>('/subscriptions', { ids: ids.map(toNumericID) })
       return result.removed
     },
-    onSuccess: () => {
+    onSuccess: (_removed, ids) => {
+      pruneDeletedSubscriptionResources(queryClient, ids)
       void invalidateQueryKeys(queryClient, [
         webQueryKeys.subscription.summary(),
         webQueryKeys.subscription.expanded(),
+        webQueryKeys.node.subscriptionBackedList(),
+        webQueryKeys.node.latency(),
+        webQueryKeys.node.latencyJob(),
         webQueryKeys.group.summary(),
         webQueryKeys.group.expanded(),
         webQueryKeys.general.state(),
