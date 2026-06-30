@@ -1,7 +1,8 @@
+import type { CSSProperties } from 'react'
 import type { LogEntry } from '~/apis'
 import { useStore } from '@nanostores/react'
 import { FileText, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react'
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   buildLogEventsURL,
@@ -27,6 +28,12 @@ const runtimeLevelOptions = ['error', 'warn', 'info', 'debug', 'trace'] as const
 const levelFilterOptions = ['all', ...runtimeLevelOptions] as const
 const maxRenderedEntries = 500
 const searchDebounceMs = 300
+const logFlushDelayMs = 100
+const logAutoScrollBottomThresholdPx = 48
+const logEntryContainmentStyle: CSSProperties = {
+  contentVisibility: 'auto',
+  containIntrinsicSize: '72px',
+}
 
 function formatBytes(value: number) {
   if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`
@@ -95,7 +102,10 @@ function formatLogTime(timestamp: string) {
 const LogEntryItem = memo(({ entry }: { entry: LogEntry }) => {
   const fields = entryFields(entry)
   return (
-    <div className="rounded-lg border border-[color:var(--shell-line)]/60 bg-[color:var(--shell-surface)]/72 px-2.5 py-2 sm:grid sm:grid-cols-[5.5rem_4.5rem_minmax(0,1fr)] sm:gap-2">
+    <div
+      style={logEntryContainmentStyle}
+      className="rounded-lg border border-[color:var(--shell-line)]/60 bg-[color:var(--shell-surface)]/72 px-2.5 py-2 sm:grid sm:grid-cols-[5.5rem_4.5rem_minmax(0,1fr)] sm:gap-2"
+    >
       <div className="flex min-w-0 items-center gap-2 sm:contents">
         <span className="shrink-0 text-muted-foreground">{formatLogTime(entry.ts)}</span>
         <span
@@ -144,8 +154,9 @@ export function LogResource() {
   const [settingsMaxMb, setSettingsMaxMb] = useState('')
   const logViewportRef = useRef<HTMLDivElement>(null)
   const pendingEntriesRef = useRef<LogEntry[]>([])
-  const flushFrameRef = useRef<number | null>(null)
+  const flushTimerRef = useRef<number | null>(null)
   const knownEntryIdsRef = useRef<Set<number>>(new Set())
+  const followLogTailRef = useRef(true)
 
   const logsQuery = useLogsQuery({ level: levelFilter, query: appliedSearch })
   const settingsQuery = useLogSettingsQuery()
@@ -154,17 +165,23 @@ export function LogResource() {
   const clearLogsMutation = useClearLogsMutation()
   const updateLogSettingsMutation = useUpdateLogSettingsMutation()
   const [entries, setEntries] = useState<LogEntry[]>([])
+  const [streamAfterId, setStreamAfterId] = useState<number | null>(null)
   const runtimeLevel = runtimeLevelQuery.data?.level || 'error'
 
   useEffect(() => {
-    const queriedEntries = logsQuery.data?.items ?? []
+    const queriedEntries = logsQuery.data?.items
+    if (!queriedEntries) {
+      setStreamAfterId(null)
+      return
+    }
     pendingEntriesRef.current = []
-    if (flushFrameRef.current !== null) {
-      window.cancelAnimationFrame(flushFrameRef.current)
-      flushFrameRef.current = null
+    if (flushTimerRef.current !== null) {
+      window.clearTimeout(flushTimerRef.current)
+      flushTimerRef.current = null
     }
     knownEntryIdsRef.current = new Set(queriedEntries.map((entry) => entry.id))
     setEntries(queriedEntries)
+    setStreamAfterId(queriedEntries.reduce((maxId, entry) => Math.max(maxId, entry.id), 0))
   }, [logsQuery.data?.items])
 
   useEffect(() => {
@@ -181,15 +198,15 @@ export function LogResource() {
   }, [searchDraft])
 
   const streamURL = useMemo(() => {
-    if (isMockMode() || !token || typeof fetch === 'undefined') return null
-    return buildLogEventsURL(endpointURL, levelFilter, appliedSearch)
-  }, [appliedSearch, endpointURL, levelFilter, token])
+    if (isMockMode() || !token || typeof fetch === 'undefined' || streamAfterId === null) return null
+    return buildLogEventsURL(endpointURL, levelFilter, appliedSearch, streamAfterId)
+  }, [appliedSearch, endpointURL, levelFilter, streamAfterId, token])
 
   useEffect(() => {
     if (!streamURL) return
 
     const flushPendingEntries = () => {
-      flushFrameRef.current = null
+      flushTimerRef.current = null
       const pendingEntries = pendingEntriesRef.current
       if (pendingEntries.length === 0) return
       pendingEntriesRef.current = []
@@ -203,8 +220,8 @@ export function LogResource() {
     }
 
     const scheduleFlush = () => {
-      if (flushFrameRef.current !== null) return
-      flushFrameRef.current = window.requestAnimationFrame(flushPendingEntries)
+      if (flushTimerRef.current !== null) return
+      flushTimerRef.current = window.setTimeout(flushPendingEntries, logFlushDelayMs)
     }
 
     const handleEntry = (data: string) => {
@@ -233,17 +250,44 @@ export function LogResource() {
     return () => {
       unsubscribe()
       pendingEntriesRef.current = []
-      if (flushFrameRef.current !== null) {
-        window.cancelAnimationFrame(flushFrameRef.current)
-        flushFrameRef.current = null
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current)
+        flushTimerRef.current = null
       }
     }
   }, [appliedSearch, levelFilter, streamURL, token])
 
+  const scrollLogViewportToBottom = useCallback(() => {
+    const viewport = logViewportRef.current
+    if (!viewport) return
+    viewport.scrollTop = viewport.scrollHeight
+    followLogTailRef.current = true
+  }, [])
+
+  const handleAutoScrollChange = useCallback(
+    (checked: boolean) => {
+      setAutoScroll(checked)
+      followLogTailRef.current = checked
+      if (checked) {
+        window.requestAnimationFrame(scrollLogViewportToBottom)
+      }
+    },
+    [scrollLogViewportToBottom],
+  )
+
+  const handleLogViewportScroll = useCallback(() => {
+    if (!autoScroll) return
+    const viewport = logViewportRef.current
+    if (!viewport) return
+
+    const bottomDistance = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+    followLogTailRef.current = bottomDistance <= logAutoScrollBottomThresholdPx
+  }, [autoScroll])
+
   useLayoutEffect(() => {
-    if (!autoScroll || !logViewportRef.current) return
-    logViewportRef.current.scrollTop = logViewportRef.current.scrollHeight
-  }, [autoScroll, entries])
+    if (!autoScroll || !followLogTailRef.current) return
+    scrollLogViewportToBottom()
+  }, [autoScroll, entries, scrollLogViewportToBottom])
 
   const logLevelLabels: Record<(typeof runtimeLevelOptions)[number], string> = {
     error: t('logs.levels.error'),
@@ -336,7 +380,7 @@ export function LogResource() {
 
           <div className="flex items-center justify-between gap-2 sm:contents">
             <label className="flex h-9 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-[color:var(--shell-line)] bg-[color:var(--shell-control)] px-3 text-xs font-semibold text-muted-foreground sm:flex-none sm:justify-start">
-              <Switch size="xs" checked={autoScroll} onCheckedChange={setAutoScroll} />
+              <Switch size="xs" checked={autoScroll} onCheckedChange={handleAutoScrollChange} />
               <span className="truncate">{t('logs.autoScroll')}</span>
             </label>
             <div className="flex shrink-0 items-center gap-2 sm:contents">
@@ -381,6 +425,7 @@ export function LogResource() {
 
       <div
         ref={logViewportRef}
+        onScroll={handleLogViewportScroll}
         className="min-h-0 flex-1 overflow-y-auto bg-[color-mix(in_oklab,var(--background)_72%,var(--card))] p-2 font-mono text-[11px] leading-relaxed sm:p-4 sm:text-xs"
       >
         {entries.length === 0 ? (

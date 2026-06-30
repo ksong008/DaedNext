@@ -216,4 +216,13 @@ describe('buildLogEventsURL', () => {
     expect(parsed.searchParams.get('q')).toBe('runtime')
     expect(parsed.searchParams.has('access_token')).toBe(false)
   })
+
+  it('can resume log streams after the last queried entry', async () => {
+    const buildLogEventsURL = await loadBuildLogEventsURL()
+    const url = buildLogEventsURL('http://127.0.0.1:2023', 'warn', '', 42)
+    const parsed = new URL(url)
+
+    expect(parsed.searchParams.get('level')).toBe('warn')
+    expect(parsed.searchParams.get('after_id')).toBe('42')
+  })
 })
