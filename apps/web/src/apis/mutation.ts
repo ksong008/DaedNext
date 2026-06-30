@@ -14,8 +14,8 @@ import type {
   GlobalInput,
   ImportArgument,
   LogSettings,
-  NodeLatencyProbeResult,
   NodeLatencyProbeResponse,
+  NodeLatencyProbeResult,
   NodeListView,
   Policy,
   PolicyParam,
@@ -170,25 +170,21 @@ function pruneDeletedSubscriptionResources(queryClient: QueryClient, ids: string
   const deletedSubscriptionIds = new Set(ids)
   const removedNodeIds = new Set<string>()
 
-  queryClient.setQueryData<SubscriptionSummaryListView | undefined>(
-    webQueryKeys.subscription.summary(),
-    (current) =>
-      current
-        ? {
-            ...current,
-            subscriptions: current.subscriptions.filter((subscription) => !deletedSubscriptionIds.has(subscription.id)),
-          }
-        : current,
+  queryClient.setQueryData<SubscriptionSummaryListView | undefined>(webQueryKeys.subscription.summary(), (current) =>
+    current
+      ? {
+          ...current,
+          subscriptions: current.subscriptions.filter((subscription) => !deletedSubscriptionIds.has(subscription.id)),
+        }
+      : current,
   )
-  queryClient.setQueryData<SubscriptionListView | undefined>(
-    webQueryKeys.subscription.expanded(),
-    (current) =>
-      current
-        ? {
-            ...current,
-            subscriptions: current.subscriptions.filter((subscription) => !deletedSubscriptionIds.has(subscription.id)),
-          }
-        : current,
+  queryClient.setQueryData<SubscriptionListView | undefined>(webQueryKeys.subscription.expanded(), (current) =>
+    current
+      ? {
+          ...current,
+          subscriptions: current.subscriptions.filter((subscription) => !deletedSubscriptionIds.has(subscription.id)),
+        }
+      : current,
   )
   queryClient.setQueryData<NodeListView | undefined>(webQueryKeys.node.subscriptionBackedList(), (current) => {
     if (!current) return current
@@ -1024,7 +1020,7 @@ export function useSetRuntimeLogLevelMutation() {
       return apiClient.patch<{ level: string }>('/runtime/log-level', { level })
     },
     onSuccess: () => {
-      void invalidateQueryKeys(queryClient, [webQueryKeys.log.runtimeLevel()])
+      void invalidateQueryKeys(queryClient, [webQueryKeys.log.runtimeLevel(), webQueryKeys.log.items()])
     },
   })
 }

@@ -311,10 +311,11 @@ export function buildRuntimeEventsURL(endpointURL: string, windowSec: number, ma
   }).toString()
 }
 
-export function buildLogEventsURL(endpointURL: string, level: string, query: string) {
+export function buildLogEventsURL(endpointURL: string, level: string, query: string, afterId?: number | null) {
   return buildEventStreamURL(endpointURL, '/events/logs', {
     level,
     q: query,
+    after_id: afterId && afterId > 0 ? afterId : undefined,
   }).toString()
 }
 
