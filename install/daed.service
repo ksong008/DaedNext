@@ -11,11 +11,11 @@ User=root
 LimitNPROC=512
 LimitNOFILE=1048576
 RuntimeDirectory=daed
-RuntimeDirectoryMode=0755
+RuntimeDirectoryMode=0700
 Environment=DAED_PRODUCT_LOG_DIR=/tmp/log/daed
 ExecStartPre=/usr/bin/daed validate -c /etc/daed/
 ExecStart=/usr/bin/daed run -c /etc/daed/
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/usr/bin/daed reload
 Restart=on-abnormal
 
 [Install]
