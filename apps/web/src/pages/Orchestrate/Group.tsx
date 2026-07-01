@@ -5,7 +5,6 @@ import type {
   GroupResource as GroupResourceView,
   GroupSubscriptionResource,
   NodeListView,
-  Policy,
   SubscriptionListView,
 } from '~/apis/types'
 import type { GroupFormModalRef } from '~/components/GroupFormModal'
@@ -28,6 +27,7 @@ import {
   useRenameGroupMutation,
   useSubscriptionsQuery,
 } from '~/apis'
+import { Policy } from '~/apis/types'
 import { DroppableGroupCard } from '~/components/DroppableGroupCard'
 import { GroupFormModal } from '~/components/GroupFormModal'
 import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
@@ -403,10 +403,18 @@ export function GroupResource({
         onClose={() => setAddingNodesGroupId(null)}
         groupName={addingNodesGroup?.name || t('group')}
         items={addableNodeItems}
-        loading={groupAddNodesMutation.isPending}
+        loading={groupAddNodesMutation.isPending || groupDelNodesMutation.isPending}
         resetKey={addingNodesGroupId || ''}
+        selectionMode={addingNodesGroup?.policy === Policy.Fixed ? 'single' : 'multiple'}
         onSubmit={async (nodeIDs) => {
           if (!addingNodesGroupId) return
+
+          if (addingNodesGroup?.policy === Policy.Fixed && addingNodesGroup.nodes.length > 0) {
+            await groupDelNodesMutation.mutateAsync({
+              id: addingNodesGroupId,
+              nodeIDs: addingNodesGroup.nodes.map((node) => node.id),
+            })
+          }
 
           await groupAddNodesMutation.mutateAsync({
             id: addingNodesGroupId,

@@ -37,6 +37,7 @@ import {
   useSubscriptionsSummaryQuery,
   useTestNodeLatenciesMutation,
 } from '~/apis'
+import { Policy } from '~/apis/types'
 import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Dialog, DialogTitle } from '~/components/ui/dialog'
@@ -1271,6 +1272,7 @@ export function OrchestratePage() {
         allowEmptySubmit
         loading={groupAddNodesMutation.isPending || groupDelNodesMutation.isPending}
         resetKey={summaryEditingGroupId || ''}
+        selectionMode={summaryEditingGroup?.policy === Policy.Fixed ? 'single' : 'multiple'}
         onSubmit={async (nodeIDs) => {
           if (!summaryEditingGroupId || !summaryEditingGroup) return
 
@@ -1284,20 +1286,27 @@ export function OrchestratePage() {
             })
             .map((node) => node.id)
 
-          await Promise.all([
-            nodeIDsToAdd.length
-              ? groupAddNodesMutation.mutateAsync({
-                  id: summaryEditingGroupId,
-                  nodeIDs: nodeIDsToAdd,
-                })
-              : Promise.resolve(),
+          const deleteNodes = () =>
             nodeIDsToDelete.length
               ? groupDelNodesMutation.mutateAsync({
                   id: summaryEditingGroupId,
                   nodeIDs: nodeIDsToDelete,
                 })
-              : Promise.resolve(),
-          ])
+              : Promise.resolve()
+          const addNodes = () =>
+            nodeIDsToAdd.length
+              ? groupAddNodesMutation.mutateAsync({
+                  id: summaryEditingGroupId,
+                  nodeIDs: nodeIDsToAdd,
+                })
+              : Promise.resolve()
+
+          if (summaryEditingGroup.policy === Policy.Fixed) {
+            await deleteNodes()
+            await addNodes()
+          } else {
+            await Promise.all([deleteNodes(), addNodes()])
+          }
         }}
       />
 

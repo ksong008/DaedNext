@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
+import type { GroupPickerSelectionMode } from '~/components/group_picker_selection'
 import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { nextGroupPickerSelectedIds } from '~/components/group_picker_selection'
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Button } from '~/components/ui/button'
 import { Checkbox } from '~/components/ui/checkbox'
@@ -56,6 +58,7 @@ interface SelectionDialogProps {
   items: GroupPickerItem[]
   initialSelectedIds?: string[]
   allowEmptySubmit?: boolean
+  selectionMode?: GroupPickerSelectionMode
   resetKey: string
   layout: SelectionDialogLayout
   onSubmit: (ids: string[]) => Promise<void>
@@ -109,6 +112,7 @@ function SelectionDialog({
   items,
   initialSelectedIds = [],
   allowEmptySubmit = false,
+  selectionMode = 'multiple',
   resetKey,
   layout,
   onSubmit,
@@ -144,7 +148,7 @@ function SelectionDialog({
   const isSubscriptionChipLayout = layout === 'subscription-chip'
 
   const toggleItem = (id: string) => {
-    setSelectedIds((current) => (current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]))
+    setSelectedIds((current) => nextGroupPickerSelectedIds(current, id, selectionMode))
   }
 
   const handleClose = () => {
@@ -324,6 +328,7 @@ export function GroupAddNodesModal({
   submitLabel,
   initialSelectedIds = [],
   allowEmptySubmit,
+  selectionMode,
   loading,
   resetKey,
   onSubmit,
@@ -336,6 +341,7 @@ export function GroupAddNodesModal({
   submitLabel?: string
   initialSelectedIds?: string[]
   allowEmptySubmit?: boolean
+  selectionMode?: GroupPickerSelectionMode
   loading?: boolean
   resetKey: string
   onSubmit: (ids: string[]) => Promise<void>
@@ -354,6 +360,7 @@ export function GroupAddNodesModal({
       items={items}
       initialSelectedIds={initialSelectedIds}
       allowEmptySubmit={allowEmptySubmit}
+      selectionMode={selectionMode}
       loading={loading}
       resetKey={resetKey}
       layout="node-card"
