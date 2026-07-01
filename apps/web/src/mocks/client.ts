@@ -51,12 +51,12 @@ const geodataUpdatePathPattern = /^\/geodata\/(geosite|geoip)\/update$/
 const numericIDPattern = /(\d+)/
 const daeIdentifierPattern = /^[A-Z_][\w-]*$/i
 const mockDefaultGeodataSourceUrls: Record<GeodataKind, string> = {
-  geosite: 'https://fastly.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat',
-  geoip: 'https://fastly.jsdelivr.net/gh/Loyalsoldier/geoip@release/geoip.dat',
+  geosite: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat',
+  geoip: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat',
 }
 const mockLegacyGeodataReleaseApiUrls: Record<GeodataKind, string> = {
   geosite: 'https://api.github.com/repos/Loyalsoldier/v2ray-rules-dat/releases/latest',
-  geoip: 'https://api.github.com/repos/Loyalsoldier/geoip/releases/latest',
+  geoip: 'https://api.github.com/repos/Loyalsoldier/v2ray-rules-dat/releases/latest',
 }
 const mockGeodataDataFileNames: Record<GeodataKind, string> = {
   geosite: 'geosite.dat',
@@ -342,9 +342,13 @@ function validateMockGeodataSource(kind: GeodataKind, rawUrl: string) {
   }
 
   const otherKind = otherMockGeodataKind(kind)
+  const ownReleaseApiUrl = normalizeMockComparableUrl(mockLegacyGeodataReleaseApiUrls[kind])
+  const otherReleaseApiUrl = normalizeMockComparableUrl(mockLegacyGeodataReleaseApiUrls[otherKind])
+  const usesOtherOnlyReleaseApi =
+    otherReleaseApiUrl !== ownReleaseApiUrl && normalizeMockComparableUrl(value) === otherReleaseApiUrl
   if (
     normalizeMockComparableUrl(value) === normalizeMockComparableUrl(mockDefaultGeodataSourceUrls[otherKind]) ||
-    normalizeMockComparableUrl(value) === normalizeMockComparableUrl(mockLegacyGeodataReleaseApiUrls[otherKind])
+    usesOtherOnlyReleaseApi
   ) {
     throw new Error(`${kind} source cannot use ${otherKind} default update url`)
   }
