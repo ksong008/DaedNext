@@ -752,7 +752,10 @@ export const WorkspaceSummaryCards = memo(
     const groupPathCards = useMemo(
       () =>
         groups.map((group) => {
-          const directNode = group.firstNode ?? undefined
+          const directNodes =
+            group.sampleNodes.length > 0 ? group.sampleNodes : group.firstNode ? [group.firstNode] : []
+          const directNode = directNodes[0]
+          const hasMultipleDirectNodes = group.nodeCount > 1
           const directNodeSubscriptionName = directNode?.subscriptionID
             ? subscriptionNameById.get(directNode.subscriptionID)
             : undefined
@@ -765,12 +768,20 @@ export const WorkspaceSummaryCards = memo(
               ? firstBinding.subscription.tag || firstBinding.subscription.link || '—'
               : t('groupPicker.subscriptionGroupsCount', { count: subscriptionBindings.length })
           const destination = directNode
-            ? {
-                ...getNodeIdentity(directNode),
-                subtitle: directNode.subscriptionID
-                  ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
-                  : t('workspaceSummary.manualNode'),
-              }
+            ? hasMultipleDirectNodes
+              ? {
+                  title: `${group.nodeCount} ${t('node')}`,
+                  subtitle: directNode.subscriptionID
+                    ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
+                    : t('workspaceSummary.manualNode'),
+                  tooltipNodes: directNodes.map(getNodeIdentity),
+                }
+              : {
+                  ...getNodeIdentity(directNode),
+                  subtitle: directNode.subscriptionID
+                    ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
+                    : t('workspaceSummary.manualNode'),
+                }
             : subscriptionBindings.length > 0
               ? {
                   title: subscriptionTitle,
@@ -788,12 +799,16 @@ export const WorkspaceSummaryCards = memo(
             group,
             destination,
             latencyLabel: directNode
-              ? (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
+              ? hasMultipleDirectNodes
+                ? (formatBestLatencyLabel(directNodes, nodeLatencies) ?? t('latency.unavailable'))
+                : (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
               : subscriptionBindings.length > 0
                 ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
                 : '—',
             latencyTone: directNode
-              ? formatLatencyTone(nodeLatencies?.[directNode.id])
+              ? hasMultipleDirectNodes
+                ? formatBestLatencyTone(directNodes, nodeLatencies)
+                : formatLatencyTone(nodeLatencies?.[directNode.id])
               : subscriptionBindings.length > 0
                 ? formatBestLatencyTone(subscriptionNodes, nodeLatencies)
                 : 'unavailable',

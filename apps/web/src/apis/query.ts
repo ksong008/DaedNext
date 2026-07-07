@@ -207,6 +207,7 @@ interface GroupSummaryAPI {
   nodeCount: number
   subscriptionCount: number
   firstNode?: NodeAPI | null
+  sampleNodes?: NodeAPI[] | null
   subscriptions: Array<{
     subscriptionId: number
     nameFilterRegex?: string | null
@@ -1002,6 +1003,7 @@ function adaptGroupSummary(group: GroupSummaryAPI): GroupSummaryResource {
     nodeCount: group.nodeCount,
     subscriptionCount: group.subscriptionCount,
     firstNode: group.firstNode ? adaptNode(group.firstNode) : null,
+    sampleNodes: (group.sampleNodes ?? []).map(adaptNode),
     subscriptions: group.subscriptions.map((subscription) => ({
       nameFilterRegex: subscription.nameFilterRegex ?? null,
       matchedCount: subscription.matchedCount,
