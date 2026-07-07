@@ -586,6 +586,10 @@ export class MockAPIClient implements APIClientInterface {
           return {
             items: mockGroups.groups.map((group) => {
               const subscriptions = group.subscriptions.map(materializeMockGroupSubscriptionBinding)
+              const materializedCandidates = uniqueMockNodes([
+                ...group.nodes,
+                ...subscriptions.flatMap((binding) => binding.matchedNodes),
+              ])
               return {
                 id: numericID(group.id),
                 name: group.name,
@@ -596,6 +600,10 @@ export class MockAPIClient implements APIClientInterface {
                 subscriptionCount: group.subscriptions.length,
                 firstNode: group.nodes[0] ? toMockNodeAPI(group.nodes[0]) : null,
                 sampleNodes: group.nodes.slice(0, 5).map((node) => toMockNodeAPI(node)),
+                materializedCandidateCount: materializedCandidates.length,
+                sampleMaterializedCandidates: materializedCandidates.slice(0, 5).map((node) => toMockNodeAPI(node)),
+                currentNode: materializedCandidates[0] ? toMockNodeAPI(materializedCandidates[0]) : null,
+                bestNode: materializedCandidates[0] ? toMockNodeAPI(materializedCandidates[0]) : null,
                 subscriptions: subscriptions.map((binding) => ({
                   subscriptionId: numericID(binding.subscription.id),
                   nameFilterRegex: binding.nameFilterRegex,
@@ -1038,6 +1046,18 @@ function allMockLatencyNodeIds() {
   }
 
   return Array.from(ids)
+}
+
+function uniqueMockNodes<T extends { id: string; tag?: string | null; name: string }>(nodes: T[]) {
+  const seen = new Set<string>()
+  const out: T[] = []
+  for (const node of nodes) {
+    const identity = (node.tag?.trim() || node.name.trim() || node.id).trim()
+    if (seen.has(identity)) continue
+    seen.add(identity)
+    out.push(node)
+  }
+  return out
 }
 
 function toMockNodeAPI(
