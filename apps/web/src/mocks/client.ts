@@ -595,6 +595,7 @@ export class MockAPIClient implements APIClientInterface {
                 nodeCount: group.nodes.length,
                 subscriptionCount: group.subscriptions.length,
                 firstNode: group.nodes[0] ? toMockNodeAPI(group.nodes[0]) : null,
+                sampleNodes: group.nodes.slice(0, 5).map((node) => toMockNodeAPI(node)),
                 subscriptions: subscriptions.map((binding) => ({
                   subscriptionId: numericID(binding.subscription.id),
                   nameFilterRegex: binding.nameFilterRegex,

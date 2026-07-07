@@ -142,6 +142,7 @@ export interface GroupSummaryResource {
   nodeCount: number
   subscriptionCount: number
   firstNode?: NodeResource | null
+  sampleNodes: NodeResource[]
   subscriptions: GroupSummarySubscriptionResource[]
 }
 
