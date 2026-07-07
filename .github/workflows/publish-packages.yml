@@ -13,7 +13,8 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
@@ -33,30 +34,31 @@ jobs:
       - name: Build packages
         run: pnpm build --filter "@daeuniverse/*"
 
-      - name: Publish dae-editor
-        if: startsWith(github.ref, 'refs/tags/dae-editor-v')
-        working-directory: packages/dae-editor
-        run: pnpm publish --access public --no-git-checks || echo "Package may already be published, continuing..."
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish selected package
+        run: |
+          set -euo pipefail
+          case "${GITHUB_REF}" in
+            refs/tags/dae-editor-v*) package_dir="packages/dae-editor" ;;
+            refs/tags/dae-node-parser-v*) package_dir="packages/dae-node-parser" ;;
+            refs/tags/dae-lsp-v*) package_dir="packages/dae-lsp" ;;
+            refs/tags/dae-lang-core-v*) package_dir="packages/dae-lang-core" ;;
+            *)
+              echo "No package tag matched ${GITHUB_REF}; nothing to publish."
+              exit 0
+              ;;
+          esac
 
-      - name: Publish dae-node-parser
-        if: startsWith(github.ref, 'refs/tags/dae-node-parser-v')
-        working-directory: packages/dae-node-parser
-        run: pnpm publish --access public --no-git-checks || echo "Package may already be published, continuing..."
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          output="$(mktemp)"
+          if (cd "$package_dir" && pnpm publish --access public --no-git-checks) >"$output" 2>&1; then
+            cat "$output"
+            exit 0
+          fi
 
-      - name: Publish dae-lsp
-        if: startsWith(github.ref, 'refs/tags/dae-lsp-v')
-        working-directory: packages/dae-lsp
-        run: pnpm publish --access public --no-git-checks || echo "Package may already be published, continuing..."
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish dae-lang-core
-        if: startsWith(github.ref, 'refs/tags/dae-lang-core-v')
-        working-directory: packages/dae-lang-core
-        run: pnpm publish --access public --no-git-checks || echo "Package may already be published, continuing..."
+          cat "$output"
+          if grep -Eiq 'already exists|previously published|cannot publish over' "$output"; then
+            echo "Package version already exists; treating publish as idempotent."
+            exit 0
+          fi
+          exit 1
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
