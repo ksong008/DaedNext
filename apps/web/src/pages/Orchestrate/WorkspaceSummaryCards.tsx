@@ -756,62 +756,63 @@ export const WorkspaceSummaryCards = memo(
             group.sampleNodes.length > 0 ? group.sampleNodes : group.firstNode ? [group.firstNode] : []
           const directNode = directNodes[0]
           const hasMultipleDirectNodes = group.nodeCount > 1
+          const isFixedGroup = group.policy === 'fixed'
           const directNodeSubscriptionName = directNode?.subscriptionID
             ? subscriptionNameById.get(directNode.subscriptionID)
             : undefined
           const subscriptionBindings = group.subscriptions
           const subscriptionNodes = subscriptionBindings.flatMap((binding) => binding.sampleMatchedNodes)
           const subscriptionMatchedCount = subscriptionBindings.reduce((sum, binding) => sum + binding.matchedCount, 0)
-          const firstBinding = subscriptionBindings[0]
-          const subscriptionTitle =
-            subscriptionBindings.length === 1 && firstBinding
-              ? firstBinding.subscription.tag || firstBinding.subscription.link || '—'
-              : t('groupPicker.subscriptionGroupsCount', { count: subscriptionBindings.length })
-          const destination = directNode
-            ? hasMultipleDirectNodes
-              ? {
-                  title: `${group.nodeCount} ${t('node')}`,
-                  subtitle: directNode.subscriptionID
-                    ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
-                    : t('workspaceSummary.manualNode'),
-                  tooltipNodes: directNodes.map(getNodeIdentity),
-                }
-              : {
-                  ...getNodeIdentity(directNode),
-                  subtitle: directNode.subscriptionID
-                    ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
-                    : t('workspaceSummary.manualNode'),
-                }
-            : subscriptionBindings.length > 0
-              ? {
-                  title: subscriptionTitle,
-                  subtitle: `${t('workspaceSummary.fromSubscription')} · ${t(
-                    'groupPicker.subscriptionPreviewMatchedCount',
-                    {
-                      count: subscriptionMatchedCount,
-                    },
-                  )}`,
-                  tooltipNodes: subscriptionNodes.map(getNodeIdentity),
-                }
-              : undefined
+          const candidateNodes = directNodes.length > 0 ? directNodes : subscriptionNodes
+          const candidateCount = directNodes.length > 0 ? group.nodeCount : subscriptionMatchedCount
+          const hasSubscriptionBackedCandidates =
+            subscriptionBindings.length > 0 || candidateNodes.some((node) => Boolean(node.subscriptionID))
+          const candidateSubtitle = hasSubscriptionBackedCandidates
+            ? `${t('workspaceSummary.fromSubscription')} · ${t('groupPicker.subscriptionPreviewMatchedCount', {
+                count: candidateCount,
+              })}`
+            : `${t('workspaceSummary.manualNode')} · ${t('groupPicker.nodesCount', { count: candidateCount })}`
+          const destination =
+            isFixedGroup && directNode
+              ? hasMultipleDirectNodes
+                ? {
+                    title: `${group.nodeCount} ${t('node')}`,
+                    subtitle: directNode.subscriptionID
+                      ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
+                      : t('workspaceSummary.manualNode'),
+                    tooltipNodes: directNodes.map(getNodeIdentity),
+                  }
+                : {
+                    ...getNodeIdentity(directNode),
+                    subtitle: directNode.subscriptionID
+                      ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
+                      : t('workspaceSummary.manualNode'),
+                  }
+              : candidateCount > 0
+                ? {
+                    title: t('groupPicker.nodesCount', { count: candidateCount }),
+                    subtitle: candidateSubtitle,
+                    tooltipNodes: candidateNodes.map(getNodeIdentity),
+                  }
+                : undefined
+          const latencyNodes = isFixedGroup && directNode ? directNodes : candidateNodes
+          const latencyCount = isFixedGroup && directNode ? group.nodeCount : candidateCount
+          const hasLatencyNodes = latencyNodes.length > 0
+          const hasMultipleLatencyNodes = latencyCount > 1
 
           return {
             group,
             destination,
-            latencyLabel: directNode
-              ? hasMultipleDirectNodes
-                ? (formatBestLatencyLabel(directNodes, nodeLatencies) ?? t('latency.unavailable'))
-                : (formatLatencyLabel(nodeLatencies?.[directNode.id]) ?? t('latency.unavailable'))
-              : subscriptionBindings.length > 0
-                ? (formatBestLatencyLabel(subscriptionNodes, nodeLatencies) ?? t('latency.unavailable'))
-                : '—',
-            latencyTone: directNode
-              ? hasMultipleDirectNodes
-                ? formatBestLatencyTone(directNodes, nodeLatencies)
-                : formatLatencyTone(nodeLatencies?.[directNode.id])
-              : subscriptionBindings.length > 0
-                ? formatBestLatencyTone(subscriptionNodes, nodeLatencies)
-                : 'unavailable',
+            latencyLabel: hasLatencyNodes
+              ? hasMultipleLatencyNodes
+                ? (formatBestLatencyLabel(latencyNodes, nodeLatencies) ?? t('latency.unavailable'))
+                : (formatLatencyLabel(nodeLatencies?.[latencyNodes[0].id]) ?? t('latency.unavailable'))
+              : '—',
+            latencyTone: hasLatencyNodes
+              ? hasMultipleLatencyNodes
+                ? formatBestLatencyTone(latencyNodes, nodeLatencies)
+                : formatLatencyTone(nodeLatencies?.[latencyNodes[0].id])
+              : 'unavailable',
           }
         }),
       [groups, nodeLatencies, subscriptionNameById, t],
