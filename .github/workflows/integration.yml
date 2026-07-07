@@ -2,6 +2,11 @@ name: DaedNext Integration
 
 on:
   workflow_dispatch:
+    inputs:
+      daenext_ref:
+        description: Optional DaeNext core ref override. Empty uses .github/daenext-core-ref.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -14,7 +19,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  resolve-daenext-ref:
+    timeout-minutes: 5
+    runs-on: ubuntu-22.04
+    outputs:
+      daenext_ref: ${{ steps.resolve.outputs.daenext_ref }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Resolve DaeNext core ref
+        id: resolve
+        env:
+          INPUT_REF: ${{ inputs.daenext_ref }}
+        run: |
+          set -euo pipefail
+          ref="$INPUT_REF"
+          if [ -z "$ref" ]; then
+            ref="$(tr -d '[:space:]' < .github/daenext-core-ref)"
+          fi
+          test -n "$ref"
+          echo "daenext_ref=$ref" >>"$GITHUB_OUTPUT"
+
+  workflow-lint:
+    timeout-minutes: 10
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Run actionlint
+        run: |
+          set -euo pipefail
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint"
+
   web-surface-lint:
+    needs: workflow-lint
     timeout-minutes: 15
     runs-on: ubuntu-22.04
     steps:
@@ -47,7 +88,7 @@ jobs:
         run: pnpm --filter daed test
 
   build-linux-x86_64:
-    needs: web-quality
+    needs: [web-quality, resolve-daenext-ref]
     name: Build Linux x86_64 ${{ matrix.cpu_level }}
     timeout-minutes: 45
     runs-on: ubuntu-22.04
@@ -74,7 +115,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: ksong008/DaeNext
-          ref: main
+          ref: ${{ needs.resolve-daenext-ref.outputs.daenext_ref }}
           path: DaeNext
           persist-credentials: false
       - uses: pnpm/action-setup@v5.0.0
@@ -88,6 +129,11 @@ jobs:
           rustup toolchain install nightly --profile minimal --component rust-src
           rustup default stable
           cargo install bpf-linker --version 0.10.3 --locked
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            DaeNext -> target
       - name: Install native build dependencies
         run: |
           set -euo pipefail
@@ -136,12 +182,15 @@ jobs:
           cp install/daed.desktop artifact/
           cp -r install/icons artifact/icons
           cp -r apps/web/dist artifact/web
-          curl -L -o artifact/geoip.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geoip.dat
-          curl -L -o artifact/geosite.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geosite.dat
+          curl --fail --location --retry 3 --retry-delay 2 --connect-timeout 20 --show-error \
+            -o artifact/geoip.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geoip.dat
+          curl --fail --location --retry 3 --retry-delay 2 --connect-timeout 20 --show-error \
+            -o artifact/geosite.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geosite.dat
           tar -C artifact -czf ${{ matrix.output_name }}-test.tar.gz .
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.output_name }}-test
+          retention-days: 7
           path: |
             artifact/**
             ${{ matrix.output_name }}-test.tar.gz
