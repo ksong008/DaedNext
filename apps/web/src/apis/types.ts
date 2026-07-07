@@ -143,6 +143,10 @@ export interface GroupSummaryResource {
   subscriptionCount: number
   firstNode?: NodeResource | null
   sampleNodes: NodeResource[]
+  materializedCandidateCount: number
+  sampleMaterializedCandidates: NodeResource[]
+  currentNode?: NodeResource | null
+  bestNode?: NodeResource | null
   subscriptions: GroupSummarySubscriptionResource[]
 }
 

@@ -763,8 +763,12 @@ export const WorkspaceSummaryCards = memo(
           const subscriptionBindings = group.subscriptions
           const subscriptionNodes = subscriptionBindings.flatMap((binding) => binding.sampleMatchedNodes)
           const subscriptionMatchedCount = subscriptionBindings.reduce((sum, binding) => sum + binding.matchedCount, 0)
-          const candidateNodes = directNodes.length > 0 ? directNodes : subscriptionNodes
-          const candidateCount = directNodes.length > 0 ? group.nodeCount : subscriptionMatchedCount
+          const fallbackCandidateNodes = directNodes.length > 0 ? directNodes : subscriptionNodes
+          const candidateNodes =
+            group.sampleMaterializedCandidates.length > 0 ? group.sampleMaterializedCandidates : fallbackCandidateNodes
+          const fallbackCandidateCount = directNodes.length > 0 ? group.nodeCount : subscriptionMatchedCount
+          const candidateCount = group.materializedCandidateCount || fallbackCandidateCount
+          const resolvedCandidateNode = group.currentNode ?? group.bestNode ?? null
           const hasSubscriptionBackedCandidates =
             subscriptionBindings.length > 0 || candidateNodes.some((node) => Boolean(node.subscriptionID))
           const candidateSubtitle = hasSubscriptionBackedCandidates
@@ -789,14 +793,21 @@ export const WorkspaceSummaryCards = memo(
                       : t('workspaceSummary.manualNode'),
                   }
               : candidateCount > 0
-                ? {
-                    title: t('groupPicker.nodesCount', { count: candidateCount }),
-                    subtitle: candidateSubtitle,
-                    tooltipNodes: candidateNodes.map(getNodeIdentity),
-                  }
+                ? resolvedCandidateNode
+                  ? {
+                      ...getNodeIdentity(resolvedCandidateNode),
+                      subtitle: candidateSubtitle,
+                      tooltipNodes: candidateNodes.map(getNodeIdentity),
+                    }
+                  : {
+                      title: t('groupPicker.nodesCount', { count: candidateCount }),
+                      subtitle: candidateSubtitle,
+                      tooltipNodes: candidateNodes.map(getNodeIdentity),
+                    }
                 : undefined
-          const latencyNodes = isFixedGroup && directNode ? directNodes : candidateNodes
-          const latencyCount = isFixedGroup && directNode ? group.nodeCount : candidateCount
+          const latencyNodes =
+            isFixedGroup && directNode ? directNodes : resolvedCandidateNode ? [resolvedCandidateNode] : candidateNodes
+          const latencyCount = isFixedGroup && directNode ? group.nodeCount : resolvedCandidateNode ? 1 : candidateCount
           const hasLatencyNodes = latencyNodes.length > 0
           const hasMultipleLatencyNodes = latencyCount > 1
 
