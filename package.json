@@ -24,6 +24,7 @@
     "lint": "eslint --fix .",
     "lint:emoji": "bash ./scripts/check_no_emoji.sh",
     "lint:web-surface": "bash ./scripts/check_retired_frontend_markers.sh",
+    "package:linux:arm64": "bash ./scripts/package_linux_arm64.sh",
     "package:linux:x86_64": "bash ./scripts/package_linux_x86_64.sh",
     "prepare": "husky",
     "screenshot": "pnpm build:mock && npx tsx scripts/screenshot.ts",
