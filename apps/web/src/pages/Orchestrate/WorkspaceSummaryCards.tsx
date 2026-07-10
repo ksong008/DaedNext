@@ -754,12 +754,7 @@ export const WorkspaceSummaryCards = memo(
         groups.map((group) => {
           const directNodes =
             group.sampleNodes.length > 0 ? group.sampleNodes : group.firstNode ? [group.firstNode] : []
-          const directNode = directNodes[0]
-          const hasMultipleDirectNodes = group.nodeCount > 1
-          const isFixedGroup = group.policy === 'fixed'
-          const directNodeSubscriptionName = directNode?.subscriptionID
-            ? subscriptionNameById.get(directNode.subscriptionID)
-            : undefined
+          const isRandomGroup = group.policy === 'random'
           const subscriptionBindings = group.subscriptions
           const subscriptionNodes = subscriptionBindings.flatMap((binding) => binding.sampleMatchedNodes)
           const subscriptionMatchedCount = subscriptionBindings.reduce((sum, binding) => sum + binding.matchedCount, 0)
@@ -768,7 +763,9 @@ export const WorkspaceSummaryCards = memo(
             group.sampleMaterializedCandidates.length > 0 ? group.sampleMaterializedCandidates : fallbackCandidateNodes
           const fallbackCandidateCount = directNodes.length > 0 ? group.nodeCount : subscriptionMatchedCount
           const candidateCount = group.materializedCandidateCount || fallbackCandidateCount
-          const resolvedCandidateNode = group.currentNode ?? group.bestNode ?? null
+          const runtimeSelectedNode = group.runtimeSelectedNode ?? null
+          const resolvedCandidateNode =
+            runtimeSelectedNode ?? (isRandomGroup ? null : (group.currentNode ?? group.bestNode ?? null))
           const hasSubscriptionBackedCandidates =
             subscriptionBindings.length > 0 || candidateNodes.some((node) => Boolean(node.subscriptionID))
           const candidateSubtitle = hasSubscriptionBackedCandidates
@@ -777,37 +774,21 @@ export const WorkspaceSummaryCards = memo(
               })}`
             : `${t('workspaceSummary.manualNode')} · ${t('groupPicker.nodesCount', { count: candidateCount })}`
           const destination =
-            isFixedGroup && directNode
-              ? hasMultipleDirectNodes
+            candidateCount > 0
+              ? resolvedCandidateNode
                 ? {
-                    title: `${group.nodeCount} ${t('node')}`,
-                    subtitle: directNode.subscriptionID
-                      ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
-                      : t('workspaceSummary.manualNode'),
-                    tooltipNodes: directNodes.map(getNodeIdentity),
+                    ...getNodeIdentity(resolvedCandidateNode),
+                    subtitle: candidateSubtitle,
+                    tooltipNodes: candidateNodes.map(getNodeIdentity),
                   }
                 : {
-                    ...getNodeIdentity(directNode),
-                    subtitle: directNode.subscriptionID
-                      ? [t('workspaceSummary.fromSubscription'), directNodeSubscriptionName].filter(Boolean).join(' · ')
-                      : t('workspaceSummary.manualNode'),
+                    title: t('groupPicker.nodesCount', { count: candidateCount }),
+                    subtitle: candidateSubtitle,
+                    tooltipNodes: candidateNodes.map(getNodeIdentity),
                   }
-              : candidateCount > 0
-                ? resolvedCandidateNode
-                  ? {
-                      ...getNodeIdentity(resolvedCandidateNode),
-                      subtitle: candidateSubtitle,
-                      tooltipNodes: candidateNodes.map(getNodeIdentity),
-                    }
-                  : {
-                      title: t('groupPicker.nodesCount', { count: candidateCount }),
-                      subtitle: candidateSubtitle,
-                      tooltipNodes: candidateNodes.map(getNodeIdentity),
-                    }
-                : undefined
-          const latencyNodes =
-            isFixedGroup && directNode ? directNodes : resolvedCandidateNode ? [resolvedCandidateNode] : candidateNodes
-          const latencyCount = isFixedGroup && directNode ? group.nodeCount : resolvedCandidateNode ? 1 : candidateCount
+              : undefined
+          const latencyNodes = resolvedCandidateNode ? [resolvedCandidateNode] : candidateNodes
+          const latencyCount = resolvedCandidateNode ? 1 : candidateCount
           const hasLatencyNodes = latencyNodes.length > 0
           const hasMultipleLatencyNodes = latencyCount > 1
 
@@ -826,7 +807,7 @@ export const WorkspaceSummaryCards = memo(
               : 'unavailable',
           }
         }),
-      [groups, nodeLatencies, subscriptionNameById, t],
+      [groups, nodeLatencies, t],
     )
     const topNodes = useMemo(
       () => getTopNodes(sortedNodes, subscriptionBackedNodes, subscriptionNameById, nodeLatencies),
