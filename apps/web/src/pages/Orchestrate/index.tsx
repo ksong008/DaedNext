@@ -37,6 +37,7 @@ import {
   useSubscriptionsSummaryQuery,
   useTestNodeLatenciesMutation,
 } from '~/apis'
+import { webQueryKeys } from '~/apis/query_cache'
 import { Policy } from '~/apis/types'
 import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
@@ -369,6 +370,17 @@ export function OrchestratePage() {
     [queryClient],
   )
 
+  const invalidateLatencyDependentViews = useCallback(
+    (includeJob = false) => {
+      void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+      void queryClient.invalidateQueries({ queryKey: webQueryKeys.group.summary() })
+      if (includeJob) {
+        void queryClient.invalidateQueries({ queryKey: webQueryKeys.node.latencyJob() })
+      }
+    },
+    [queryClient],
+  )
+
   // Get sorted node IDs
   const sortedNodeIds = useMemo(() => {
     if (nodes.length === 0) return []
@@ -469,7 +481,7 @@ export function OrchestratePage() {
       if (response.items.length > 0) {
         mergeNodeLatencyResults(response.items)
       }
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+      invalidateLatencyDependentViews(true)
       setManualLatencyProbeProgress(null)
     } catch (error) {
       console.error('Failed to start node latency job', error)
@@ -480,8 +492,8 @@ export function OrchestratePage() {
     allLatencyProbeNodeIds,
     latencyProbeFallbackTotal,
     manualLatencyProbeProgress,
+    invalidateLatencyDependentViews,
     mergeNodeLatencyResults,
-    queryClient,
     testNodeLatenciesMutation,
   ])
 
@@ -502,13 +514,13 @@ export function OrchestratePage() {
     })
 
     if (hasNewLatencyResults) {
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+      invalidateLatencyDependentViews(!jobActive)
     }
 
     if (!jobActive) {
       setManualLatencyProbeProgress(null)
     }
-  }, [manualLatencyProbeProgress, nodeLatencyJobQuery.data?.job, queryClient])
+  }, [invalidateLatencyDependentViews, manualLatencyProbeProgress, nodeLatencyJobQuery.data?.job])
 
   useEffect(() => {
     const visibleNodeIdSet = new Set(allLatencyProbeNodeIds)

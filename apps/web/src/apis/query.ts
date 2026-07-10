@@ -212,6 +212,11 @@ interface GroupSummaryAPI {
   sampleMaterializedCandidates?: NodeAPI[] | null
   currentNode?: NodeAPI | null
   bestNode?: NodeAPI | null
+  runtimeSelectedNode?: NodeAPI | null
+  runtimeSelectedNetworkType?: string | null
+  runtimeSelectedLatencyMs?: number | null
+  runtimeSelectionSource?: string | null
+  runtimeAliveCandidateCount?: number | null
   subscriptions: Array<{
     subscriptionId: number
     nameFilterRegex?: string | null
@@ -1012,6 +1017,11 @@ function adaptGroupSummary(group: GroupSummaryAPI): GroupSummaryResource {
     sampleMaterializedCandidates: (group.sampleMaterializedCandidates ?? []).map(adaptNode),
     currentNode: group.currentNode ? adaptNode(group.currentNode) : null,
     bestNode: group.bestNode ? adaptNode(group.bestNode) : null,
+    runtimeSelectedNode: group.runtimeSelectedNode ? adaptNode(group.runtimeSelectedNode) : null,
+    runtimeSelectedNetworkType: group.runtimeSelectedNetworkType ?? null,
+    runtimeSelectedLatencyMs: group.runtimeSelectedLatencyMs ?? null,
+    runtimeSelectionSource: group.runtimeSelectionSource ?? null,
+    runtimeAliveCandidateCount: group.runtimeAliveCandidateCount ?? null,
     subscriptions: group.subscriptions.map((subscription) => ({
       nameFilterRegex: subscription.nameFilterRegex ?? null,
       matchedCount: subscription.matchedCount,

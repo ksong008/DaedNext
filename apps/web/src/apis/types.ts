@@ -147,6 +147,11 @@ export interface GroupSummaryResource {
   sampleMaterializedCandidates: NodeResource[]
   currentNode?: NodeResource | null
   bestNode?: NodeResource | null
+  runtimeSelectedNode?: NodeResource | null
+  runtimeSelectedNetworkType?: string | null
+  runtimeSelectedLatencyMs?: number | null
+  runtimeSelectionSource?: string | null
+  runtimeAliveCandidateCount?: number | null
   subscriptions: GroupSummarySubscriptionResource[]
 }
 
