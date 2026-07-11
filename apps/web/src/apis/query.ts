@@ -41,7 +41,7 @@ import type {
 import { useStore } from '@nanostores/react'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAPIClient } from '~/contexts'
 
 import { isMockMode } from '~/mocks'
@@ -49,6 +49,7 @@ import { endpointURLAtom, tokenAtom } from '~/store'
 import { buildEventStreamURL, subscribeEventStream } from './event_stream'
 import { resolveNodeTransport } from './node_transport'
 import { webQueryKeys } from './query_cache'
+import { handleRuntimeGroupSelectionEvent } from './runtime_event_cache'
 import { adaptRuntimeOverview, mergeRuntimeOverviewDelta } from './runtime_overview'
 
 interface JSONStorageResponse {
@@ -485,6 +486,7 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   const endpointURL = useStore(endpointURLAtom)
   const token = useStore(tokenAtom)
   const [isStreamLive, setIsStreamLive] = useState(false)
+  const groupSelectionGeneration = useRef<string | null>(null)
   const queryEnabled = isMockMode() || !!token
   const streamEnabled = !isMockMode() && !!token && typeof fetch !== 'undefined'
   const queryKey = useMemo(() => trafficOverviewQueryKey(windowSec, maxPoints), [windowSec, maxPoints])
@@ -500,6 +502,7 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
     }
 
     setIsStreamLive(false)
+    groupSelectionGeneration.current = null
 
     const handleOverview = (data: string) => {
       try {
@@ -533,6 +536,12 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
           handleOverview(message.data)
         } else if (message.event === 'runtime.overview.delta') {
           handleOverviewDelta(message.data)
+        } else if (message.event === 'runtime.group-selection') {
+          groupSelectionGeneration.current = handleRuntimeGroupSelectionEvent(
+            queryClient,
+            message.data,
+            groupSelectionGeneration.current,
+          )
         } else if (message.event === 'runtime.error') {
           handleStreamError()
         }
