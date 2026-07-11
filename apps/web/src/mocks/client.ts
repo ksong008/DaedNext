@@ -573,6 +573,21 @@ export class MockAPIClient implements APIClientInterface {
         return updateMockLatencyJob(body) as T
       case 'GET /nodes/latencies/job':
         return { job: mockLatencyJob } as T
+      case 'DELETE /nodes/latencies/job': {
+        const requestedID = Number((body as { id?: number } | undefined)?.id)
+        if (!mockLatencyJob || mockLatencyJob.id !== requestedID) {
+          throw new Error('manual latency probe job does not match current job')
+        }
+        if (mockLatencyJob.status === 'queued' || mockLatencyJob.status === 'running') {
+          mockLatencyJob = {
+            ...mockLatencyJob,
+            status: 'cancelled',
+            finishedAt: new Date().toISOString(),
+            message: 'manual latency probe cancelled',
+          }
+        }
+        return { job: mockLatencyJob } as T
+      }
       case 'GET /nodes':
         if (toQueryBool(query?.independent) === false) {
           const subscriptionNodes = mockSubscriptions.subscriptions.flatMap((subscription) =>

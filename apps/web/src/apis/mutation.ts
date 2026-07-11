@@ -975,16 +975,36 @@ export function useTestNodeLatenciesMutation() {
   const apiClient = useAPIClient()
 
   return useMutation({
-    mutationFn: async (ids?: string[]) => {
+    mutationFn: async ({
+      ids,
+      signal,
+      timeoutMs,
+    }: { ids?: string[]; signal?: AbortSignal; timeoutMs?: number } = {}) => {
       const data = await apiClient.post<{
         items: Parameters<typeof adaptNodeLatencyProbeResults>[0]
         job?: Parameters<typeof adaptNodeLatencyJob>[0]
-      }>('/nodes/latencies', ids && ids.length > 0 ? { ids: ids.map(toNumericID) } : {})
+      }>('/nodes/latencies', ids && ids.length > 0 ? { ids: ids.map(toNumericID) } : {}, undefined, {
+        signal,
+        timeoutMs,
+      })
 
       return {
         items: adaptNodeLatencyProbeResults(data.items),
         job: adaptNodeLatencyJob(data.job),
       } satisfies NodeLatencyProbeResponse
+    },
+  })
+}
+
+export function useCancelNodeLatencyJobMutation() {
+  const apiClient = useAPIClient()
+
+  return useMutation({
+    mutationFn: async (jobId: string) => {
+      const data = await apiClient.delete<{
+        job?: Parameters<typeof adaptNodeLatencyJob>[0]
+      }>('/nodes/latencies/job', { id: toNumericID(jobId) })
+      return adaptNodeLatencyJob(data.job)
     },
   })
 }

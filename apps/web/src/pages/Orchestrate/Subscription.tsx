@@ -3,7 +3,7 @@ import type { SubscriptionListView } from '~/apis/types'
 import type { QRCodeModalRef } from '~/components/QRCodeModal'
 import { Droppable } from '@hello-pangea/dnd'
 import dayjs from 'dayjs'
-import { CloudCog, CloudUpload, Download, Eye, Gauge, Pencil } from 'lucide-react'
+import { CloudCog, CloudUpload, Download, Eye, Gauge, Pencil, Square } from 'lucide-react'
 import { Fragment, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -34,16 +34,20 @@ export function SubscriptionResource({
   sortedSubscriptions,
   nodeLatencies,
   testingLatencies,
+  cancellingLatencies,
   testingLatencyProgress,
   lastLatencyProbeAt,
   onTestAllNodeLatencies,
+  onCancelNodeLatencies,
 }: {
   sortedSubscriptions: SubscriptionListView['subscriptions']
   nodeLatencies?: Record<string, NodeLatencyProbeResult>
   testingLatencies?: boolean
+  cancellingLatencies?: boolean
   testingLatencyProgress?: { completed: number; total: number } | null
   lastLatencyProbeAt?: string | null
   onTestAllNodeLatencies: () => Promise<void>
+  onCancelNodeLatencies: () => Promise<void>
 }) {
   const { t } = useTranslation()
 
@@ -102,16 +106,16 @@ export function SubscriptionResource({
                   {testingLatencyProgress.completed}/{testingLatencyProgress.total}
                 </span>
               )}
-              <SimpleTooltip label={t('latency.testAllNodes')}>
+              <SimpleTooltip label={testingLatencies ? t('actions.cancel') : t('latency.testAllNodes')}>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    void onTestAllNodeLatencies()
+                    void (testingLatencies ? onCancelNodeLatencies() : onTestAllNodeLatencies())
                   }}
-                  loading={testingLatencies}
+                  loading={cancellingLatencies}
                 >
-                  <Gauge className="h-4 w-4" />
+                  {testingLatencies ? <Square className="h-4 w-4" /> : <Gauge className="h-4 w-4" />}
                 </Button>
               </SimpleTooltip>
             </div>
