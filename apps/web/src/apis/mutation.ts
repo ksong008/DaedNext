@@ -33,6 +33,7 @@ import { toID, toNumericID } from './client'
 import { selectProfileResources } from './profile_selection'
 import { adaptNodeLatencyJob, adaptNodeLatencyProbeResults } from './query'
 import { invalidateQueryKeys, webQueryKeys } from './query_cache'
+import { invalidateChangedSubscriptionResources } from './subscription_cache'
 
 interface CountResponse {
   updated?: number
@@ -895,7 +896,7 @@ export function useImportSubscriptionsMutation() {
         }
       }),
     onSettled: () => {
-      void invalidateSubscriptionResource(queryClient, { generalState: true })
+      void invalidateChangedSubscriptionResources(queryClient)
     },
   })
 }
@@ -911,13 +912,7 @@ export function useUpdateSubscriptionsMutation() {
         return toID(subscription.id)
       }),
     onSettled: () => {
-      void invalidateQueryKeys(queryClient, [
-        webQueryKeys.subscription.summary(),
-        webQueryKeys.subscription.expanded(),
-        webQueryKeys.group.summary(),
-        webQueryKeys.group.expanded(),
-        webQueryKeys.general.state(),
-      ])
+      void invalidateChangedSubscriptionResources(queryClient)
     },
   })
 }
