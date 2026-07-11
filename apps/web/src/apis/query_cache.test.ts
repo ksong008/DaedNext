@@ -10,6 +10,12 @@ describe('webQueryKeys', () => {
 
     expect(webQueryKeys.group.summary()).toEqual(['group', 'summary'])
     expect(webQueryKeys.group.expanded()).toEqual(['group', 'expanded'])
+    expect(webQueryKeys.group.subscriptionPreview(['7', '8'], '^HK')).toEqual([
+      'group',
+      'subscription-preview',
+      ['7', '8'],
+      '^HK',
+    ])
 
     expect(webQueryKeys.subscription.summary()).toEqual(['subscription', 'summary'])
     expect(webQueryKeys.subscription.expanded()).toEqual(['subscription', 'expanded'])

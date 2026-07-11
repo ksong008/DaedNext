@@ -50,6 +50,8 @@ export const webQueryKeys = {
     root: () => rootKey(QUERY_KEY_GROUP),
     summary: () => childKey(QUERY_KEY_GROUP, 'summary'),
     expanded: () => childKey(QUERY_KEY_GROUP, 'expanded'),
+    subscriptionPreview: (subscriptionIDs: readonly string[], nameFilterRegex: string) =>
+      childKey(QUERY_KEY_GROUP, 'subscription-preview', [...subscriptionIDs], nameFilterRegex),
   },
   log: {
     root: () => rootKey(QUERY_KEY_LOG),

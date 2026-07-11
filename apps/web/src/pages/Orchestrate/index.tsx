@@ -717,12 +717,6 @@ export function OrchestratePage() {
         title,
         description,
         meta: `${subscription.nodes.items.length} ${t('node')}`,
-        previewNodes: subscription.nodes.items.map((node) => ({
-          id: node.id,
-          title: node.name,
-          protocol: node.protocol || undefined,
-          transport: node.transport || undefined,
-        })),
         keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(
           Boolean,
         ) as string[],
