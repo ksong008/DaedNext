@@ -710,7 +710,9 @@ export const WorkspaceSummaryCards = memo(
     onOpenNodes,
     onOpenSubscriptions,
     onTestAllNodeLatencies,
+    onCancelNodeLatencies,
     testingLatencies,
+    cancellingLatencies,
     testingLatencyProgress,
   }: {
     selectedConfig?: ConfigResource
@@ -729,7 +731,9 @@ export const WorkspaceSummaryCards = memo(
     onOpenNodes?: () => void
     onOpenSubscriptions?: () => void
     onTestAllNodeLatencies?: () => void | Promise<void>
+    onCancelNodeLatencies?: () => void | Promise<void>
     testingLatencies?: boolean
+    cancellingLatencies?: boolean
     testingLatencyProgress?: { completed: number; total: number } | null
   }) => {
     const { t } = useTranslation()
@@ -820,8 +824,8 @@ export const WorkspaceSummaryCards = memo(
         (sortedNodes.length > 0 ? sortedNodes.filter((node) => !node.subscriptionID).length : undefined),
       [manualNodeCount, sortedNodes],
     )
-    const nodeLatencyActionLabel = testingLatencyProgress
-      ? `${t('latency.testAllNodes')} · ${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
+    const nodeLatencyActionLabel = testingLatencies
+      ? `${t('actions.cancel')} · ${testingLatencyProgress?.completed ?? 0}/${testingLatencyProgress?.total ?? 0}`
       : t('latency.testAllNodes')
 
     const wanInterfaceSummary = useMemo(() => {
@@ -1007,8 +1011,8 @@ export const WorkspaceSummaryCards = memo(
             subtitle={t('workspaceSummary.nodeSubscriptionSubtitle')}
             icon={<CloudCog className="h-4.5 w-4.5" />}
             actionLabel={nodeLatencyActionLabel}
-            actionDisabled={testingLatencies}
-            onAction={onTestAllNodeLatencies}
+            actionDisabled={testingLatencies ? cancellingLatencies || !onCancelNodeLatencies : false}
+            onAction={testingLatencies ? onCancelNodeLatencies : onTestAllNodeLatencies}
           >
             <div className="min-h-0 max-h-[326px] space-y-2 overflow-y-auto overscroll-contain pr-1 lg:max-h-[276px]">
               <div className="space-y-2">
