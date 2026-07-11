@@ -4,6 +4,7 @@ import { Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useGroupSubscriptionFilterPreviewQuery } from '~/apis'
 import { nextGroupPickerSelectedIds } from '~/components/group_picker_selection'
 import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Button } from '~/components/ui/button'
@@ -21,8 +22,6 @@ import { cn } from '~/lib/utils'
 const PICKER_ITEM_WINDOW_SIZE = 80
 const SUBSCRIPTION_PREVIEW_GROUP_WINDOW_SIZE = 8
 const SUBSCRIPTION_PREVIEW_GROUP_WINDOW_INCREMENT = 8
-const SUBSCRIPTION_PREVIEW_NODE_WINDOW_SIZE = 64
-const SUBSCRIPTION_PREVIEW_NODE_WINDOW_INCREMENT = 64
 
 export interface GroupPickerItem {
   id: string
@@ -34,14 +33,6 @@ export interface GroupPickerItem {
   latencyTone?: 'default' | 'primary' | 'destructive'
   badge?: ReactNode
   keywords?: string[]
-  previewNodes?: GroupPickerPreviewNode[]
-}
-
-export interface GroupPickerPreviewNode {
-  id: string
-  title: string
-  protocol?: string
-  transport?: string
 }
 
 type SelectionDialogLayout = 'node-card' | 'subscription-chip'
@@ -428,40 +419,34 @@ export function GroupAddSubscriptionsModal({
   const selectedIdsKey = selectedIds.join('\u0000')
 
   const trimmedRegex = nameFilterRegex.trim()
-
-  const clientRegexError = useMemo(() => {
-    if (!trimmedRegex) return null
-    try {
-      // Validate user input before sending it to the backend.
-      const regex = new RegExp(trimmedRegex)
-      regex.test('')
-      return null
-    } catch (error) {
-      return error instanceof Error ? error.message : t('groupPicker.invalidRegex')
-    }
-  }, [trimmedRegex, t])
-
-  const regexError = clientRegexError || serverRegexError
+  const filterPreviewQuery = useGroupSubscriptionFilterPreviewQuery(selectedIds, trimmedRegex, opened)
+  const previewError = filterPreviewQuery.error
+    ? filterPreviewQuery.error instanceof Error
+      ? filterPreviewQuery.error.message
+      : t('groupPicker.subscriptionPreviewFailed')
+    : null
+  const regexError = serverRegexError || (trimmedRegex ? previewError : null)
+  const previewBySubscriptionID = useMemo(
+    () => new Map((filterPreviewQuery.data?.items ?? []).map((preview) => [preview.subscriptionID, preview] as const)),
+    [filterPreviewQuery.data?.items],
+  )
 
   const previewGroups = useMemo(() => {
-    const regex = trimmedRegex && !regexError ? new RegExp(trimmedRegex) : null
-
     return selectedItems.map((item) => {
-      const allNodes = item.previewNodes || []
-      const matchedNodes = regex ? allNodes.filter((node) => regex.test(node.title)) : allNodes
+      const preview = previewBySubscriptionID.get(item.id)
 
       return {
         item,
-        matchedNodes,
+        matchedCount: preview?.matchedCount ?? 0,
+        matchedNodes: preview?.sampleMatchedNodes ?? [],
+        sampleTruncated: preview?.sampleTruncated ?? false,
       }
     })
-  }, [regexError, selectedItems, trimmedRegex])
+  }, [previewBySubscriptionID, selectedItems])
   const [visiblePreviewGroupCount, setVisiblePreviewGroupCount] = useState(SUBSCRIPTION_PREVIEW_GROUP_WINDOW_SIZE)
-  const [visiblePreviewNodeCountByItemId, setVisiblePreviewNodeCountByItemId] = useState<Record<string, number>>({})
 
   useEffect(() => {
     setVisiblePreviewGroupCount(SUBSCRIPTION_PREVIEW_GROUP_WINDOW_SIZE)
-    setVisiblePreviewNodeCountByItemId({})
   }, [opened, resetKey, selectedIdsKey, trimmedRegex])
 
   const visiblePreviewGroups = useMemo(
@@ -469,7 +454,8 @@ export function GroupAddSubscriptionsModal({
     [previewGroups, visiblePreviewGroupCount],
   )
 
-  const totalMatchedNodes = previewGroups.reduce((sum, group) => sum + group.matchedNodes.length, 0)
+  const totalMatchedNodes = filterPreviewQuery.data?.matchedCount ?? 0
+  const previewPending = selectedIds.length > 0 && filterPreviewQuery.isFetching
 
   const toggleItem = (id: string) => {
     setServerRegexError(null)
@@ -487,6 +473,8 @@ export function GroupAddSubscriptionsModal({
   const submitDisabled =
     (!allowEmptySubmit && selectedIds.length === 0) ||
     !!regexError ||
+    !!previewError ||
+    previewPending ||
     !!loading ||
     (selectedIds.length > 0 && trimmedRegex.length > 0 && totalMatchedNodes === 0)
 
@@ -617,7 +605,9 @@ export function GroupAddSubscriptionsModal({
                 <p className="text-sm font-medium">{t('groupPicker.subscriptionPreviewTitle')}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {trimmedRegex
-                    ? t('groupPicker.subscriptionPreviewSummary', { count: totalMatchedNodes })
+                    ? previewPending
+                      ? t('groupPicker.subscriptionPreviewLoading')
+                      : t('groupPicker.subscriptionPreviewSummary', { count: totalMatchedNodes })
                     : t('groupPicker.subscriptionPreviewUnfiltered')}
                 </p>
               </div>
@@ -625,7 +615,11 @@ export function GroupAddSubscriptionsModal({
 
             {selectedItems.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">{t('groupPicker.subscriptionPreviewSelectFirst')}</p>
-            ) : previewGroups.every((group) => group.matchedNodes.length === 0) ? (
+            ) : previewPending && !filterPreviewQuery.data ? (
+              <p className="mt-4 text-sm text-muted-foreground">{t('groupPicker.subscriptionPreviewLoading')}</p>
+            ) : previewError ? (
+              <p className="mt-4 text-sm text-destructive">{previewError}</p>
+            ) : previewGroups.every((group) => group.matchedCount === 0) ? (
               <p className="mt-4 text-sm text-muted-foreground">
                 {trimmedRegex
                   ? t('groupPicker.subscriptionPreviewEmpty')
@@ -633,61 +627,48 @@ export function GroupAddSubscriptionsModal({
               </p>
             ) : (
               <div className="mt-4 flex flex-col gap-3">
-                {visiblePreviewGroups.map(({ item, matchedNodes }) => {
-                  const visibleNodeCount =
-                    visiblePreviewNodeCountByItemId[item.id] ?? SUBSCRIPTION_PREVIEW_NODE_WINDOW_SIZE
-                  const visibleMatchedNodes = matchedNodes.slice(0, visibleNodeCount)
-                  const hasMoreMatchedNodes = visibleNodeCount < matchedNodes.length
-
-                  return (
-                    <div key={item.id} className="rounded-lg border border-border/60 bg-background/40 p-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium">{item.title}</p>
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                          {t('groupPicker.subscriptionPreviewMatchedCount', { count: matchedNodes.length })}
-                        </span>
-                      </div>
-
-                      {matchedNodes.length > 0 ? (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {visibleMatchedNodes.map((node) => (
-                            <span
-                              key={node.id}
-                              className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
-                            >
-                              <NodeProtocolBadge
-                                protocol={node.protocol}
-                                transport={node.transport}
-                                compact
-                                className="max-w-[4.75rem] rounded-md"
-                              />
-                              <span className="max-w-[16rem] truncate">{node.title}</span>
-                            </span>
-                          ))}
-                          {hasMoreMatchedNodes && (
-                            <ExpandWindowButton
-                              visibleCount={visibleMatchedNodes.length}
-                              totalCount={matchedNodes.length}
-                              onClick={() =>
-                                setVisiblePreviewNodeCountByItemId((current) => ({
-                                  ...current,
-                                  [item.id]: Math.min(
-                                    visibleNodeCount + SUBSCRIPTION_PREVIEW_NODE_WINDOW_INCREMENT,
-                                    matchedNodes.length,
-                                  ),
-                                }))
-                              }
-                            />
-                          )}
-                        </div>
-                      ) : (
-                        <p className="mt-3 text-xs text-muted-foreground">
-                          {t('groupPicker.subscriptionPreviewNoMatchForItem')}
-                        </p>
-                      )}
+                {visiblePreviewGroups.map(({ item, matchedCount, matchedNodes, sampleTruncated }) => (
+                  <div key={item.id} className="rounded-lg border border-border/60 bg-background/40 p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium">{item.title}</p>
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        {t('groupPicker.subscriptionPreviewMatchedCount', { count: matchedCount })}
+                      </span>
                     </div>
-                  )
-                })}
+
+                    {matchedNodes.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {matchedNodes.map((node) => (
+                          <span
+                            key={node.id}
+                            className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1 text-xs"
+                          >
+                            <NodeProtocolBadge
+                              protocol={node.protocol}
+                              transport={node.transport}
+                              compact
+                              className="max-w-[4.75rem] rounded-md"
+                            />
+                            <span className="max-w-[16rem] truncate">{node.title}</span>
+                          </span>
+                        ))}
+                        {sampleTruncated && (
+                          <p className="w-full text-xs text-muted-foreground">
+                            {t('groupPicker.subscriptionPreviewSample', { count: matchedNodes.length })}
+                          </p>
+                        )}
+                      </div>
+                    ) : matchedCount > 0 ? (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {t('groupPicker.subscriptionPreviewSampleOmitted', { count: matchedCount })}
+                      </p>
+                    ) : (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {t('groupPicker.subscriptionPreviewNoMatchForItem')}
+                      </p>
+                    )}
+                  </div>
+                ))}
                 {visiblePreviewGroupCount < previewGroups.length && (
                   <ExpandWindowButton
                     visibleCount={visiblePreviewGroups.length}

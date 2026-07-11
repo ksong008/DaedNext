@@ -52,6 +52,8 @@ const geodataUpdatePathPattern = /^\/geodata\/(geosite|geoip)\/update$/
 const numericIDPattern = /(\d+)/
 const daeIdentifierPattern = /^[A-Z_][\w-]*$/i
 const MOCK_REQUEST_DELAY_MS = 20
+const MOCK_GROUP_SUBSCRIPTION_PREVIEW_PER_SUBSCRIPTION_SAMPLE_LIMIT = 8
+const MOCK_GROUP_SUBSCRIPTION_PREVIEW_TOTAL_SAMPLE_LIMIT = 64
 const mockDefaultGeodataSourceUrls: Record<GeodataKind, string> = {
   geosite: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat',
   geoip: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat',
@@ -913,6 +915,10 @@ export class MockAPIClient implements APIClientInterface {
       return { cleared: true } as T
     }
 
+    if (method === 'POST' && path === '/groups/subscription-preview') {
+      return previewMockGroupSubscriptions(body) as T
+    }
+
     const groupNodesMatch = path.match(groupNodesPathPattern)
     if (groupNodesMatch && (method === 'POST' || method === 'DELETE')) {
       const payload = body as { nodeIds?: number[] }
@@ -1183,6 +1189,36 @@ function mockSubscriptionMatchedNodes(subscriptionID: string | number, nameFilte
       tag: null,
       subscriptionID: subscription.id,
     }))
+}
+
+function previewMockGroupSubscriptions(body: unknown) {
+  const payload = body as { subscriptionIds?: Array<string | number>; nameFilterRegex?: string | null }
+  const seen = new Set<string>()
+  let matchedCount = 0
+  let sampledCount = 0
+  const items = []
+
+  for (const subscriptionID of payload.subscriptionIds ?? []) {
+    const key = String(subscriptionID)
+    if (seen.has(key)) continue
+    seen.add(key)
+    const matchedNodes = mockSubscriptionMatchedNodes(subscriptionID, payload.nameFilterRegex)
+    const remainingTotalSamples = Math.max(0, MOCK_GROUP_SUBSCRIPTION_PREVIEW_TOTAL_SAMPLE_LIMIT - sampledCount)
+    const sampleMatchedNodes = matchedNodes.slice(
+      0,
+      Math.min(MOCK_GROUP_SUBSCRIPTION_PREVIEW_PER_SUBSCRIPTION_SAMPLE_LIMIT, remainingTotalSamples),
+    )
+    sampledCount += sampleMatchedNodes.length
+    matchedCount += matchedNodes.length
+    items.push({
+      subscriptionId: subscriptionID,
+      matchedCount: matchedNodes.length,
+      sampleMatchedNodes,
+      sampleTruncated: matchedNodes.length > sampleMatchedNodes.length,
+    })
+  }
+
+  return { matchedCount, items }
 }
 
 function materializeMockGroupSubscriptionBinding(binding: (typeof mockGroups.groups)[number]['subscriptions'][number]) {
