@@ -568,6 +568,8 @@
     "addFallback": "添加默认规则",
     "unparsedTitle": "未解析内容",
     "unparsedDesc": "某些内容（如全局设置或注释）在可视化模式下被隐藏但已保留。切换到高级模式以查看或编辑它们。",
+    "parseErrorTitle": "无法切换到简单模式",
+    "parseErrorDesc": "请先修复 DNS 配置代码再切换模式。{{error}}",
     "noUpstreams": "未定义上游。",
     "noRules": "未定义规则。",
     "matcherPlaceholder": "匹配规则",
