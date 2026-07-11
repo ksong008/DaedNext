@@ -54,7 +54,7 @@ export function RenameFormModal({
     control,
     setValue: setValueOriginal,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const setValue = useSetValue(setValueOriginal)
@@ -91,7 +91,7 @@ export function RenameFormModal({
   const renameRoutingMutation = useRenameRoutingMutation()
   const renameGroupMutation = useRenameGroupMutation()
 
-  const onSubmit = (data: FormValues) => {
+  const onSubmit = async (data: FormValues) => {
     const { name } = data
 
     if (!type || !id) {
@@ -99,19 +99,13 @@ export function RenameFormModal({
     }
 
     if (type === RuleType.config) {
-      renameConfigMutation.mutate({ id, name })
-    }
-
-    if (type === RuleType.dns) {
-      renameDNSMutation.mutate({ id, name })
-    }
-
-    if (type === RuleType.routing) {
-      renameRoutingMutation.mutate({ id, name })
-    }
-
-    if (type === RuleType.group) {
-      renameGroupMutation.mutate({ id, name })
+      await renameConfigMutation.mutateAsync({ id, name })
+    } else if (type === RuleType.dns) {
+      await renameDNSMutation.mutateAsync({ id, name })
+    } else if (type === RuleType.routing) {
+      await renameRoutingMutation.mutateAsync({ id, name })
+    } else if (type === RuleType.group) {
+      await renameGroupMutation.mutateAsync({ id, name })
     }
 
     handleClose()
@@ -137,7 +131,7 @@ export function RenameFormModal({
               />
             </div>
 
-            <FormActions reset={() => reset({ name: '' })} isDirty={isDirty} errors={errors} />
+            <FormActions reset={() => reset({ name: '' })} isDirty={isDirty} errors={errors} loading={isSubmitting} />
           </div>
         </form>
       </DialogContent>
