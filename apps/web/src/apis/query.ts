@@ -330,17 +330,21 @@ export function buildLogEventsURL(endpointURL: string, level: string, query: str
 }
 
 export function getModeRequest(apiClient: APIClientInterface) {
-  return async () => {
-    const { values } = await apiClient.get<JSONStorageResponse>('/user/me/storage', { path: ['mode'] })
+  return async (signal?: AbortSignal) => {
+    const { values } = await apiClient.get<JSONStorageResponse>('/user/me/storage', { path: ['mode'] }, { signal })
     return values[0]
   }
 }
 
 export function getDefaultsRequest(apiClient: APIClientInterface) {
-  return async () => {
-    const { values } = await apiClient.get<JSONStorageResponse>('/user/me/storage', {
-      path: ['defaultConfigID', 'defaultRoutingID', 'defaultDNSID', 'defaultGroupID'],
-    })
+  return async (signal?: AbortSignal) => {
+    const { values } = await apiClient.get<JSONStorageResponse>(
+      '/user/me/storage',
+      {
+        path: ['defaultConfigID', 'defaultRoutingID', 'defaultDNSID', 'defaultGroupID'],
+      },
+      { signal },
+    )
     const [defaultConfigID, defaultRoutingID, defaultDNSID, defaultGroupID] = values
     return {
       defaultConfigID,
@@ -397,8 +401,8 @@ function adaptGeneralStateView(state: GeneralStateAPI, interfaces: InterfaceReso
 }
 
 export function getInterfacesRequest(apiClient: APIClientInterface) {
-  return async (): Promise<GeneralStateView> => {
-    const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true })
+  return async (signal?: AbortSignal): Promise<GeneralStateView> => {
+    const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true }, { signal })
     return {
       general: {
         dae: { running: false, modified: false, version: '', netnsLinkMode: '', attachBackend: '' },
@@ -415,7 +419,7 @@ export function useDefaultsQuery() {
 
   const { data } = useQuery({
     queryKey: webQueryKeys.storage(),
-    queryFn: () => getDefaultsRequest(apiClient)(),
+    queryFn: ({ signal }) => getDefaultsRequest(apiClient)(signal),
     enabled,
   })
 
@@ -432,10 +436,10 @@ export function useGeneralQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.general.root(),
-    queryFn: async (): Promise<GeneralStateView> => {
+    queryFn: async ({ signal }): Promise<GeneralStateView> => {
       const [state, interfaces] = await Promise.all([
-        apiClient.get<GeneralStateAPI>('/general/state'),
-        apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true }),
+        apiClient.get<GeneralStateAPI>('/general/state', undefined, { signal }),
+        apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true }, { signal }),
       ])
       return adaptGeneralStateView(state, interfaces.items.map(adaptInterface))
     },
@@ -449,8 +453,8 @@ export function useGeneralStateQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.general.state(),
-    queryFn: async (): Promise<GeneralStateView> => {
-      const state = await apiClient.get<GeneralStateAPI>('/general/state')
+    queryFn: async ({ signal }): Promise<GeneralStateView> => {
+      const state = await apiClient.get<GeneralStateAPI>('/general/state', undefined, { signal })
       return adaptGeneralStateView(state)
     },
     enabled,
@@ -463,8 +467,8 @@ export function useInterfacesQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.general.interfaces(),
-    queryFn: async (): Promise<InterfaceResource[]> => {
-      const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true })
+    queryFn: async ({ signal }): Promise<InterfaceResource[]> => {
+      const data = await apiClient.get<{ items: InterfaceAPI[] }>('/general/interfaces', { up: true }, { signal })
       return data.items.map(adaptInterface)
     },
     enabled,
@@ -543,8 +547,8 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
 
   return useQuery({
     queryKey,
-    queryFn: async (): Promise<TrafficOverviewQueryData> => {
-      const data = await apiClient.get<RuntimeOverviewAPI>('/runtime/overview', { windowSec, maxPoints })
+    queryFn: async ({ signal }): Promise<TrafficOverviewQueryData> => {
+      const data = await apiClient.get<RuntimeOverviewAPI>('/runtime/overview', { windowSec, maxPoints }, { signal })
       return adaptRuntimeOverview(data)
     },
     enabled: queryEnabled,
@@ -586,8 +590,8 @@ export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true)
 
   return useQuery({
     queryKey: webQueryKeys.node.latency(),
-    queryFn: async (): Promise<NodeLatencyProbeResult[]> => {
-      const data = await apiClient.get<{ items: NodeLatencyAPI[] }>('/nodes/latencies')
+    queryFn: async ({ signal }): Promise<NodeLatencyProbeResult[]> => {
+      const data = await apiClient.get<{ items: NodeLatencyAPI[] }>('/nodes/latencies', undefined, { signal })
       return adaptNodeLatencyProbeResults(data.items)
     },
     enabled: queryEnabled,
@@ -603,8 +607,10 @@ export function useNodeLatencyJobQuery(refetchIntervalMs: number, enabled = true
 
   return useQuery({
     queryKey: webQueryKeys.node.latencyJob(),
-    queryFn: async (): Promise<NodeLatencyJobView> => {
-      const data = await apiClient.get<{ job?: NodeLatencyJobAPI | null }>('/nodes/latencies/job')
+    queryFn: async ({ signal }): Promise<NodeLatencyJobView> => {
+      const data = await apiClient.get<{ job?: NodeLatencyJobAPI | null }>('/nodes/latencies/job', undefined, {
+        signal,
+      })
       return { job: adaptNodeLatencyJob(data.job) }
     },
     enabled: queryEnabled,
@@ -620,8 +626,8 @@ export function useLogsQuery({ level, query, limit = 500 }: { level: string; que
 
   return useQuery({
     queryKey: [...webQueryKeys.log.items(), level, query, limit],
-    queryFn: async (): Promise<{ items: LogEntry[] }> => {
-      return apiClient.get<{ items: LogEntry[] }>('/logs', { level, q: query, limit })
+    queryFn: async ({ signal }): Promise<{ items: LogEntry[] }> => {
+      return apiClient.get<{ items: LogEntry[] }>('/logs', { level, q: query, limit }, { signal })
     },
     enabled,
   })
@@ -633,8 +639,8 @@ export function useLogSettingsQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.log.settings(),
-    queryFn: async (): Promise<LogSettings> => {
-      return apiClient.get<LogSettings>('/logs/settings')
+    queryFn: async ({ signal }): Promise<LogSettings> => {
+      return apiClient.get<LogSettings>('/logs/settings', undefined, { signal })
     },
     enabled,
   })
@@ -646,8 +652,8 @@ export function useRuntimeLogLevelQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.log.runtimeLevel(),
-    queryFn: async (): Promise<{ level: string }> => {
-      return apiClient.get<{ level: string }>('/runtime/log-level')
+    queryFn: async ({ signal }): Promise<{ level: string }> => {
+      return apiClient.get<{ level: string }>('/runtime/log-level', undefined, { signal })
     },
     enabled,
   })
@@ -659,7 +665,7 @@ export function useGeodataQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.geodata.status(),
-    queryFn: async (): Promise<GeodataView> => apiClient.get<GeodataAPI>('/geodata'),
+    queryFn: async ({ signal }): Promise<GeodataView> => apiClient.get<GeodataAPI>('/geodata', undefined, { signal }),
     enabled,
     staleTime: Infinity,
     gcTime: Infinity,
@@ -672,7 +678,8 @@ export function useGeodataSettingsQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.geodata.settings(),
-    queryFn: async (): Promise<GeodataSettingsView> => apiClient.get<GeodataSettingsAPI>('/geodata/settings'),
+    queryFn: async ({ signal }): Promise<GeodataSettingsView> =>
+      apiClient.get<GeodataSettingsAPI>('/geodata/settings', undefined, { signal }),
     enabled,
     staleTime: Infinity,
     gcTime: Infinity,
@@ -685,8 +692,8 @@ export function useNodesQuery(enabled = true) {
 
   return useQuery({
     queryKey: webQueryKeys.node.list(),
-    queryFn: async (): Promise<NodeListView> => {
-      const data = await apiClient.get<NodeListAPI>('/nodes')
+    queryFn: async ({ signal }): Promise<NodeListView> => {
+      const data = await apiClient.get<NodeListAPI>('/nodes', undefined, { signal })
       return {
         nodes: adaptNodesConnection(data),
       }
@@ -701,8 +708,8 @@ export function useSubscriptionBackedNodesQuery(enabled = true) {
 
   return useQuery({
     queryKey: webQueryKeys.node.subscriptionBackedList(),
-    queryFn: async (): Promise<NodeListView> => {
-      const data = await apiClient.get<NodeListAPI>('/nodes', { independent: false })
+    queryFn: async ({ signal }): Promise<NodeListView> => {
+      const data = await apiClient.get<NodeListAPI>('/nodes', { independent: false }, { signal })
       return {
         nodes: adaptNodesConnection(data),
       }
@@ -717,8 +724,8 @@ export function useSubscriptionsSummaryQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.subscription.summary(),
-    queryFn: async (): Promise<SubscriptionSummaryListView> => {
-      const data = await apiClient.get<{ items: SubscriptionAPI[] }>('/subscriptions')
+    queryFn: async ({ signal }): Promise<SubscriptionSummaryListView> => {
+      const data = await apiClient.get<{ items: SubscriptionAPI[] }>('/subscriptions', undefined, { signal })
       return {
         subscriptions: data.items.map(adaptSubscriptionSummary),
       }
@@ -733,14 +740,19 @@ export function useSubscriptionsQuery(enabled = true) {
 
   return useQuery({
     queryKey: webQueryKeys.subscription.expanded(),
-    queryFn: async (): Promise<SubscriptionListView> => {
-      const data = await apiClient.get<{ items: Array<SubscriptionAPI & { nodes?: NodeListAPI }> }>('/subscriptions', {
-        expand: 'nodes',
-      })
+    queryFn: async ({ signal }): Promise<SubscriptionListView> => {
+      const data = await apiClient.get<{ items: Array<SubscriptionAPI & { nodes?: NodeListAPI }> }>(
+        '/subscriptions',
+        {
+          expand: 'nodes',
+        },
+        { signal },
+      )
       const subscriptions = await Promise.all(
         data.items.map(async (subscription): Promise<SubscriptionResource> => {
           const nodes =
-            subscription.nodes ?? (await apiClient.get<NodeListAPI>(`/subscriptions/${subscription.id}/nodes`))
+            subscription.nodes ??
+            (await apiClient.get<NodeListAPI>(`/subscriptions/${subscription.id}/nodes`, undefined, { signal }))
           return {
             id: String(subscription.id),
             tag: subscription.tag ?? null,
@@ -768,8 +780,8 @@ export function useConfigSummariesQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.config.summary(),
-    queryFn: async (): Promise<ConfigSummaryListView> => {
-      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/configs', { summary: true })
+    queryFn: async ({ signal }): Promise<ConfigSummaryListView> => {
+      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/configs', { summary: true }, { signal })
       return {
         configs: data.items.map(adaptSectionSummary),
       }
@@ -784,8 +796,8 @@ export function useConfigQuery(id?: string | null, enabled = true) {
 
   return useQuery({
     queryKey: webQueryKeys.config.item(id),
-    queryFn: async (): Promise<ConfigResource> => {
-      const config = await apiClient.get<ConfigAPI>(`/configs/${id}`)
+    queryFn: async ({ signal }): Promise<ConfigResource> => {
+      const config = await apiClient.get<ConfigAPI>(`/configs/${id}`, undefined, { signal })
       return adaptConfig(config)
     },
     enabled: queryEnabled,
@@ -798,8 +810,8 @@ export function useConfigsQuery(enabled = true) {
 
   return useQuery({
     queryKey: webQueryKeys.config.expanded(),
-    queryFn: async (): Promise<ConfigListView> => {
-      const data = await apiClient.get<{ items: ConfigAPI[] }>('/configs', { expand: 'parsed' })
+    queryFn: async ({ signal }): Promise<ConfigListView> => {
+      const data = await apiClient.get<{ items: ConfigAPI[] }>('/configs', { expand: 'parsed' }, { signal })
       return {
         configs: data.items.map(adaptConfig),
       }
@@ -814,8 +826,8 @@ export function useGroupsSummaryQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.group.summary(),
-    queryFn: async (): Promise<GroupSummaryListView> => {
-      const data = await apiClient.get<{ items: GroupSummaryAPI[] }>('/groups', { summary: true })
+    queryFn: async ({ signal }): Promise<GroupSummaryListView> => {
+      const data = await apiClient.get<{ items: GroupSummaryAPI[] }>('/groups', { summary: true }, { signal })
       return {
         groups: data.items.map(adaptGroupSummary),
       }
@@ -830,8 +842,8 @@ export function useGroupsQuery(enabled = true) {
 
   return useQuery({
     queryKey: webQueryKeys.group.expanded(),
-    queryFn: async (): Promise<GroupListView> => {
-      const data = await apiClient.get<{ items: GroupAPI[] }>('/groups')
+    queryFn: async ({ signal }): Promise<GroupListView> => {
+      const data = await apiClient.get<{ items: GroupAPI[] }>('/groups', undefined, { signal })
       return {
         groups: data.items.map(adaptGroup),
       }
@@ -846,8 +858,8 @@ export function useRoutingSummariesQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.routing.summary(),
-    queryFn: async (): Promise<RoutingSummaryListView> => {
-      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/routings', { summary: true })
+    queryFn: async ({ signal }): Promise<RoutingSummaryListView> => {
+      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/routings', { summary: true }, { signal })
       return {
         routings: data.items.map(adaptSectionSummary),
       }
@@ -862,8 +874,8 @@ export function useRoutingsQuery(enabled = true) {
 
   return useQuery({
     queryKey: webQueryKeys.routing.expanded(),
-    queryFn: async (): Promise<RoutingListView> => {
-      const data = await apiClient.get<{ items: RoutingAPI[] }>('/routings', { expand: 'parsed' })
+    queryFn: async ({ signal }): Promise<RoutingListView> => {
+      const data = await apiClient.get<{ items: RoutingAPI[] }>('/routings', { expand: 'parsed' }, { signal })
       return {
         routings: data.items.map((routing) => ({
           id: String(routing.id),
@@ -883,8 +895,8 @@ export function useDNSSummariesQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.dns.summary(),
-    queryFn: async (): Promise<DNSSummaryListView> => {
-      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/dns', { summary: true })
+    queryFn: async ({ signal }): Promise<DNSSummaryListView> => {
+      const data = await apiClient.get<{ items: SectionSummaryAPI[] }>('/dns', { summary: true }, { signal })
       return {
         dnss: data.items.map(adaptSectionSummary),
       }
@@ -899,8 +911,8 @@ export function useDNSsQuery(enabled = true) {
 
   return useQuery({
     queryKey: webQueryKeys.dns.expanded(),
-    queryFn: async (): Promise<DNSListView> => {
-      const data = await apiClient.get<{ items: DNSAPI[] }>('/dns', { expand: 'parsed' })
+    queryFn: async ({ signal }): Promise<DNSListView> => {
+      const data = await apiClient.get<{ items: DNSAPI[] }>('/dns', { expand: 'parsed' }, { signal })
       return {
         dnss: data.items.map((dns) => ({
           id: String(dns.id),
@@ -926,8 +938,8 @@ export function useUserQuery() {
 
   return useQuery({
     queryKey: webQueryKeys.user(),
-    queryFn: async (): Promise<CurrentUserView> => {
-      const user = await apiClient.get<CurrentUserView['user']>('/user/me')
+    queryFn: async ({ signal }): Promise<CurrentUserView> => {
+      const user = await apiClient.get<CurrentUserView['user']>('/user/me', undefined, { signal })
       return { user }
     },
     enabled,
