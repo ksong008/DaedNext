@@ -272,7 +272,7 @@ export function SubscriptionResource({
         onClose={closeImportSubscriptionFormModal}
         showUseProxySubscription
         handleSubmit={async (values) => {
-          await importSubscriptionsMutation.mutateAsync(
+          return importSubscriptionsMutation.mutateAsync(
             values.resources.map(({ link, tag }) => ({ link, tag, useProxy: values.useProxySubscription })),
           )
         }}

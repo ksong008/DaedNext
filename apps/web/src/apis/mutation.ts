@@ -53,6 +53,11 @@ interface TokenResponse {
 
 interface SubscriptionImportResponse {
   link: string
+  error?: string | null
+  subscriptionCreated: boolean
+  importedNodeCount: number
+  failedNodeCount: number
+  partialFailure: boolean
   nodeImportResult: Array<{
     link: string
     error?: string | null
@@ -872,6 +877,11 @@ export function useImportSubscriptionsMutation() {
           })
           return {
             link: result.link,
+            error: result.error ?? null,
+            subscriptionCreated: result.subscriptionCreated,
+            importedNodeCount: result.importedNodeCount,
+            failedNodeCount: result.failedNodeCount,
+            partialFailure: result.partialFailure,
             subscription: {
               id: toID(result.subscription.id),
             },
