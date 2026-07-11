@@ -1,25 +1,107 @@
-import type { DNSConfig, RoutingRule, Upstream } from './types'
+import type { DNSConfig, DNSPreservedLines, RoutingRule, Upstream } from './types'
 
-const DNS_BLOCK_RE = /^dns\s*\{([\s\S]*?)\}$/
-const UPSTREAM_LINE_RE = /^([\w.-]+):\s*(?:'([^']+)'|"([^"]+)"|([^#\s]+))/
+const UPSTREAM_LINE_RE = /^([\w.-]+):\s*(?:'([^']*)'|"([^"]*)"|(\S+))\s*$/
+const WORD_CHARACTER_RE = /[\w.-]/
+const WHITESPACE_CHARACTER_RE = /\s/
 
-const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
 
-function extractBlock(source: string, blockName: string) {
-  const startRegex = new RegExp(`${blockName}\\s*{`, 'm')
-  const match = source.match(startRegex)
-  if (!match || match.index == null) {
-    return
+interface ExtractedBlock {
+  inner: string
+  full: string
+}
+
+interface SplitLine {
+  code: string
+  comment?: string
+}
+
+function findBlockStart(source: string, blockName: string): { blockStart: number; innerStart: number } | undefined {
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  let comment = false
+
+  for (let index = 0; index < source.length; index++) {
+    const character = source[index]
+    if (comment) {
+      if (character === '\n') comment = false
+      continue
+    }
+    if (quote) {
+      if (escaped) {
+        escaped = false
+      } else if (character === '\\') {
+        escaped = true
+      } else if (character === quote) {
+        quote = null
+      }
+      continue
+    }
+    if (character === '#') {
+      comment = true
+      continue
+    }
+    if (character === "'" || character === '"') {
+      quote = character
+      continue
+    }
+    if (!source.startsWith(blockName, index)) continue
+
+    const previousCharacter = index > 0 ? source[index - 1] : ''
+    const afterNameIndex = index + blockName.length
+    const nextCharacter = source[afterNameIndex] ?? ''
+    if ((previousCharacter && WORD_CHARACTER_RE.test(previousCharacter)) || WORD_CHARACTER_RE.test(nextCharacter)) {
+      continue
+    }
+
+    let braceIndex = afterNameIndex
+    while (WHITESPACE_CHARACTER_RE.test(source[braceIndex] ?? '')) braceIndex++
+    if (source[braceIndex] === '{') {
+      return { blockStart: index, innerStart: braceIndex + 1 }
+    }
   }
+}
 
-  const startIndex = match.index + match[0].length
+function extractBlock(source: string, blockName: string): ExtractedBlock | undefined {
+  const start = findBlockStart(source, blockName)
+  if (!start) return
+
+  const startIndex = start.innerStart
   let depth = 1
-  let i = startIndex
-  for (; i < source.length; i++) {
-    const ch = source[i]
-    if (ch === '{') depth++
-    else if (ch === '}') depth--
-    if (depth === 0) break
+  let quote: "'" | '"' | null = null
+  let escaped = false
+  let comment = false
+  let index = startIndex
+
+  for (; index < source.length; index++) {
+    const character = source[index]
+
+    if (comment) {
+      if (character === '\n') comment = false
+      continue
+    }
+
+    if (quote) {
+      if (escaped) {
+        escaped = false
+      } else if (character === '\\') {
+        escaped = true
+      } else if (character === quote) {
+        quote = null
+      }
+      continue
+    }
+
+    if (character === '#') {
+      comment = true
+    } else if (character === "'" || character === '"') {
+      quote = character
+    } else if (character === '{') {
+      depth++
+    } else if (character === '}') {
+      depth--
+      if (depth === 0) break
+    }
   }
 
   if (depth !== 0) {
@@ -27,172 +109,194 @@ function extractBlock(source: string, blockName: string) {
   }
 
   return {
-    inner: source.slice(startIndex, i).trim(),
-    full: source.slice(match.index, i + 1),
+    inner: source.slice(startIndex, index).trim(),
+    full: source.slice(start.blockStart, index + 1),
   }
+}
+
+function splitInlineComment(line: string): SplitLine {
+  let quote: "'" | '"' | null = null
+  let escaped = false
+
+  for (let index = 0; index < line.length; index++) {
+    const character = line[index]
+    if (quote) {
+      if (escaped) {
+        escaped = false
+      } else if (character === '\\') {
+        escaped = true
+      } else if (character === quote) {
+        quote = null
+      }
+      continue
+    }
+
+    if (character === "'" || character === '"') {
+      quote = character
+    } else if (character === '#') {
+      return {
+        code: line.slice(0, index).trim(),
+        comment: line.slice(index).trim(),
+      }
+    }
+  }
+
+  return { code: line.trim() }
+}
+
+function collectPreservedLines(source: string): string[] {
+  return source
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function parseUpstreamBlock(source: string, upstreams: Upstream[], preserved: string[]): void {
+  for (const line of source.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    const { code, comment } = splitInlineComment(trimmed)
+    if (!code) {
+      if (comment) preserved.push(comment)
+      continue
+    }
+
+    const match = code.match(UPSTREAM_LINE_RE)
+    const link = match?.[2] ?? match?.[3] ?? match?.[4]
+    if (!match || link == null) {
+      preserved.push(trimmed)
+      continue
+    }
+
+    upstreams.push({ id: generateId(), name: match[1], link })
+    if (comment) preserved.push(comment)
+  }
+}
+
+function parseRoutingBlock(source: string, rules: RoutingRule[], preserved: string[]): void {
+  for (const line of source.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    const { code, comment } = splitInlineComment(trimmed)
+    if (!code) {
+      if (comment) preserved.push(comment)
+      continue
+    }
+
+    const colonIndex = code.indexOf(':')
+    const fallbackTarget =
+      colonIndex >= 0 && code.slice(0, colonIndex).trim() === 'fallback' ? code.slice(colonIndex + 1).trim() : ''
+    if (fallbackTarget) {
+      rules.push({ id: generateId(), matcher: 'fallback', target: fallbackTarget })
+      if (comment) preserved.push(comment)
+      continue
+    }
+
+    const arrowIndex = code.indexOf('->')
+    const matcher = arrowIndex >= 0 ? code.slice(0, arrowIndex).trim() : ''
+    const target = arrowIndex >= 0 ? code.slice(arrowIndex + 2).trim() : ''
+    if (matcher && target && !code.slice(arrowIndex + 2).includes('->')) {
+      rules.push({ id: generateId(), matcher, target })
+      if (comment) preserved.push(comment)
+      continue
+    }
+
+    preserved.push(trimmed)
+  }
+}
+
+function appendPreservedLines(lines: readonly string[], indentation: string): string {
+  return lines.map((line) => `${indentation}${line.trim()}\n`).join('')
 }
 
 export function parseDNSConfig(config: string): DNSConfig {
   const upstreams: Upstream[] = []
   const requestRules: RoutingRule[] = []
   const responseRules: RoutingRule[] = []
+  const preserved: DNSPreservedLines = {
+    upstream: [],
+    routing: [],
+    request: [],
+    response: [],
+  }
 
-  // Clean up content
   let content = config.trim()
   let others = content
-
-  // Try to remove outer "dns { ... }" block if it exists
-  // Simple check: starts with "dns" and has braces
-  const dnsMatch = content.match(DNS_BLOCK_RE)
-  if (dnsMatch) {
-    content = dnsMatch[1].trim()
+  const outerDNSBlock = extractBlock(content, 'dns')
+  if (outerDNSBlock?.full.trim() === content) {
+    content = outerDNSBlock.inner
     others = content
   }
 
-  // 1. Extract Upstream block (brace-matched to allow nested/complex content)
   const upstreamBlock = extractBlock(content, 'upstream')
-
   if (upstreamBlock) {
-    const upstreamContent = upstreamBlock.inner
-    const lines = upstreamContent.split('\n')
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
-
-      // name: 'link' | name: "link" | name: link
-      // Allow upstream names with -, ., _
-      const match = trimmed.match(UPSTREAM_LINE_RE)
-      if (match) {
-        const link = match[2] || match[3] || match[4]
-        if (link) {
-          upstreams.push({
-            id: generateId(),
-            name: match[1],
-            link,
-          })
-        }
-      }
-    }
-    // Remove upstream block from others
+    parseUpstreamBlock(upstreamBlock.inner, upstreams, preserved.upstream)
     others = others.replace(upstreamBlock.full, '')
   }
 
-  // 2. Extract Routing block (brace-matched)
   const routingBlock = extractBlock(content, 'routing')
-
   if (routingBlock) {
-    const routingContent = routingBlock.inner
-    const requestBlock = extractBlock(routingContent, 'request')
-    const responseBlock = extractBlock(routingContent, 'response')
+    let routingRemainder = routingBlock.inner
+    const requestBlock = extractBlock(routingBlock.inner, 'request')
+    const responseBlock = extractBlock(routingBlock.inner, 'response')
 
     if (requestBlock) {
-      const requestContent = requestBlock.inner
-      const lines = requestContent.split('\n')
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || trimmed.startsWith('#')) continue
-
-        // fallback: upstream
-        if (trimmed.startsWith('fallback:')) {
-          const target = trimmed.split(':')[1].trim()
-          requestRules.push({
-            id: generateId(),
-            matcher: 'fallback',
-            target,
-          })
-          continue
-        }
-
-        // matcher -> target
-        const arrowParts = trimmed.split('->')
-        if (arrowParts.length === 2) {
-          requestRules.push({
-            id: generateId(),
-            matcher: arrowParts[0].trim(),
-            target: arrowParts[1].trim(),
-          })
-        }
-      }
+      parseRoutingBlock(requestBlock.inner, requestRules, preserved.request)
+      routingRemainder = routingRemainder.replace(requestBlock.full, '')
     }
-
     if (responseBlock) {
-      const responseContent = responseBlock.inner
-      const lines = responseContent.split('\n')
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (!trimmed || trimmed.startsWith('#')) continue
-
-        // fallback: upstream
-        if (trimmed.startsWith('fallback:')) {
-          const target = trimmed.split(':')[1].trim()
-          responseRules.push({
-            id: generateId(),
-            matcher: 'fallback',
-            target,
-          })
-          continue
-        }
-
-        // matcher -> target
-        const arrowParts = trimmed.split('->')
-        if (arrowParts.length === 2) {
-          responseRules.push({
-            id: generateId(),
-            matcher: arrowParts[0].trim(),
-            target: arrowParts[1].trim(),
-          })
-        }
-      }
+      parseRoutingBlock(responseBlock.inner, responseRules, preserved.response)
+      routingRemainder = routingRemainder.replace(responseBlock.full, '')
     }
 
-    // Remove routing block from others
+    preserved.routing = collectPreservedLines(routingRemainder)
     others = others.replace(routingBlock.full, '')
   }
 
-  return { upstreams, requestRules, responseRules, others: others.trim() }
+  return { upstreams, requestRules, responseRules, others: others.trim(), preserved }
 }
 
 export function generateDNSConfig(config: DNSConfig): string {
   let result = ''
+  const preserved = config.preserved ?? { upstream: [], routing: [], request: [], response: [] }
 
-  // Others (global settings/comments)
   if (config.others) {
     result += `${config.others.trim()}\n\n`
   }
 
-  // Upstreams
-  if (config.upstreams.length > 0) {
+  if (config.upstreams.length > 0 || preserved.upstream.length > 0) {
     result += 'upstream {\n'
-    for (const u of config.upstreams) {
-      result += `  ${u.name}: '${u.link}'\n`
+    result += appendPreservedLines(preserved.upstream, '  ')
+    for (const upstream of config.upstreams) {
+      result += `  ${upstream.name}: '${upstream.link}'\n`
     }
     result += '}\n\n'
   }
 
-  // Routing
-  if (config.requestRules.length > 0 || config.responseRules.length > 0) {
+  const hasRequestBlock = config.requestRules.length > 0 || preserved.request.length > 0
+  const hasResponseBlock = config.responseRules.length > 0 || preserved.response.length > 0
+  if (hasRequestBlock || hasResponseBlock || preserved.routing.length > 0) {
     result += 'routing {\n'
+    result += appendPreservedLines(preserved.routing, '  ')
 
-    if (config.requestRules.length > 0) {
+    if (hasRequestBlock) {
       result += '  request {\n'
-      for (const r of config.requestRules) {
-        if (r.matcher === 'fallback') {
-          result += `    fallback: ${r.target}\n`
-        } else {
-          result += `    ${r.matcher} -> ${r.target}\n`
-        }
+      result += appendPreservedLines(preserved.request, '    ')
+      for (const rule of config.requestRules) {
+        result +=
+          rule.matcher === 'fallback' ? `    fallback: ${rule.target}\n` : `    ${rule.matcher} -> ${rule.target}\n`
       }
       result += '  }\n'
     }
 
-    if (config.responseRules.length > 0) {
+    if (hasResponseBlock) {
       result += '  response {\n'
-      for (const r of config.responseRules) {
-        if (r.matcher === 'fallback') {
-          result += `    fallback: ${r.target}\n`
-        } else {
-          result += `    ${r.matcher} -> ${r.target}\n`
-        }
+      result += appendPreservedLines(preserved.response, '    ')
+      for (const rule of config.responseRules) {
+        result +=
+          rule.matcher === 'fallback' ? `    fallback: ${rule.target}\n` : `    ${rule.matcher} -> ${rule.target}\n`
       }
       result += '  }\n'
     }

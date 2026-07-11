@@ -556,6 +556,9 @@
     "tip": "在任意位置按 ? 键显示此对话框"
   },
   "dnsConfig": {
+    "nameRequired": "请输入 DNS 名称。",
+    "configRequired": "请输入 DNS 配置。",
+    "validationErrorTitle": "请补全必填的 DNS 字段",
     "name": "配置名称",
     "advancedMode": "高级模式 (直接编辑 DSL)",
     "simpleNote": "简单模式下先添加 DNS 上游，再在路由规则中选择匹配条件并填入上游名称；用 fallback 作为默认规则。",

@@ -7,6 +7,12 @@ const EMPTY_DNS_CONFIG: DNSConfig = {
   requestRules: [],
   responseRules: [],
   others: '',
+  preserved: {
+    upstream: [],
+    routing: [],
+    request: [],
+    response: [],
+  },
 }
 
 export interface DNSFormDocument {

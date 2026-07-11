@@ -556,6 +556,9 @@
     "tip": "Press ? anywhere to show this dialog"
   },
   "dnsConfig": {
+    "nameRequired": "DNS name is required.",
+    "configRequired": "DNS configuration is required.",
+    "validationErrorTitle": "Complete the required DNS fields",
     "name": "Configuration Name",
     "advancedMode": "Advanced Mode (Edit DSL directly)",
     "simpleNote": "In simple mode, add upstreams first, then route matchers to an upstream name; use fallback for defaults.",

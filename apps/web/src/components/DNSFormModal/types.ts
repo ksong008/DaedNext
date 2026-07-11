@@ -10,9 +10,17 @@ export interface RoutingRule {
   target: string
 }
 
+export interface DNSPreservedLines {
+  upstream: string[]
+  routing: string[]
+  request: string[]
+  response: string[]
+}
+
 export interface DNSConfig {
   upstreams: Upstream[]
   requestRules: RoutingRule[]
   responseRules: RoutingRule[]
   others: string // Stores content that cannot be structured, e.g. global settings or comments
+  preserved: DNSPreservedLines
 }

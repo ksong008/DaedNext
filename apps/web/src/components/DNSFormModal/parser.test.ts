@@ -39,4 +39,47 @@ routing {
     expect(generateDNSConfig(parsed)).toContain('ip(203.0.113.0/24) -> reject')
     expect(generateDNSConfig(parsed)).toContain('fallback: accept')
   })
+
+  it('preserves comments and unknown lines in their original DNS blocks', () => {
+    const parsed = parseDNSConfig(`
+# outer comment
+upstream {
+  # upstream comment
+  doh: 'https://resolver.example/dns-query#fragment' # keep upstream note
+  include_upstreams('private.dae')
+}
+routing {
+  # routing comment
+  strategy: strict
+  request {
+    # request comment
+    qname(suffix:example.test) -> doh # keep request note
+    custom_request_directive()
+  }
+  response {
+    # response comment
+    ip(203.0.113.0/24) -> accept # keep response note
+    custom_response_directive()
+  }
+}
+`)
+
+    expect(parsed.upstreams[0].link).toBe('https://resolver.example/dns-query#fragment')
+    expect(parsed.requestRules[0].target).toBe('doh')
+    expect(parsed.responseRules[0].target).toBe('accept')
+    expect(parsed.preserved).toEqual({
+      upstream: ['# upstream comment', '# keep upstream note', "include_upstreams('private.dae')"],
+      routing: ['# routing comment', 'strategy: strict'],
+      request: ['# request comment', '# keep request note', 'custom_request_directive()'],
+      response: ['# response comment', '# keep response note', 'custom_response_directive()'],
+    })
+
+    const generated = generateDNSConfig(parsed)
+    expect(generated).toContain('# outer comment')
+    expect(generated).toContain("doh: 'https://resolver.example/dns-query#fragment'")
+    expect(generated).toContain('  strategy: strict')
+    expect(generated).toContain('    custom_request_directive()')
+    expect(generated).toContain('    custom_response_directive()')
+    expect(parseDNSConfig(generated).preserved).toEqual(parsed.preserved)
+  })
 })
