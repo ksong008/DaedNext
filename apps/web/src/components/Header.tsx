@@ -56,6 +56,13 @@ import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { fileToBase64 } from '~/utils'
 import { accountPasswordSchema } from '~/utils/password_policy'
+import {
+  AVATAR_UPLOAD_FILE_POLICY,
+  BUNDLE_IMPORT_FILE_POLICY,
+  DAE_CONFIG_IMPORT_FILE_POLICY,
+  formatUploadByteLimit,
+  validateUploadFile,
+} from '~/utils/upload_policy'
 
 import { useCommandPaletteActions } from './CommandPaletteActions'
 import { FormActions } from './FormActions'
@@ -346,6 +353,16 @@ export function HeaderWithActions() {
     const file = e.target.files?.[0]
 
     if (file) {
+      const validation = validateUploadFile(file, AVATAR_UPLOAD_FILE_POLICY)
+      if (!validation.ok) {
+        toast.error(
+          validation.reason === 'file-too-large'
+            ? t('upload.fileTooLarge', { maxSize: formatUploadByteLimit(validation.maxBytes) })
+            : t('upload.avatarTypeInvalid'),
+        )
+        e.target.value = ''
+        return
+      }
       const avatarBase64 = await fileToBase64(file)
       setUploadingAvatarBase64(avatarBase64)
     }
@@ -375,6 +392,14 @@ export function HeaderWithActions() {
       }
 
       try {
+        const validation = validateUploadFile(file, BUNDLE_IMPORT_FILE_POLICY)
+        if (!validation.ok) {
+          throw new Error(
+            validation.reason === 'file-too-large'
+              ? t('upload.fileTooLarge', { maxSize: formatUploadByteLimit(validation.maxBytes) })
+              : t('upload.fileTypeInvalid'),
+          )
+        }
         const bundle = JSON.parse(await file.text()) as DAEBundle
         if (
           !bundle ||
@@ -487,6 +512,14 @@ export function HeaderWithActions() {
       }
 
       try {
+        const validation = validateUploadFile(file, DAE_CONFIG_IMPORT_FILE_POLICY)
+        if (!validation.ok) {
+          throw new Error(
+            validation.reason === 'file-too-large'
+              ? t('upload.fileTooLarge', { maxSize: formatUploadByteLimit(validation.maxBytes) })
+              : t('upload.fileTypeInvalid'),
+          )
+        }
         const content = await file.text()
         const namePrefix = file.name.replace(fileExtensionPattern, '')
         const payload = {

@@ -76,6 +76,11 @@
   "autoConfigKernelParameter": "自动配置内核参数",
   "autoDetect": "自动识别",
   "avatar": "头像",
+  "upload": {
+    "fileTooLarge": "所选文件过大，最大允许 {{maxSize}}。",
+    "fileTypeInvalid": "不支持所选文件类型。",
+    "avatarTypeInvalid": "不支持该头像格式，请选择 PNG 或 JPEG 图片。"
+  },
   "checkInterval": "检测间隔",
   "checkTolerance": "检测公差",
   "collapse": "折叠",

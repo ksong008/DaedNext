@@ -76,6 +76,11 @@
   "autoConfigKernelParameter": "Auto Config Kernel Parameter",
   "autoDetect": "Auto Detect",
   "avatar": "avatar",
+  "upload": {
+    "fileTooLarge": "The selected file is too large. Maximum size: {{maxSize}}.",
+    "fileTypeInvalid": "The selected file type is not supported.",
+    "avatarTypeInvalid": "Unsupported avatar format. Select a PNG or JPEG image."
+  },
   "checkInterval": "Check Interval",
   "checkTolerance": "Check Tolerance",
   "collapse": "collapse",
