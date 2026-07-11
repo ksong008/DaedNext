@@ -1,4 +1,5 @@
 import type { APIClientInterface, APIQueryValue } from '~/apis/client'
+import type { APIRequestOptions } from '~/apis/request_abort'
 import type { ConfigGlobal, GeodataKind } from '~/apis/types'
 
 import {
@@ -50,6 +51,7 @@ const geodataSettingsPathPattern = /^\/geodata\/(geosite|geoip)\/settings$/
 const geodataUpdatePathPattern = /^\/geodata\/(geosite|geoip)\/update$/
 const numericIDPattern = /(\d+)/
 const daeIdentifierPattern = /^[A-Z_][\w-]*$/i
+const MOCK_REQUEST_DELAY_MS = 20
 const mockDefaultGeodataSourceUrls: Record<GeodataKind, string> = {
   geosite: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geosite.dat',
   geoip: 'https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/geoip.dat',
@@ -82,6 +84,27 @@ let mockGeodataSourceUrls: Record<GeodataKind, string> = {
 let mockGeodataSourceUseProxy: Record<GeodataKind, boolean> = {
   geosite: false,
   geoip: false,
+}
+
+function waitForMockRequest(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    return Promise.reject(signal.reason ?? new Error('mock API request aborted'))
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout>
+    const abort = () => {
+      clearTimeout(timeout)
+      signal?.removeEventListener('abort', abort)
+      reject(signal?.reason ?? new Error('mock API request aborted'))
+    }
+    const finish = () => {
+      signal?.removeEventListener('abort', abort)
+      resolve()
+    }
+    timeout = setTimeout(finish, MOCK_REQUEST_DELAY_MS)
+    signal?.addEventListener('abort', abort, { once: true })
+  })
 }
 let mockGeodataStatus = {
   geosite: {
@@ -475,28 +498,34 @@ function buildMockDAEBundle() {
 export class MockAPIClient implements APIClientInterface {
   constructor(private readonly endpoint: string) {}
 
-  get<T>(path: string, query?: QueryRecord): Promise<T> {
-    return this.handle<T>('GET', path, undefined, query)
+  get<T>(path: string, query?: QueryRecord, options?: APIRequestOptions): Promise<T> {
+    return this.handle<T>('GET', path, undefined, query, options)
   }
 
-  post<T>(path: string, body?: unknown, query?: QueryRecord): Promise<T> {
-    return this.handle<T>('POST', path, body, query)
+  post<T>(path: string, body?: unknown, query?: QueryRecord, options?: APIRequestOptions): Promise<T> {
+    return this.handle<T>('POST', path, body, query, options)
   }
 
-  put<T>(path: string, body?: unknown, query?: QueryRecord): Promise<T> {
-    return this.handle<T>('PUT', path, body, query)
+  put<T>(path: string, body?: unknown, query?: QueryRecord, options?: APIRequestOptions): Promise<T> {
+    return this.handle<T>('PUT', path, body, query, options)
   }
 
-  patch<T>(path: string, body?: unknown, query?: QueryRecord): Promise<T> {
-    return this.handle<T>('PATCH', path, body, query)
+  patch<T>(path: string, body?: unknown, query?: QueryRecord, options?: APIRequestOptions): Promise<T> {
+    return this.handle<T>('PATCH', path, body, query, options)
   }
 
-  delete<T>(path: string, body?: unknown, query?: QueryRecord): Promise<T> {
-    return this.handle<T>('DELETE', path, body, query)
+  delete<T>(path: string, body?: unknown, query?: QueryRecord, options?: APIRequestOptions): Promise<T> {
+    return this.handle<T>('DELETE', path, body, query, options)
   }
 
-  private async handle<T>(method: string, rawPath: string, body?: unknown, query?: QueryRecord): Promise<T> {
-    await new Promise((resolve) => setTimeout(resolve, 20))
+  private async handle<T>(
+    method: string,
+    rawPath: string,
+    body?: unknown,
+    query?: QueryRecord,
+    options?: APIRequestOptions,
+  ): Promise<T> {
+    await waitForMockRequest(options?.signal)
 
     const path = rawPath.replace(this.endpoint, '').replace(absoluteOriginPattern, '')
 

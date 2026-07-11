@@ -1,16 +1,38 @@
+import type { APIRequestOptions } from './request_abort'
 import { toast } from 'sonner'
 
 import { tokenAtom } from '~/store'
+import { APIRequestTimeoutError, createAPIRequestAbortScope, DEFAULT_API_REQUEST_TIMEOUT_MS } from './request_abort'
 
 export type APIQueryPrimitive = string | number | boolean
 export type APIQueryValue = APIQueryPrimitive | null | undefined | APIQueryPrimitive[]
 
 export interface APIClientInterface {
-  get: <T>(path: string, query?: Record<string, APIQueryValue>) => Promise<T>
-  post: <T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) => Promise<T>
-  put: <T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) => Promise<T>
-  patch: <T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) => Promise<T>
-  delete: <T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) => Promise<T>
+  get: <T>(path: string, query?: Record<string, APIQueryValue>, options?: APIRequestOptions) => Promise<T>
+  post: <T>(
+    path: string,
+    body?: unknown,
+    query?: Record<string, APIQueryValue>,
+    options?: APIRequestOptions,
+  ) => Promise<T>
+  put: <T>(
+    path: string,
+    body?: unknown,
+    query?: Record<string, APIQueryValue>,
+    options?: APIRequestOptions,
+  ) => Promise<T>
+  patch: <T>(
+    path: string,
+    body?: unknown,
+    query?: Record<string, APIQueryValue>,
+    options?: APIRequestOptions,
+  ) => Promise<T>
+  delete: <T>(
+    path: string,
+    body?: unknown,
+    query?: Record<string, APIQueryValue>,
+    options?: APIRequestOptions,
+  ) => Promise<T>
 }
 
 const leadingSlashesRE = /^\/+/
@@ -128,26 +150,27 @@ export class APIClient implements APIClientInterface {
   constructor(
     private readonly endpointURL: string,
     private readonly token?: string,
+    private readonly requestTimeoutMs = DEFAULT_API_REQUEST_TIMEOUT_MS,
   ) {}
 
-  get<T>(path: string, query?: Record<string, APIQueryValue>) {
-    return this.request<T>(httpMethod.get, path, undefined, query)
+  get<T>(path: string, query?: Record<string, APIQueryValue>, options?: APIRequestOptions) {
+    return this.request<T>(httpMethod.get, path, undefined, query, options)
   }
 
-  post<T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) {
-    return this.request<T>(httpMethod.post, path, body, query)
+  post<T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>, options?: APIRequestOptions) {
+    return this.request<T>(httpMethod.post, path, body, query, options)
   }
 
-  put<T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) {
-    return this.request<T>(httpMethod.put, path, body, query)
+  put<T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>, options?: APIRequestOptions) {
+    return this.request<T>(httpMethod.put, path, body, query, options)
   }
 
-  patch<T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) {
-    return this.request<T>(httpMethod.patch, path, body, query)
+  patch<T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>, options?: APIRequestOptions) {
+    return this.request<T>(httpMethod.patch, path, body, query, options)
   }
 
-  delete<T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>) {
-    return this.request<T>(httpMethod.delete, path, body, query)
+  delete<T>(path: string, body?: unknown, query?: Record<string, APIQueryValue>, options?: APIRequestOptions) {
+    return this.request<T>(httpMethod.delete, path, body, query, options)
   }
 
   private async request<T>(
@@ -155,35 +178,50 @@ export class APIClient implements APIClientInterface {
     path: string,
     body?: unknown,
     query?: Record<string, APIQueryValue>,
+    options?: APIRequestOptions,
   ): Promise<T> {
     const url = buildAPIURL(this.endpointURL, path, query)
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-        ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
+    const abortScope = createAPIRequestAbortScope({
+      signal: options?.signal,
+      timeoutMs: options?.timeoutMs ?? this.requestTimeoutMs,
     })
 
-    if (response.status === 401 && tokenAtom.get() === (this.token ?? '')) {
-      tokenAtom.set('')
-    }
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+          ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: abortScope.signal,
+      })
 
-    if (response.status === 204) {
-      return undefined as T
-    }
+      if (response.status === 401 && tokenAtom.get() === (this.token ?? '')) {
+        tokenAtom.set('')
+      }
 
-    const text = await response.text()
-    const payload = parseResponsePayload(text, response.headers.get('content-type'))
-    if (!response.ok) {
-      const message = responseErrorMessage(response, payload)
-      toast.error(message)
-      throw new Error(message)
-    }
+      if (response.status === 204) {
+        return undefined as T
+      }
 
-    return payload as T
+      const text = await response.text()
+      const payload = parseResponsePayload(text, response.headers.get('content-type'))
+      if (!response.ok) {
+        const message = responseErrorMessage(response, payload)
+        toast.error(message)
+        throw new Error(message)
+      }
+
+      return payload as T
+    } catch (error) {
+      if (abortScope.signal.reason instanceof APIRequestTimeoutError) {
+        throw abortScope.signal.reason
+      }
+      throw error
+    } finally {
+      abortScope.dispose()
+    }
   }
 }
 

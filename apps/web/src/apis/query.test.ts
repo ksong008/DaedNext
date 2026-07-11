@@ -1,6 +1,6 @@
 import type { TrafficOverviewQueryData } from './types'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { deriveTransport, resolveNodeTransport } from './node_transport'
 import { mergeRuntimeOverviewDelta } from './runtime_overview'
 
@@ -226,3 +226,30 @@ describe('buildLogEventsURL', () => {
     expect(parsed.searchParams.get('after_id')).toBe('42')
   })
 })
+
+describe('query cancellation', () => {
+  it('passes the React Query abort signal to ordinary API requests', async () => {
+    const { getDefaultsRequest } = await loadQueryModule()
+    const signal = new AbortController().signal
+    const get = vi.fn(async () => ({ values: ['', '', '', ''] }))
+
+    await getDefaultsRequest({ get } as never)(signal)
+
+    expect(get).toHaveBeenCalledWith(
+      '/user/me/storage',
+      { path: ['defaultConfigID', 'defaultRoutingID', 'defaultDNSID', 'defaultGroupID'] },
+      { signal },
+    )
+  })
+})
+
+async function loadQueryModule() {
+  Object.defineProperty(globalThis, 'location', {
+    configurable: true,
+    value: {
+      hostname: '127.0.0.1',
+      protocol: 'http:',
+    },
+  })
+  return import('./query')
+}

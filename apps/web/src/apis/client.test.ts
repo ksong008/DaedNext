@@ -42,6 +42,30 @@ describe('normalizeEndpointURL', () => {
 })
 
 describe('aPI client', () => {
+  it('forwards a caller abort signal to fetch', async () => {
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      hostname: '127.0.0.1',
+    })
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { APIClient } = await import('./client')
+    const caller = new AbortController()
+    const client = new APIClient('http://127.0.0.1:2023/api')
+    const request = client.get('/general', undefined, { signal: caller.signal })
+
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal)
+    caller.abort(new Error('navigation cancelled'))
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true)
+    await expect(request).rejects.toThrow('navigation cancelled')
+  })
+
   it('resolves leading-slash paths under the /api base path', async () => {
     vi.stubGlobal('location', {
       protocol: 'http:',
