@@ -1,3 +1,4 @@
+import type { UserProfileUpdate } from '~/apis/resource_updates'
 import type { DAEBundle, DAEConfigFileIssue } from '~/apis/types'
 import type { BundleDiffPreview } from '~/utils/bundle'
 import { useStore } from '@nanostores/react'
@@ -29,10 +30,8 @@ import {
   usePreviewDAEConfigFileMutation,
   useReloadRuntimeMutation,
   useStopRuntimeMutation,
-  useUpdateAvatarMutation,
-  useUpdateNameMutation,
   useUpdatePasswordMutation,
-  useUpdateUsernameMutation,
+  useUpdateUserProfileMutation,
   useUserQuery,
 } from '~/apis'
 import { normalizeEndpointURL } from '~/apis/client'
@@ -174,10 +173,8 @@ export function HeaderWithActions() {
   const stopRuntimeMutation = useStopRuntimeMutation()
   const runtimeMutationPending = reloadRuntimeMutation.isPending || stopRuntimeMutation.isPending
   const needsReload = generalQuery?.general.dae.modified ?? false
-  const updateNameMutation = useUpdateNameMutation()
   const updatePasswordMutation = useUpdatePasswordMutation()
-  const updateUsernameMutation = useUpdateUsernameMutation()
-  const updateAvatarMutation = useUpdateAvatarMutation()
+  const updateUserProfileMutation = useUpdateUserProfileMutation()
   const exportBundleMutation = useExportDAEBundleMutation()
   const importBundleMutation = useImportDAEBundleMutation()
   const exportDAEConfigFileMutation = useExportDAEConfigFileMutation()
@@ -320,6 +317,9 @@ export function HeaderWithActions() {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (updateUserProfileMutation.isPending) {
+      return
+    }
 
     const result = accountSettingsSchema.safeParse(formData)
 
@@ -334,16 +334,19 @@ export function HeaderWithActions() {
       return
     }
 
+    const update: UserProfileUpdate = {}
     if (formData.username !== userQuery?.user?.username) {
-      await updateUsernameMutation.mutateAsync(formData.username)
+      update.username = formData.username
     }
-
     if (formData.name !== userQuery?.user?.name) {
-      await updateNameMutation.mutateAsync(formData.name)
+      update.name = formData.name
+    }
+    if (uploadingAvatarBase64 && uploadingAvatarBase64 !== userQuery?.user?.avatar) {
+      update.avatar = uploadingAvatarBase64
     }
 
-    if (uploadingAvatarBase64 && uploadingAvatarBase64 !== userQuery?.user?.avatar) {
-      await updateAvatarMutation.mutateAsync(uploadingAvatarBase64)
+    if (Object.keys(update).length > 0) {
+      await updateUserProfileMutation.mutateAsync(update)
     }
 
     closeAccountSettingsFormModal()
@@ -881,6 +884,7 @@ export function HeaderWithActions() {
                   (uploadingAvatarBase64 !== null && uploadingAvatarBase64 !== userQuery?.user?.avatar)
                 }
                 isValid={formData.username.length >= 1 && formData.name.length >= 1}
+                loading={updateUserProfileMutation.isPending}
               />
             </div>
           </form>

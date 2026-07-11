@@ -50,7 +50,7 @@ export function EditSubscriptionFormModal({ opened, onClose, subscription, onSub
     control,
     setValue: setValueOriginal,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const setValue = useSetValue(setValueOriginal)
@@ -139,6 +139,7 @@ export function EditSubscriptionFormModal({ opened, onClose, subscription, onSub
             reset={() => reset({ link: '', tag: '', cronExp: '10 */6 * * *', cronEnable: true, useProxy: false })}
             isDirty={isDirty}
             errors={errors}
+            loading={isSubmitting}
           />
         </form>
       </DialogContent>
