@@ -1,7 +1,8 @@
 import type { ConfigFormModalRef } from '~/components/ConfigFormModal'
+import { useStore } from '@nanostores/react'
 import { Settings, Settings2 } from 'lucide-react'
 
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useConfigsQuery,
@@ -16,11 +17,21 @@ import { SimpleCard } from '~/components/SimpleCard'
 import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { useDisclosure } from '~/hooks'
+import { usePersistentSortOrder } from '~/hooks/usePersistentSortOrder'
+import { appStateAtom } from '~/store'
 
 export function Config() {
   const { t } = useTranslation()
+  const appState = useStore(appStateAtom)
 
   const { data: configsQuery } = useConfigsQuery()
+  const configIds = useMemo(() => configsQuery?.configs.map((config) => config.id) ?? [], [configsQuery?.configs])
+  usePersistentSortOrder(
+    'configSortableKeys',
+    appState.configSortableKeys as string[],
+    configIds,
+    configsQuery !== undefined,
+  )
   const selectConfigMutation = useSelectConfigMutation()
   const removeConfigMutation = useRemoveConfigMutation()
   const renameConfigMutation = useRenameConfigMutation()

@@ -42,6 +42,7 @@ import { cn } from '~/lib/utils'
 import { appStateAtom, defaultResourcesAtom } from '~/store'
 import { getInstantDropStyle } from '~/utils'
 import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
+import { reconcileSortOrder } from '~/utils/sort_order'
 
 const GROUP_DROPPABLE_ID = 'group-list'
 
@@ -239,15 +240,7 @@ export function GroupResource({
 
   const sortedGroupIds = useMemo(() => {
     const currentIds = groups.map((group) => group.id)
-    const currentIdSet = new Set(currentIds)
-    const result = groupSortOrder.filter((id) => currentIdSet.has(id))
-    const resultSet = new Set(result)
-
-    for (const id of currentIds) {
-      if (!resultSet.has(id)) result.push(id)
-    }
-
-    return result
+    return reconcileSortOrder(groupSortOrder, currentIds)
   }, [groupSortOrder, groups])
 
   const sortedGroups = useMemo(() => {

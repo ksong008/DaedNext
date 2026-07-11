@@ -21,12 +21,24 @@ import { SimpleTooltip } from '~/components/ui/tooltip'
 import { DEFAULT_GROUP_NAME } from '~/constants/default'
 import { createGroupCompletionItems, setDynamicCompletionItems } from '~/editor_completions'
 import { useDisclosure } from '~/hooks'
-import { defaultResourcesAtom } from '~/store'
+import { usePersistentSortOrder } from '~/hooks/usePersistentSortOrder'
+import { appStateAtom, defaultResourcesAtom } from '~/store'
 
 export function Routing() {
   const { t } = useTranslation()
+  const appState = useStore(appStateAtom)
   const { defaultGroupID } = useStore(defaultResourcesAtom)
   const { data: routingsQuery } = useRoutingsQuery()
+  const routingIds = useMemo(
+    () => routingsQuery?.routings.map((routing) => routing.id) ?? [],
+    [routingsQuery?.routings],
+  )
+  usePersistentSortOrder(
+    'routingSortableKeys',
+    appState.routingSortableKeys as string[],
+    routingIds,
+    routingsQuery !== undefined,
+  )
   const { data: groupsQuery } = useGroupsQuery()
   const selectRoutingMutation = useSelectRoutingMutation()
   const removeRoutingMutation = useRemoveRoutingMutation()

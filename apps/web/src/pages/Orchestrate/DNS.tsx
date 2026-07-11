@@ -1,5 +1,6 @@
+import { useStore } from '@nanostores/react'
 import { Route, Settings2 } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   useCreateDNSMutation,
@@ -15,11 +16,16 @@ import { SimpleCard } from '~/components/SimpleCard'
 import { Button } from '~/components/ui/button'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { useDisclosure } from '~/hooks'
+import { usePersistentSortOrder } from '~/hooks/usePersistentSortOrder'
+import { appStateAtom } from '~/store'
 
 export function DNS() {
   const { t } = useTranslation()
+  const appState = useStore(appStateAtom)
 
   const { data: dnssQuery } = useDNSsQuery()
+  const dnsIds = useMemo(() => dnssQuery?.dnss.map((dns) => dns.id) ?? [], [dnssQuery?.dnss])
+  usePersistentSortOrder('dnsSortableKeys', appState.dnsSortableKeys as string[], dnsIds, dnssQuery !== undefined)
   const selectDNSMutation = useSelectDNSMutation()
   const removeDNSMutation = useRemoveDNSMutation()
   const renameDNSMutation = useRenameDNSMutation()
