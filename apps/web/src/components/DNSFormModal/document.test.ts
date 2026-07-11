@@ -33,4 +33,30 @@ upstream {
       expect(result.error).toBeInstanceOf(Error)
     }
   })
+
+  it('keeps block comments and unknown directives after a simple-mode edit', () => {
+    const initial = createDNSFormDocument(`
+upstream {
+  # local resolver
+  local: 'udp://127.0.0.1:53'
+}
+routing {
+  strategy: strict
+  request {
+    # request policy
+    fallback: local
+  }
+}
+`)
+
+    const updated = updateDNSFormDocumentFromSimple({
+      ...initial.document.parsed,
+      requestRules: initial.document.parsed.requestRules.map((rule) => ({ ...rule, target: 'oversea' })),
+    })
+
+    expect(updated.text).toContain('  # local resolver')
+    expect(updated.text).toContain('  strategy: strict')
+    expect(updated.text).toContain('    # request policy')
+    expect(updated.text).toContain('    fallback: oversea')
+  })
 })

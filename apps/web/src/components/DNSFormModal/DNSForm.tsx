@@ -23,9 +23,18 @@ interface Props {
   initialConfig?: string
   bindGetValues: (fn: () => { name: string; text: string }) => void
   opened?: boolean
+  validationErrors?: { name?: string; text?: string }
+  onFieldChange?: (field: 'name' | 'text') => void
 }
 
-export function DNSForm({ initialName = '', initialConfig = '', bindGetValues, opened = true }: Props) {
+export function DNSForm({
+  initialName = '',
+  initialConfig = '',
+  bindGetValues,
+  opened = true,
+  validationErrors,
+  onFieldChange,
+}: Props) {
   const { t } = useTranslation()
   const [initialDocument] = useState(() => createDNSFormDocument(initialConfig))
 
@@ -38,6 +47,7 @@ export function DNSForm({ initialName = '', initialConfig = '', bindGetValues, o
   const setParsedConfig = (parsed: DNSConfig) => {
     setDocument(updateDNSFormDocumentFromSimple(parsed))
     setModeError(null)
+    onFieldChange?.('text')
   }
 
   // Expose values getter
@@ -66,8 +76,25 @@ export function DNSForm({ initialName = '', initialConfig = '', bindGetValues, o
     <div className="space-y-6">
       <div className="space-y-2">
         <Label>{t('dnsConfig.name')}</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('dnsConfig.name')} />
+        <Input
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value)
+            onFieldChange?.('name')
+          }}
+          placeholder={t('dnsConfig.name')}
+          error={validationErrors?.name}
+          withAsterisk
+        />
       </div>
+
+      {validationErrors?.text && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>{t('dnsConfig.validationErrorTitle')}</AlertTitle>
+          <AlertDescription>{validationErrors.text}</AlertDescription>
+        </Alert>
+      )}
 
       <Tabs value={mode} onValueChange={(v) => handleModeChange(v as 'simple' | 'code')}>
         <TabsList className="w-full justify-start">
@@ -124,6 +151,7 @@ export function DNSForm({ initialName = '', initialConfig = '', bindGetValues, o
               onChange={(value) => {
                 setDocument((current) => editDNSFormDocumentCode(current, value))
                 setModeError(null)
+                onFieldChange?.('text')
               }}
               configType="dns"
               height="400px"
