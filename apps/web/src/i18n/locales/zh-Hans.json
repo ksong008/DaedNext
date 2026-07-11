@@ -499,6 +499,9 @@
   "software options": "软件选项",
   "step": "步骤",
   "subscription": "订阅",
+  "subscriptionNodeWindow": {
+    "showMore": "再显示 {{count}} 个节点 · {{visible}}/{{total}}"
+  },
   "useProxySubscription": "使用代理订阅",
   "editNode": "编辑节点",
   "editSubscription": "编辑订阅",

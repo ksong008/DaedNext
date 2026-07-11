@@ -12,7 +12,6 @@ import {
   useUpdateSubscriptionMutation,
   useUpdateSubscriptionsMutation,
 } from '~/apis'
-import { DraggableResourceBadge } from '~/components/DraggableResourceBadge'
 import { EditSubscriptionFormModal } from '~/components/EditSubscriptionFormModal'
 import { ImportResourceFormModal } from '~/components/ImportResourceFormModal'
 import { QRCodeModal } from '~/components/QRCodeModal'
@@ -24,7 +23,7 @@ import { SimpleTooltip } from '~/components/ui/tooltip'
 import { UpdateSubscriptionAction } from '~/components/UpdateSubscriptionAction'
 import { useDisclosure } from '~/hooks'
 import { cn } from '~/lib/utils'
-import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
+import { SubscriptionNodeWindow } from './SubscriptionNodeWindow'
 
 export function SubscriptionResource({
   sortedSubscriptions,
@@ -219,35 +218,12 @@ export function SubscriptionResource({
                         {t('actions.show content')}
                       </AccordionTrigger>
                       <AccordionContent>
-                        <Droppable droppableId={`subscription-${subscriptionID}-nodes`} type="NODE" isDropDisabled>
-                          {(droppableProvided) => (
-                            <div
-                              ref={droppableProvided.innerRef}
-                              {...droppableProvided.droppableProps}
-                              className="flex flex-wrap gap-2 pt-2"
-                            >
-                              {nodes.items.map(({ id, name, protocol, transport }, nodeIndex) => {
-                                const latencyResult = nodeLatencies?.[id]
-
-                                return (
-                                  <DraggableResourceBadge
-                                    key={id}
-                                    id={`subscription-node-${id}`}
-                                    index={nodeIndex}
-                                    name={name}
-                                    protocol={protocol}
-                                    transport={transport}
-                                    meta={formatLatencyMeta(latencyResult)}
-                                    metaTone={getNodeLatencyCardTone(latencyResult)}
-                                  >
-                                    {name}
-                                  </DraggableResourceBadge>
-                                )
-                              })}
-                              {droppableProvided.placeholder}
-                            </div>
-                          )}
-                        </Droppable>
+                        <SubscriptionNodeWindow
+                          subscriptionId={subscriptionID}
+                          revision={updatedAt}
+                          nodes={nodes.items}
+                          nodeLatencies={nodeLatencies}
+                        />
                       </AccordionContent>
                     </AccordionItem>
                   </Accordion>
@@ -283,13 +259,6 @@ export function SubscriptionResource({
       />
     </Section>
   )
-}
-
-function formatLatencyMeta(result?: NodeLatencyProbeResult) {
-  if (!result) {
-    return undefined
-  }
-  return formatNodeLatencyCardLabel(result, 'N/A')
 }
 
 function Spoiler({ label, showLabel, hideLabel }: { label: string; showLabel: string; hideLabel: string }) {
