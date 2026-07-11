@@ -8,6 +8,7 @@ import { Button } from '~/components/ui/button'
 import { cn } from '~/lib/utils'
 import { groupSortOrdersAtom } from '~/store'
 import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
+import { reconcileSortOrder } from '~/utils/sort_order'
 
 interface GroupNode {
   id: string
@@ -196,28 +197,12 @@ export function SortableGroupContent({
 
   const sortedNodeIds = useMemo(() => {
     const currentIds = nodes.map((node) => node.id)
-    const currentIdSet = new Set(currentIds)
-    const result = nodeSortOrder.filter((id) => currentIdSet.has(id))
-    const resultSet = new Set(result)
-
-    for (const id of currentIds) {
-      if (!resultSet.has(id)) result.push(id)
-    }
-
-    return result
+    return reconcileSortOrder(nodeSortOrder, currentIds)
   }, [nodes, nodeSortOrder])
 
   const sortedSubscriptionIds = useMemo(() => {
     const currentIds = subscriptions.map((subscription) => subscription.subscription.id)
-    const currentIdSet = new Set(currentIds)
-    const result = subSortOrder.filter((id) => currentIdSet.has(id))
-    const resultSet = new Set(result)
-
-    for (const id of currentIds) {
-      if (!resultSet.has(id)) result.push(id)
-    }
-
-    return result
+    return reconcileSortOrder(subSortOrder, currentIds)
   }, [subscriptions, subSortOrder])
 
   const effectiveExpandedSections = useMemo(() => {

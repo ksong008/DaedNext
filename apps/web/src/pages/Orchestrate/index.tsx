@@ -52,10 +52,12 @@ import {
 } from '~/components/ui/scrollable-dialog'
 import { DraggableResourceType, ORCHESTRATE_SECTION_IDS, QUERY_KEY_NODE_LATENCY } from '~/constants'
 import { useMediaQuery } from '~/hooks'
+import { usePersistentGroupSortOrders, usePersistentSortOrder } from '~/hooks/usePersistentSortOrder'
 import { cn } from '~/lib/utils'
 import { appStateAtom, groupSortOrdersAtom } from '~/store'
 import { deriveTime } from '~/utils'
 import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
+import { reconcileSortOrder } from '~/utils/sort_order'
 import { NODE_DROPPABLE_ID } from './dndConstants'
 import { isLatencyJobActive, manualLatencyProgressFromJob } from './manual_latency'
 import { TrafficOverviewIsland } from './TrafficOverviewIsland'
@@ -177,8 +179,9 @@ export function OrchestratePage() {
 
   // Use persistent store for sort order
   const appState = useStore(appStateAtom)
-  const nodeSortOrder = appState.nodeSortableKeys as string[]
-  const subscriptionSortOrder = appState.subscriptionSortableKeys as string[]
+  const storedNodeSortOrder = appState.nodeSortableKeys as string[]
+  const storedSubscriptionSortOrder = appState.subscriptionSortableKeys as string[]
+  const storedGroupSortOrder = appState.groupSortableKeys as string[]
 
   const setNodeSortOrder = useCallback((order: string[]) => {
     appStateAtom.setKey('nodeSortableKeys', order)
@@ -208,6 +211,40 @@ export function OrchestratePage() {
     () => subscriptionSummariesQuery?.subscriptions ?? EMPTY_SUBSCRIPTION_SUMMARIES,
     [subscriptionSummariesQuery?.subscriptions],
   )
+  const currentNodeIds = useMemo(() => nodes.map((node) => node.id), [nodes])
+  const currentSubscriptionIds = useMemo(
+    () => subscriptionSummaries.map((subscription) => subscription.id),
+    [subscriptionSummaries],
+  )
+  const currentGroupIds = useMemo(() => groupSummaries.map((group) => group.id), [groupSummaries])
+  const nodeSortOrder = usePersistentSortOrder(
+    'nodeSortableKeys',
+    storedNodeSortOrder,
+    currentNodeIds,
+    nodesQuery !== undefined,
+  )
+  const subscriptionSortOrder = usePersistentSortOrder(
+    'subscriptionSortableKeys',
+    storedSubscriptionSortOrder,
+    currentSubscriptionIds,
+    subscriptionSummariesQuery !== undefined,
+  )
+  const groupSortOrder = usePersistentSortOrder(
+    'groupSortableKeys',
+    storedGroupSortOrder,
+    currentGroupIds,
+    groupSummariesQuery !== undefined,
+  )
+  const groupSortMemberships = useMemo(
+    () =>
+      groups.map((group) => ({
+        id: group.id,
+        nodeIds: group.nodes.map((node) => node.id),
+        subscriptionIds: group.subscriptions.map((binding) => binding.subscription.id),
+      })),
+    [groups],
+  )
+  usePersistentGroupSortOrders(groupSortMemberships, groupsQuery !== undefined)
   const getGroupById = useCallback(
     (groupId: string) => groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === groupId),
     [groupsQuery?.groups],
@@ -345,22 +382,7 @@ export function OrchestratePage() {
   )
 
   // Get sorted node IDs
-  const sortedNodeIds = useMemo(() => {
-    if (nodes.length === 0) return []
-    const currentIds = nodes.map((n: NodeListView['nodes']['items'][number]) => n.id)
-    const currentIdSet = new Set(currentIds)
-
-    const result = nodeSortOrder.filter((id) => currentIdSet.has(id))
-    const resultSet = new Set(result)
-
-    for (const id of currentIds) {
-      if (!resultSet.has(id)) {
-        result.push(id)
-      }
-    }
-
-    return result
-  }, [nodes, nodeSortOrder])
+  const sortedNodeIds = nodeSortOrder
 
   // Get sorted nodes
   const sortedNodes = useMemo(() => {
@@ -373,18 +395,7 @@ export function OrchestratePage() {
   const sortedSubscriptionIds = useMemo(() => {
     if (subscriptions.length === 0) return []
     const currentIds = subscriptions.map((s: SubscriptionListView['subscriptions'][number]) => s.id)
-    const currentIdSet = new Set(currentIds)
-
-    const result = subscriptionSortOrder.filter((id) => currentIdSet.has(id))
-    const resultSet = new Set(result)
-
-    for (const id of currentIds) {
-      if (!resultSet.has(id)) {
-        result.push(id)
-      }
-    }
-
-    return result
+    return reconcileSortOrder(subscriptionSortOrder, currentIds)
   }, [subscriptions, subscriptionSortOrder])
 
   // Get sorted subscriptions
@@ -569,23 +580,7 @@ export function OrchestratePage() {
     })
   }, [allLatencyProbeNodeIds, nodeLatenciesQuery.data])
 
-  const groupSortOrder = appState.groupSortableKeys as string[]
-
-  const sortedGroupSummaryIds = useMemo(() => {
-    if (groupSummaries.length === 0) return []
-    const currentIds = groupSummaries.map((group) => group.id)
-    const currentIdSet = new Set(currentIds)
-    const result = groupSortOrder.filter((id) => currentIdSet.has(id))
-    const resultSet = new Set(result)
-
-    for (const id of currentIds) {
-      if (!resultSet.has(id)) {
-        result.push(id)
-      }
-    }
-
-    return result
-  }, [groupSortOrder, groupSummaries])
+  const sortedGroupSummaryIds = groupSortOrder
 
   const sortedGroupSummaries = useMemo(() => {
     if (groupSummaries.length === 0) return []
@@ -596,17 +591,7 @@ export function OrchestratePage() {
   const sortedGroupIds = useMemo(() => {
     if (groups.length === 0) return []
     const currentIds = groups.map((group: GroupListView['groups'][number]) => group.id)
-    const currentIdSet = new Set(currentIds)
-    const result = groupSortOrder.filter((id) => currentIdSet.has(id))
-    const resultSet = new Set(result)
-
-    for (const id of currentIds) {
-      if (!resultSet.has(id)) {
-        result.push(id)
-      }
-    }
-
-    return result
+    return reconcileSortOrder(groupSortOrder, currentIds)
   }, [groupSortOrder, groups])
 
   const sortedGroups = useMemo(() => {
@@ -764,18 +749,7 @@ export function OrchestratePage() {
   const getGroupSortedIds = useCallback((groupId: string, type: 'nodes' | 'subscriptions', currentIds: string[]) => {
     const groupSortOrders = groupSortOrdersAtom.get()
     const sortOrder = groupSortOrders[groupId]?.[type] || []
-    const currentIdSet = new Set(currentIds)
-
-    const result = sortOrder.filter((id) => currentIdSet.has(id))
-    const resultSet = new Set(result)
-
-    for (const id of currentIds) {
-      if (!resultSet.has(id)) {
-        result.push(id)
-      }
-    }
-
-    return result
+    return reconcileSortOrder(sortOrder, currentIds)
   }, [])
 
   const stopEdgeAutoScroll = useCallback(() => {
