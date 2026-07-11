@@ -72,7 +72,7 @@ export function PlainTextFormModal({
     control,
     setValue: setValueOriginal,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const setValue = useSetValue(setValueOriginal)
@@ -161,6 +161,7 @@ export function PlainTextFormModal({
               }}
               isDirty={isDirty}
               errors={errors}
+              loading={isSubmitting}
             />
           </form>
         </ScrollableDialogBody>

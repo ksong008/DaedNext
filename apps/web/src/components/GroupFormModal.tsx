@@ -57,7 +57,7 @@ export function GroupFormModal({
     control,
     setValue: setValueOriginal,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const setValue = useSetValue(setValueOriginal)
@@ -173,6 +173,7 @@ export function GroupFormModal({
               }}
               isDirty={isDirty}
               errors={errors}
+              loading={isSubmitting}
             />
           </div>
         </form>

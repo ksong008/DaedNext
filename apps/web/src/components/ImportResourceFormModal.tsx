@@ -71,7 +71,7 @@ export function ImportResourceFormModal({
     control,
     setValue: setValueOriginal,
     reset,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, isSubmitting },
   } = form
 
   const setValue = useSetValue(setValueOriginal)
@@ -184,7 +184,12 @@ export function ImportResourceFormModal({
                 )}
               </div>
 
-              <FormActions reset={() => reset(defaultValues)} isDirty={isDirty} errors={errors} />
+              <FormActions
+                reset={() => reset(defaultValues)}
+                isDirty={isDirty}
+                errors={errors}
+                loading={isSubmitting}
+              />
             </div>
           </form>
         </ScrollableDialogBody>
