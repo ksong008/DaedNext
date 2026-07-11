@@ -1,5 +1,8 @@
 import type { DNSConfig, RoutingRule, Upstream } from './types'
 
+const DNS_BLOCK_RE = /^dns\s*\{([\s\S]*?)\}$/
+const UPSTREAM_LINE_RE = /^([\w.-]+):\s*(?:'([^']+)'|"([^"]+)"|([^#\s]+))/
+
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
 
 function extractBlock(source: string, blockName: string) {
@@ -19,7 +22,9 @@ function extractBlock(source: string, blockName: string) {
     if (depth === 0) break
   }
 
-  if (depth !== 0) return
+  if (depth !== 0) {
+    throw new Error(`Unclosed ${blockName} block`)
+  }
 
   return {
     inner: source.slice(startIndex, i).trim(),
@@ -38,8 +43,7 @@ export function parseDNSConfig(config: string): DNSConfig {
 
   // Try to remove outer "dns { ... }" block if it exists
   // Simple check: starts with "dns" and has braces
-  const dnsBlockRegex = /^dns\s*\{([\s\S]*?)\}$/
-  const dnsMatch = content.match(dnsBlockRegex)
+  const dnsMatch = content.match(DNS_BLOCK_RE)
   if (dnsMatch) {
     content = dnsMatch[1].trim()
     others = content
@@ -57,7 +61,7 @@ export function parseDNSConfig(config: string): DNSConfig {
 
       // name: 'link' | name: "link" | name: link
       // Allow upstream names with -, ., _
-      const match = trimmed.match(/^([\w.-]+):\s*(?:'([^']+)'|"([^"]+)"|([^#\s]+))/)
+      const match = trimmed.match(UPSTREAM_LINE_RE)
       if (match) {
         const link = match[2] || match[3] || match[4]
         if (link) {

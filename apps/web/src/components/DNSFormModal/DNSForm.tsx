@@ -1,6 +1,6 @@
 import type { DNSConfig } from './types'
 import { AlertCircle } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useTranslation } from 'react-i18next'
 import { DaeEditor } from '~/components/DaeEditor'
@@ -9,7 +9,12 @@ import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/components/ui/tabs'
-import { generateDNSConfig, parseDNSConfig } from './parser'
+import {
+  createDNSFormDocument,
+  editDNSFormDocumentCode,
+  updateDNSFormDocumentFromCode,
+  updateDNSFormDocumentFromSimple,
+} from './document'
 import { RoutingList } from './RoutingList'
 import { UpstreamList } from './UpstreamList'
 
@@ -22,49 +27,38 @@ interface Props {
 
 export function DNSForm({ initialName = '', initialConfig = '', bindGetValues, opened = true }: Props) {
   const { t } = useTranslation()
-  const initialParsed = useMemo(() => {
-    try {
-      return { parsed: parseDNSConfig(initialConfig), mode: 'simple' as const }
-    } catch (e) {
-      console.error('Parse failed', e)
-      return {
-        parsed: { upstreams: [], requestRules: [], responseRules: [], others: '' } as DNSConfig,
-        mode: 'code' as const,
-      }
-    }
-  }, [initialConfig])
+  const [initialDocument] = useState(() => createDNSFormDocument(initialConfig))
 
   const [name, setName] = useState(() => initialName)
-  const [mode, setMode] = useState<'simple' | 'code'>(() => initialParsed.mode)
-  const [configStr, setConfigStr] = useState(() => initialConfig)
-  const [parsedConfig, setParsedConfig] = useState<DNSConfig>(() => initialParsed.parsed)
+  const [mode, setMode] = useState<'simple' | 'code'>(() => initialDocument.mode)
+  const [document, setDocument] = useState(() => initialDocument.document)
+  const [modeError, setModeError] = useState<Error | null>(() => initialDocument.error ?? null)
+  const { parsed: parsedConfig, text: configStr } = document
+
+  const setParsedConfig = (parsed: DNSConfig) => {
+    setDocument(updateDNSFormDocumentFromSimple(parsed))
+    setModeError(null)
+  }
 
   // Expose values getter
   useEffect(() => {
     bindGetValues(() => {
-      let text = ''
-      if (mode === 'code') {
-        text = configStr
-      } else {
-        text = generateDNSConfig(parsedConfig)
-      }
-      return { name, text }
+      return { name, text: document.text }
     })
-  }, [bindGetValues, mode, name, configStr, parsedConfig])
+  }, [bindGetValues, document.text, name])
 
   const handleModeChange = (newMode: 'simple' | 'code') => {
     if (newMode === mode) return
     if (mode === 'code' && newMode === 'simple') {
-      try {
-        const parsed = parseDNSConfig(configStr)
-        setParsedConfig(parsed)
-      } catch (e) {
-        console.error('Parse failed', e)
-        // Stay in code mode if parsing fails.
+      const synchronized = updateDNSFormDocumentFromCode(document)
+      if (!synchronized.ok) {
+        setModeError(synchronized.error)
         return
       }
+      setDocument(synchronized.document)
     }
 
+    setModeError(null)
     setMode(newMode)
   }
 
@@ -117,10 +111,20 @@ export function DNSForm({ initialName = '', initialConfig = '', bindGetValues, o
         </TabsContent>
 
         <TabsContent value="code" className="flex flex-col gap-1 pt-2">
+          {modeError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>{t('dnsConfig.parseErrorTitle')}</AlertTitle>
+              <AlertDescription>{t('dnsConfig.parseErrorDesc', { error: modeError.message })}</AlertDescription>
+            </Alert>
+          )}
           <div className="rounded border h-[400px] relative">
             <DaeEditor
               value={configStr || ''}
-              onChange={(value) => setConfigStr(value)}
+              onChange={(value) => {
+                setDocument((current) => editDNSFormDocumentCode(current, value))
+                setModeError(null)
+              }}
               configType="dns"
               height="400px"
               active={opened && mode === 'code'}

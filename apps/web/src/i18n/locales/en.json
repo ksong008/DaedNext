@@ -568,6 +568,8 @@
     "addFallback": "Add Fallback",
     "unparsedTitle": "Unparsed Content",
     "unparsedDesc": "Some content (e.g. global settings or comments) could not be parsed visually and will be preserved as-is. Switch to Advanced Mode to view or edit them.",
+    "parseErrorTitle": "Cannot switch to simple mode",
+    "parseErrorDesc": "Fix the DNS code before switching modes. {{error}}",
     "noUpstreams": "No upstreams defined.",
     "noRules": "No rules defined.",
     "matcherPlaceholder": "Matcher",
