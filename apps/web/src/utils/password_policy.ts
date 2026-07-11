@@ -14,3 +14,5 @@ export const accountPasswordSchema = z
     (value) => ASCII_LETTER_PATTERN.test(value) && ASCII_DIGIT_PATTERN.test(value),
     ACCOUNT_PASSWORD_POLICY_MESSAGE,
   )
+
+export const loginPasswordSchema = z.string().min(1, 'Password is required')

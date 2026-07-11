@@ -13,7 +13,8 @@ import { Input } from '~/components/ui/input'
 import { DEFAULT_ENDPOINT_URL } from '~/constants'
 import { cn } from '~/lib/utils'
 import { endpointURLAtom, tokenAtom } from '~/store'
-import { accountPasswordSchema } from '~/utils/password_policy'
+import { accountPasswordSchema, loginPasswordSchema } from '~/utils/password_policy'
+import { validateAndPersistSetupEndpoint } from './setup_endpoint'
 
 const endpointURLSchema = z.object({
   endpointURL: z.string().url().min(1),
@@ -26,11 +27,11 @@ const signupSchema = z.object({
 
 const loginSchema = z.object({
   username: z.string().min(4).max(20),
-  password: z.string().min(6).max(20),
+  password: loginPasswordSchema,
 })
 
 async function getNumberUsers(endpointURL: string) {
-  const client = new APIClient(normalizeEndpointURL(endpointURL))
+  const client = new APIClient(endpointURL)
   const { numberUsers } = await client.get<{ numberUsers: number }>('/auth/status')
 
   return numberUsers
@@ -91,12 +92,15 @@ export function SetupPage() {
       return
     }
 
-    endpointURLAtom.set(normalizeEndpointURL(endpointFormData.endpointURL))
-
     try {
-      const numberUsers = await getNumberUsers(endpointFormData.endpointURL)
+      const validated = await validateAndPersistSetupEndpoint(
+        endpointFormData.endpointURL,
+        getNumberUsers,
+        (endpointURL) => endpointURLAtom.set(endpointURL),
+      )
 
-      setNumberUsers(numberUsers)
+      setEndpointFormData({ endpointURL: validated.endpointURL })
+      setNumberUsers(validated.numberUsers)
 
       nextStep()
     } catch (err) {
