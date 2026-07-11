@@ -29,6 +29,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAPIClient } from '~/contexts'
 import { defaultResourcesAtom } from '~/store'
 import { toID, toNumericID } from './client'
+import { selectProfileResources } from './profile_selection'
 import { adaptNodeLatencyJob, adaptNodeLatencyProbeResults } from './query'
 import { invalidateQueryKeys, webQueryKeys } from './query_cache'
 
@@ -451,6 +452,28 @@ export function useSelectConfigMutation() {
     },
     onSuccess: () => {
       void invalidateConfigResource(queryClient, { allItems: true, generalState: true })
+    },
+  })
+}
+
+export function useSelectProfileMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (selection: { configID: string; dnsID: string; routingID: string }) =>
+      selectProfileResources(apiClient, selection),
+    onSuccess: () => {
+      void invalidateQueryKeys(queryClient, [
+        webQueryKeys.config.summary(),
+        webQueryKeys.config.expanded(),
+        webQueryKeys.config.item(),
+        webQueryKeys.dns.summary(),
+        webQueryKeys.dns.expanded(),
+        webQueryKeys.routing.summary(),
+        webQueryKeys.routing.expanded(),
+        webQueryKeys.general.state(),
+      ])
     },
   })
 }

@@ -1,3 +1,4 @@
 export * from './mutation'
+export * from './profile_selection'
 export * from './query'
 export * from './types'

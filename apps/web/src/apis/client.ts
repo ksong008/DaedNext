@@ -28,6 +28,7 @@ const apiResourceSegments = new Set([
   'logs',
   'nodes',
   'openapi.json',
+  'profiles',
   'routings',
   'runtime',
   'subscriptions',

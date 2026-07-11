@@ -10,9 +10,7 @@ import {
   useConfigSummariesQuery,
   useDNSSummariesQuery,
   useRoutingSummariesQuery,
-  useSelectConfigMutation,
-  useSelectDNSMutation,
-  useSelectRoutingMutation,
+  useSelectProfileMutation,
 } from '~/apis'
 import { cn } from '~/lib/utils'
 import { defaultResourcesAtom, profilesAtom } from '~/store'
@@ -46,9 +44,7 @@ export function ProfileSwitcher() {
   const { data: routingsQuery } = useRoutingSummariesQuery()
   const { data: dnssQuery } = useDNSSummariesQuery()
 
-  const selectConfigMutation = useSelectConfigMutation()
-  const selectRoutingMutation = useSelectRoutingMutation()
-  const selectDNSMutation = useSelectDNSMutation()
+  const selectProfileMutation = useSelectProfileMutation()
 
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
@@ -110,12 +106,11 @@ export function ProfileSwitcher() {
         return
       }
 
-      // Switch to the profile's resources
-      await Promise.all([
-        selectConfigMutation.mutateAsync({ id: profile.configID }),
-        selectRoutingMutation.mutateAsync({ id: profile.routingID }),
-        selectDNSMutation.mutateAsync({ id: profile.dnsID }),
-      ])
+      await selectProfileMutation.mutateAsync({
+        configID: profile.configID,
+        routingID: profile.routingID,
+        dnsID: profile.dnsID,
+      })
 
       profilesAtom.set({
         ...profilesState,
