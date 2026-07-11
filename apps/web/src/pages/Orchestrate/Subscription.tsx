@@ -9,12 +9,8 @@ import { useTranslation } from 'react-i18next'
 import {
   useImportSubscriptionsMutation,
   useRemoveSubscriptionsMutation,
-  useSubscriptionsQuery,
-  useTagSubscriptionMutation,
-  useUpdateSubscriptionCronMutation,
-  useUpdateSubscriptionLinkMutation,
+  useUpdateSubscriptionMutation,
   useUpdateSubscriptionsMutation,
-  useUpdateSubscriptionUseProxyMutation,
 } from '~/apis'
 import { DraggableResourceBadge } from '~/components/DraggableResourceBadge'
 import { EditSubscriptionFormModal } from '~/components/EditSubscriptionFormModal'
@@ -69,15 +65,10 @@ export function SubscriptionResource({
     useProxy: boolean
   }>()
   const qrCodeModalRef = useRef<QRCodeModalRef>(null)
-  const { refetch: refetchSubscriptions } = useSubscriptionsQuery()
   const removeSubscriptionsMutation = useRemoveSubscriptionsMutation()
   const importSubscriptionsMutation = useImportSubscriptionsMutation()
   const updateSubscriptionsMutation = useUpdateSubscriptionsMutation()
-  const updateSubscriptionLinkMutation = useUpdateSubscriptionLinkMutation()
-  const tagSubscriptionMutation = useTagSubscriptionMutation()
-
-  const updateSubscriptionCronMutation = useUpdateSubscriptionCronMutation()
-  const updateSubscriptionUseProxyMutation = useUpdateSubscriptionUseProxyMutation()
+  const updateSubscriptionMutation = useUpdateSubscriptionMutation()
   const measuredNodeCount = Object.keys(nodeLatencies || {}).length
   const latencyActionStatus = testingLatencyProgress
     ? `${testingLatencyProgress.completed}/${testingLatencyProgress.total}`
@@ -287,43 +278,7 @@ export function SubscriptionResource({
         onClose={closeEditSubscriptionFormModal}
         subscription={editingSubscription}
         onSubmit={async (values) => {
-          // Update subscription link if changed
-          if (values.link !== editingSubscription?.link) {
-            await updateSubscriptionLinkMutation.mutateAsync({
-              id: values.id,
-              link: values.link,
-            })
-          }
-
-          // Update subscription tag if changed
-          if (values.tag !== editingSubscription?.tag) {
-            await tagSubscriptionMutation.mutateAsync({
-              id: values.id,
-              tag: values.tag,
-            })
-          }
-
-          // Update subscription cron if changed
-          if (
-            values.cronExp !== editingSubscription?.cronExp ||
-            values.cronEnable !== editingSubscription?.cronEnable
-          ) {
-            await updateSubscriptionCronMutation.mutateAsync({
-              id: values.id,
-              cronExp: values.cronExp,
-              cronEnable: values.cronEnable,
-            })
-          }
-
-          if (values.useProxy !== editingSubscription?.useProxy) {
-            await updateSubscriptionUseProxyMutation.mutateAsync({
-              id: values.id,
-              useProxy: values.useProxy,
-            })
-          }
-
-          await refetchSubscriptions()
-          closeEditSubscriptionFormModal()
+          await updateSubscriptionMutation.mutateAsync(values)
         }}
       />
     </Section>

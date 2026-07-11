@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 
+import type { SubscriptionResourceUpdate, UserProfileUpdate } from './resource_updates'
 import type {
   ConfigPreviewResult,
   DAEBundle,
@@ -33,6 +34,7 @@ import { toID, toNumericID } from './client'
 import { selectProfileResources } from './profile_selection'
 import { adaptNodeLatencyJob, adaptNodeLatencyProbeResults } from './query'
 import { invalidateQueryKeys, webQueryKeys } from './query_cache'
+import { updateSubscriptionResource, updateUserProfile } from './resource_updates'
 import { invalidateChangedSubscriptionResources } from './subscription_cache'
 
 interface CountResponse {
@@ -168,11 +170,13 @@ function invalidateNodeResource(queryClient: QueryClient, { generalState = false
   ])
 }
 
-function invalidateSubscriptionResource(queryClient: QueryClient, { generalState = false } = {}) {
+function invalidateEditedSubscriptionResources(queryClient: QueryClient) {
   return invalidateQueryKeys(queryClient, [
     webQueryKeys.subscription.summary(),
     webQueryKeys.subscription.expanded(),
-    ...(generalState ? [webQueryKeys.general.state()] : []),
+    webQueryKeys.group.summary(),
+    webQueryKeys.group.expanded(),
+    webQueryKeys.general.state(),
   ])
 }
 
@@ -1100,28 +1104,12 @@ export function useUpdateLogSettingsMutation() {
   })
 }
 
-export function useUpdateAvatarMutation() {
+export function useUpdateUserProfileMutation() {
   const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (avatar: string) => {
-      return apiClient.patch('/user/me', { avatar })
-    },
-    onSuccess: () => {
-      void invalidateQueryKeys(queryClient, [webQueryKeys.user()])
-    },
-  })
-}
-
-export function useUpdateNameMutation() {
-  const apiClient = useAPIClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (name: string) => {
-      return apiClient.patch('/user/me', { name })
-    },
+    mutationFn: (update: UserProfileUpdate) => updateUserProfile(apiClient, update),
     onSuccess: () => {
       void invalidateQueryKeys(queryClient, [webQueryKeys.user()])
     },
@@ -1138,20 +1126,6 @@ export function useUpdatePasswordMutation() {
         newPassword,
       })
       return response.token
-    },
-  })
-}
-
-export function useUpdateUsernameMutation() {
-  const apiClient = useAPIClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (username: string) => {
-      return apiClient.patch('/user/me', { username })
-    },
-    onSuccess: () => {
-      void invalidateQueryKeys(queryClient, [webQueryKeys.user()])
     },
   })
 }
@@ -1174,90 +1148,14 @@ export function useTagNodeMutation() {
   })
 }
 
-export function useTagSubscriptionMutation() {
+export function useUpdateSubscriptionMutation() {
   const apiClient = useAPIClient()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, tag }: { id: string; tag: string }) => {
-      await apiClient.put(`/subscriptions/${id}`, { tag })
-    },
+    mutationFn: (update: SubscriptionResourceUpdate) => updateSubscriptionResource(apiClient, update),
     onSuccess: () => {
-      void invalidateQueryKeys(queryClient, [
-        webQueryKeys.subscription.summary(),
-        webQueryKeys.subscription.expanded(),
-        webQueryKeys.group.summary(),
-        webQueryKeys.group.expanded(),
-      ])
-    },
-  })
-}
-
-export function useUpdateSubscriptionLinkMutation() {
-  const apiClient = useAPIClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, link }: { id: string; link: string }) => {
-      const subscription = await apiClient.put<{ id: number; link: string; tag?: string | null }>(
-        `/subscriptions/${id}`,
-        {
-          link,
-        },
-      )
-      return {
-        id: toID(subscription.id),
-        link: subscription.link,
-        tag: subscription.tag ?? null,
-      }
-    },
-    onSuccess: () => {
-      void invalidateQueryKeys(queryClient, [
-        webQueryKeys.subscription.summary(),
-        webQueryKeys.subscription.expanded(),
-        webQueryKeys.group.summary(),
-        webQueryKeys.group.expanded(),
-      ])
-    },
-  })
-}
-
-export function useUpdateSubscriptionCronMutation() {
-  const apiClient = useAPIClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, cronExp, cronEnable }: { id: string; cronExp: string; cronEnable: boolean }) => {
-      const subscription = await apiClient.put<{ id: number; cronExp: string; cronEnable: boolean }>(
-        `/subscriptions/${id}`,
-        { cronExp, cronEnable },
-      )
-      return {
-        id: toID(subscription.id),
-        cronExp: subscription.cronExp,
-        cronEnable: subscription.cronEnable,
-      }
-    },
-    onSuccess: () => {
-      void invalidateSubscriptionResource(queryClient)
-    },
-  })
-}
-
-export function useUpdateSubscriptionUseProxyMutation() {
-  const apiClient = useAPIClient()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, useProxy }: { id: string; useProxy: boolean }) => {
-      const subscription = await apiClient.put<{ id: number; useProxy: boolean }>(`/subscriptions/${id}`, { useProxy })
-      return {
-        id: toID(subscription.id),
-        useProxy: subscription.useProxy,
-      }
-    },
-    onSuccess: () => {
-      void invalidateSubscriptionResource(queryClient)
+      void invalidateEditedSubscriptionResources(queryClient)
     },
   })
 }
