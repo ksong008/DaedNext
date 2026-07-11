@@ -35,6 +35,9 @@ type FormValues = z.infer<typeof schema>
 
 type ImportResourceResult = Array<{
   error?: string | null
+  nodeImportResult?: Array<{
+    error?: string | null
+  }>
 }> | void
 
 const defaultValues: FormValues = {
@@ -89,7 +92,13 @@ export function ImportResourceFormModal({
   const onSubmit = async (data: FormValues) => {
     const result = await onSubmitProp(data)
 
-    const importErrors = Array.isArray(result) ? result.map((item) => item.error?.trim() || '').filter(Boolean) : []
+    const importErrors = Array.isArray(result)
+      ? result.flatMap((item) => {
+          const topLevelError = item.error?.trim()
+          if (topLevelError) return [topLevelError]
+          return (item.nodeImportResult ?? []).map((nested) => nested.error?.trim() || '').filter(Boolean)
+        })
+      : []
 
     if (importErrors.length > 0) {
       toast.error(importErrors.join('\n'))
