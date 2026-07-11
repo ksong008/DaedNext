@@ -28,6 +28,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { useAPIClient } from '~/contexts'
 import { defaultResourcesAtom } from '~/store'
+import { mapWithConcurrency } from './bounded_concurrency'
 import { toID, toNumericID } from './client'
 import { selectProfileResources } from './profile_selection'
 import { adaptNodeLatencyJob, adaptNodeLatencyProbeResults } from './query'
@@ -50,6 +51,8 @@ interface RemoveGroupPayload {
 interface TokenResponse {
   token: string
 }
+
+const SUBSCRIPTION_BULK_REQUEST_CONCURRENCY = 4
 
 interface SubscriptionImportResponse {
   link: string
@@ -867,33 +870,31 @@ export function useImportSubscriptionsMutation() {
 
   return useMutation({
     mutationFn: (data: ImportArgument[]) =>
-      Promise.all(
-        data.map(async (subscription) => {
-          const result = await apiClient.post<SubscriptionImportResponse>('/subscriptions', {
-            rollbackError: false,
-            link: subscription.link,
-            tag: subscription.tag ?? null,
-            useProxy: subscription.useProxy ?? false,
-          })
-          return {
-            link: result.link,
-            error: result.error ?? null,
-            subscriptionCreated: result.subscriptionCreated,
-            importedNodeCount: result.importedNodeCount,
-            failedNodeCount: result.failedNodeCount,
-            partialFailure: result.partialFailure,
-            subscription: {
-              id: toID(result.subscription.id),
-            },
-            nodeImportResult: result.nodeImportResult.map((item) => ({
-              link: item.link,
-              error: item.error ?? null,
-              node: item.node ? { id: toID(item.node.id) } : null,
-            })),
-          }
-        }),
-      ),
-    onSuccess: () => {
+      mapWithConcurrency(data, SUBSCRIPTION_BULK_REQUEST_CONCURRENCY, async (subscription) => {
+        const result = await apiClient.post<SubscriptionImportResponse>('/subscriptions', {
+          rollbackError: false,
+          link: subscription.link,
+          tag: subscription.tag ?? null,
+          useProxy: subscription.useProxy ?? false,
+        })
+        return {
+          link: result.link,
+          error: result.error ?? null,
+          subscriptionCreated: result.subscriptionCreated,
+          importedNodeCount: result.importedNodeCount,
+          failedNodeCount: result.failedNodeCount,
+          partialFailure: result.partialFailure,
+          subscription: {
+            id: toID(result.subscription.id),
+          },
+          nodeImportResult: result.nodeImportResult.map((item) => ({
+            link: item.link,
+            error: item.error ?? null,
+            node: item.node ? { id: toID(item.node.id) } : null,
+          })),
+        }
+      }),
+    onSettled: () => {
       void invalidateSubscriptionResource(queryClient, { generalState: true })
     },
   })
@@ -905,13 +906,11 @@ export function useUpdateSubscriptionsMutation() {
 
   return useMutation({
     mutationFn: (ids: string[]) =>
-      Promise.all(
-        ids.map(async (id) => {
-          const subscription = await apiClient.post<{ id: number }>(`/subscriptions/${id}/refresh`)
-          return toID(subscription.id)
-        }),
-      ),
-    onSuccess: () => {
+      mapWithConcurrency(ids, SUBSCRIPTION_BULK_REQUEST_CONCURRENCY, async (id) => {
+        const subscription = await apiClient.post<{ id: number }>(`/subscriptions/${id}/refresh`)
+        return toID(subscription.id)
+      }),
+    onSettled: () => {
       void invalidateQueryKeys(queryClient, [
         webQueryKeys.subscription.summary(),
         webQueryKeys.subscription.expanded(),
