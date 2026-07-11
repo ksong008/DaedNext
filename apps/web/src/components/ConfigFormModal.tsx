@@ -57,6 +57,7 @@ import {
 import { useSetValue } from '~/hooks/useSetValue'
 import { deriveTime } from '~/utils'
 import { hasDefaultRoutes, interfaceAddressSummary } from '~/utils/interfaces'
+import { DAE_CONFIG_IMPORT_FILE_POLICY, formatUploadByteLimit, validateUploadFile } from '~/utils/upload_policy'
 
 import { FormActions } from './FormActions'
 
@@ -429,6 +430,16 @@ export function ConfigFormDrawer({
       if (!file) {
         return
       }
+      const validation = validateUploadFile(file, DAE_CONFIG_IMPORT_FILE_POLICY)
+      if (!validation.ok) {
+        setRawGlobalError(
+          validation.reason === 'file-too-large'
+            ? t('upload.fileTooLarge', { maxSize: formatUploadByteLimit(validation.maxBytes) })
+            : t('upload.fileTypeInvalid'),
+        )
+        event.target.value = ''
+        return
+      }
       const text = await file.text()
       setRawGlobal(text)
       setRawGlobalError(null)
@@ -438,7 +449,7 @@ export function ConfigFormDrawer({
       }
       event.target.value = ''
     },
-    [editingID, formValues.name, setValue],
+    [editingID, formValues.name, setValue, t],
   )
 
   const handleExportConfig = useCallback(async () => {
