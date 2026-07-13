@@ -3,6 +3,7 @@ import type {
   HTTPConfig,
   Hysteria2Config,
   JuicityConfig,
+  MasqueConfig,
   Socks5Config,
   SSConfig,
   SSRConfig,
@@ -15,9 +16,106 @@ import { Base64 } from 'js-base64'
 
 const TRAILING_SLASH_PATTERN = /\/$/
 const BASE64_CONTENT_PATTERN = /^[A-Z0-9+/=]+$/i
+const MASQUE_TARGET_HOST = '{target_host}'
+const MASQUE_TARGET_PORT = '{target_port}'
+const MASQUE_QUERY_KEYS = new Set(['allowInsecure', 'auth', 'sni', 'template', 'transport'])
 
 function parseBoolParam(value: string | null): boolean {
   return value === '1' || value === 'true' || value === 'yes' || value === 'on'
+}
+
+function parseStrictBoolParam(value: string | null): boolean | null {
+  if (value === '1' || value === 'true' || value === 'True' || value === 'TRUE') return true
+  if (value === '0' || value === 'false' || value === 'False' || value === 'FALSE') return false
+  return null
+}
+
+function countOccurrences(value: string, needle: string): number {
+  return value.split(needle).length - 1
+}
+
+function hasMasqueForbiddenTemplateCharacter(value: string): boolean {
+  for (const character of value) {
+    const code = character.charCodeAt(0)
+    if (code <= 0x20 || code === 0x7F) return true
+  }
+  return false
+}
+
+export function isValidMasqueTargetTemplate(value: string): boolean {
+  if (!value || value.includes('#') || hasMasqueForbiddenTemplateCharacter(value)) return false
+  if (countOccurrences(value, MASQUE_TARGET_HOST) !== 1 || countOccurrences(value, MASQUE_TARGET_PORT) !== 1) {
+    return false
+  }
+
+  const remainder = value.replace(MASQUE_TARGET_HOST, '').replace(MASQUE_TARGET_PORT, '')
+  if (remainder.includes('{') || remainder.includes('}')) return false
+
+  const syntaxProbe = value.replace(MASQUE_TARGET_HOST, '0').replace(MASQUE_TARGET_PORT, '0')
+  try {
+    if (syntaxProbe.startsWith('/')) {
+      const parsed = new URL(syntaxProbe, 'https://masque-template.invalid')
+      return parsed.pathname.length > 0
+    }
+    const parsed = new URL(syntaxProbe)
+    return parsed.protocol === 'https:' && parsed.host.length > 0
+  } catch {
+    return false
+  }
+}
+
+function normalizedURLHost(hostname: string): string {
+  return hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname
+}
+
+/**
+ * Parse the explicit CONNECT-UDP/MASQUE source shape.
+ * Ordinary HTTP(S) proxy links are never inferred as MASQUE.
+ */
+export function parseMasqueUrl(url: string): Partial<MasqueConfig> | null {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'masque:' || !parsed.hostname || !parsed.port) return null
+    if (parsed.pathname !== '' && parsed.pathname !== '/') return null
+
+    const query = new Map<string, string>()
+    for (const [key, value] of parsed.searchParams) {
+      if (!MASQUE_QUERY_KEYS.has(key) || query.has(key)) return null
+      query.set(key, value)
+    }
+
+    const transport = query.get('transport')
+    const authentication = query.get('auth')
+    const targetTemplate = query.get('template')
+    if (transport !== 'h2' && transport !== 'h3') return null
+    if (authentication !== 'none' && authentication !== 'basic') return null
+    if (!targetTemplate || !isValidMasqueTargetTemplate(targetTemplate)) return null
+
+    const username = decodeURIComponent(parsed.username || '')
+    const password = decodeURIComponent(parsed.password || '')
+    if (authentication === 'none' && (username || password)) return null
+    if (authentication === 'basic' && !username) return null
+
+    const allowInsecureValue = query.get('allowInsecure')
+    const allowInsecure = allowInsecureValue === undefined ? false : parseStrictBoolParam(allowInsecureValue)
+    if (allowInsecure === null) return null
+
+    const host = normalizedURLHost(parsed.hostname)
+    return {
+      name: decodeURIComponent(parsed.hash.slice(1) || ''),
+      host,
+      port: Number.parseInt(parsed.port, 10),
+      transport,
+      authentication,
+      username,
+      password,
+      targetTemplate,
+      sni: query.get('sni') || host,
+      allowInsecure,
+    }
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -871,6 +969,7 @@ export function parseNodeUrl(
   | { type: 'juicity'; data: ReturnType<typeof parseJuicityUrl> }
   | { type: 'hysteria2'; data: ReturnType<typeof parseHysteria2Url> }
   | { type: 'anytls'; data: ReturnType<typeof parseAnytlsUrl> }
+  | { type: 'masque'; data: ReturnType<typeof parseMasqueUrl> }
   | { type: 'v2ray'; data: ReturnType<typeof parseV2rayUrl> }
   | null {
   const trimmedUrl = url.trim()
@@ -918,6 +1017,11 @@ export function parseNodeUrl(
   if (trimmedUrl.startsWith('anytls://')) {
     const data = parseAnytlsUrl(trimmedUrl)
     return data ? { type: 'anytls', data } : null
+  }
+
+  if (trimmedUrl.startsWith('masque://')) {
+    const data = parseMasqueUrl(trimmedUrl)
+    return data ? { type: 'masque', data } : null
   }
 
   if (trimmedUrl.startsWith('vmess://') || trimmedUrl.startsWith('vless://')) {

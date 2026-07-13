@@ -1,12 +1,14 @@
 // Generators
-export { generateAnytlsURL, generateHysteria2URL, generateURL } from './generator'
+export { generateAnytlsURL, generateHysteria2URL, generateMasqueURL, generateURL } from './generator'
 
 // Parsers
 export {
+  isValidMasqueTargetTemplate,
   parseAnytlsUrl,
   parseHTTPUrl,
   parseHysteria2Url,
   parseJuicityUrl,
+  parseMasqueUrl,
   parseNodeUrl,
   parseSocks5Url,
   parseSSRUrl,
@@ -26,6 +28,7 @@ export type {
   HTTPConfig,
   Hysteria2Config,
   JuicityConfig,
+  MasqueConfig,
   ParseResult,
   ProxyProtocol,
   Socks5Config,

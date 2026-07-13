@@ -2,6 +2,7 @@ import type { AnytlsFormValues } from './ConfigureNodeFormModal/AnyTLSForm.tsx'
 import type { HTTPFormValues } from './ConfigureNodeFormModal/HTTPForm.tsx'
 import type { Hysteria2FormValues } from './ConfigureNodeFormModal/Hysteria2Form.tsx'
 import type { JuicityFormValues } from './ConfigureNodeFormModal/JuicityForm.tsx'
+import type { MasqueFormValues } from './ConfigureNodeFormModal/protocols/masque'
 import type { Socks5FormValues } from './ConfigureNodeFormModal/Socks5Form.tsx'
 import type { SSFormValues } from './ConfigureNodeFormModal/SSForm.tsx'
 import type { SSRFormValues } from './ConfigureNodeFormModal/SSRForm.tsx'
@@ -16,6 +17,8 @@ import { AnyTLSForm } from './ConfigureNodeFormModal/AnyTLSForm.tsx'
 import { HTTPForm } from './ConfigureNodeFormModal/HTTPForm.tsx'
 import { Hysteria2Form } from './ConfigureNodeFormModal/Hysteria2Form.tsx'
 import { JuicityForm } from './ConfigureNodeFormModal/JuicityForm.tsx'
+import { GenericNodeForm } from './ConfigureNodeFormModal/protocols/GenericNodeForm'
+import { masqueProtocol } from './ConfigureNodeFormModal/protocols/masque'
 import { Socks5Form } from './ConfigureNodeFormModal/Socks5Form.tsx'
 import { SSForm } from './ConfigureNodeFormModal/SSForm.tsx'
 import { SSRForm } from './ConfigureNodeFormModal/SSRForm.tsx'
@@ -43,6 +46,7 @@ type NodeType =
   | 'tuic'
   | 'http'
   | 'socks5'
+  | 'masque'
   | 'unknown'
 
 export interface EditNodeFormModalProps {
@@ -161,6 +165,7 @@ export function EditNodeFormModal({ opened, onClose, node }: EditNodeFormModalPr
                   <TabsTrigger value="tuic">Tuic</TabsTrigger>
                   <TabsTrigger value="http">HTTP</TabsTrigger>
                   <TabsTrigger value="socks5">SOCKS5</TabsTrigger>
+                  <TabsTrigger value="masque">CONNECT-UDP</TabsTrigger>
                 </TabsList>
               </div>
 
@@ -238,6 +243,15 @@ export function EditNodeFormModal({ opened, onClose, node }: EditNodeFormModalPr
                 <Socks5Form
                   onLinkGeneration={onLinkGeneration}
                   initialValues={nodeType === 'socks5' ? (initialValues as Socks5FormValues) : undefined}
+                  actionsPortal={actionsPortal}
+                />
+              </TabsContent>
+
+              <TabsContent value="masque" className="space-y-2 pt-2">
+                <GenericNodeForm
+                  config={masqueProtocol}
+                  onLinkGeneration={onLinkGeneration}
+                  initialValues={nodeType === 'masque' ? (initialValues as MasqueFormValues) : undefined}
                   actionsPortal={actionsPortal}
                 />
               </TabsContent>

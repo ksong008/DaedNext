@@ -47,6 +47,9 @@ export function deriveTransport(link: string, protocol: string): string | null {
       return typeof parsed.data.plugin === 'string' && parsed.data.plugin ? parsed.data.plugin : null
     }
   }
+  if (parsed?.type === 'masque' && parsed.data && typeof parsed.data === 'object' && 'transport' in parsed.data) {
+    return parsed.data.transport === 'h2' || parsed.data.transport === 'h3' ? parsed.data.transport : null
+  }
   if (protocol === 'http' || protocol === 'https' || protocol === 'socks5') {
     return protocol
   }

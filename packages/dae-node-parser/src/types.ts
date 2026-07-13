@@ -13,6 +13,7 @@ export type ProxyProtocol =
   | 'juicity'
   | 'hysteria2'
   | 'anytls'
+  | 'masque'
   | 'vmess'
   | 'vless'
 
@@ -235,6 +236,25 @@ export interface Socks5Config {
 }
 
 /**
+ * Explicit CONNECT-UDP/MASQUE source shape.
+ *
+ * The transport selects the wire protocol and its ALPN (`h2` or `h3`).
+ * Ordinary HTTP(S) proxy links are intentionally represented separately.
+ */
+export interface MasqueConfig {
+  name: string
+  host: string
+  port: number
+  transport: 'h2' | 'h3'
+  authentication: 'none' | 'basic'
+  username: string
+  password: string
+  targetTemplate: string
+  sni: string
+  allowInsecure: boolean
+}
+
+/**
  * URL generation parameters
  */
 export interface GenerateURLParams {
@@ -273,4 +293,5 @@ export type ParseResult =
   | { type: 'juicity'; data: Partial<JuicityConfig> }
   | { type: 'hysteria2'; data: Partial<Hysteria2Config> }
   | { type: 'anytls'; data: Partial<AnytlsConfig> }
+  | { type: 'masque'; data: Partial<MasqueConfig> }
   | { type: 'v2ray'; data: Partial<V2rayConfig> & { protocol: 'vmess' | 'vless' } }

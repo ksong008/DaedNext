@@ -1,4 +1,9 @@
-import type { GenerateHysteria2URLParams, GenerateURLParams } from './types'
+import type { GenerateHysteria2URLParams, GenerateURLParams, MasqueConfig } from './types'
+
+function formatURLAuthorityHost(host: string): string {
+  const normalized = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host
+  return normalized.includes(':') ? `[${normalized}]` : normalized
+}
 
 /**
  * Generate a URL from parameters
@@ -99,4 +104,27 @@ export function generateHysteria2URL({ protocol, auth, host, port, params, hash 
 export function generateAnytlsURL({ protocol, auth, host, port, params }: GenerateHysteria2URLParams): string {
   // Use Hysteria2 generator structure as they are similar
   return generateHysteria2URL({ protocol, auth, host, port, params })
+}
+
+/**
+ * Generate an explicit CONNECT-UDP/MASQUE source link.
+ *
+ * ALPN is deliberately absent from the source shape: the selected transport
+ * owns that invariant (`h2` for HTTP/2, `h3` for HTTP/3).
+ */
+export function generateMasqueURL(config: MasqueConfig): string {
+  const host = formatURLAuthorityHost(config.host)
+  const userInfo =
+    config.authentication === 'basic'
+      ? `${encodeURIComponent(config.username)}${config.password ? `:${encodeURIComponent(config.password)}` : ''}@`
+      : ''
+  const params = new URLSearchParams()
+  params.set('transport', config.transport)
+  params.set('auth', config.authentication)
+  params.set('template', config.targetTemplate)
+  if (config.sni) params.set('sni', config.sni)
+  if (config.allowInsecure) params.set('allowInsecure', '1')
+
+  const fragment = config.name ? `#${encodeURIComponent(config.name)}` : ''
+  return `masque://${userInfo}${host}:${config.port}?${params.toString()}${fragment}`
 }
