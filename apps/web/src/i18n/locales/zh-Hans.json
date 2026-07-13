@@ -387,7 +387,24 @@
     "durationMinutes": "分钟",
     "durationSeconds": "秒",
     "connectionsUnit": "连接",
-    "sessionsUnit": "会话"
+    "sessionsUnit": "会话",
+    "generation": "运行代",
+    "desiredPending": "目标配置等待应用",
+    "identityInconsistent": "运行代身份不一致",
+    "runtimeStates": {
+      "active": "已生效",
+      "applying": "正在应用",
+      "coalesced": "已生效 · 已合并",
+      "failed": "应用失败",
+      "inconsistent": "运行代不一致",
+      "pending": "目标配置待应用",
+      "pendingProcessTransition": "等待进程级切换",
+      "rolledBack": "已回滚",
+      "stopped": "已停止",
+      "stopping": "正在停止",
+      "unknown": "状态未知",
+      "waitingForHost": "等待主机恢复"
+    }
   },
   "notifications": {
     "login succeeded": "登录成功",

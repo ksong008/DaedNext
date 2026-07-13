@@ -32,6 +32,7 @@ import type {
   RoutingSummaryListView,
   RoutingView,
   RuntimeOverviewRuntimeState,
+  RuntimeRevisionReport,
   SubscriptionListView,
   SubscriptionResource,
   SubscriptionSummaryListView,
@@ -67,6 +68,8 @@ interface GeneralStateAPI {
   version: string
   netnsLinkMode?: string
   attachBackend?: string
+  runtime?: RuntimeOverviewRuntimeState
+  runtimeRevision?: RuntimeRevisionReport
   counts?: Partial<GeneralResourceCounts>
 }
 
@@ -103,6 +106,7 @@ interface RuntimeOverviewAPI {
   heapLiveBytes?: string | null
   goroutines?: number
   runtime?: RuntimeOverviewRuntimeState
+  runtimeRevision?: RuntimeRevisionReport
   samples?: Array<{
     timestamp: string
     uploadRate: string
@@ -388,6 +392,8 @@ function adaptGeneralDaemonState(state: GeneralStateAPI): GeneralDaemonState {
     version: state.version,
     netnsLinkMode: state.netnsLinkMode,
     attachBackend: state.attachBackend,
+    runtime: state.runtime,
+    runtimeRevision: state.runtimeRevision,
   }
 }
 
