@@ -2,7 +2,6 @@ import type { z } from 'zod'
 import type { ProtocolConfig } from './types'
 import {
   generateAnytlsURL,
-  generateHysteria2URL,
   generateURL,
   parseAnytlsUrl,
   parseHysteria2Url,
@@ -33,9 +32,8 @@ import {
   tuicSchema,
   v2rayProtocolSchema,
 } from '~/constants'
-import { buildSupportedXhttpExtra } from '~/utils/xhttp'
-
 import { AnyTLSForm } from '../AnyTLSForm'
+
 import { Hysteria2Form } from '../Hysteria2Form'
 import { JuicityForm } from '../JuicityForm'
 import { SSForm } from '../SSForm'
@@ -43,6 +41,7 @@ import { SSRForm } from '../SSRForm'
 import { TrojanForm } from '../TrojanForm'
 import { TuicForm } from '../TuicForm'
 import { V2rayForm } from '../V2rayForm'
+import { generateHysteria2Link, generateV2rayLink } from './generators'
 
 // ============================================================================
 // V2Ray Protocol (VMess/VLESS)
@@ -51,115 +50,6 @@ import { V2rayForm } from '../V2rayForm'
 const v2rayFormSchema = v2rayProtocolSchema
 
 type V2rayFormValues = z.infer<typeof v2rayFormSchema>
-
-function buildXhttpExtra(data: V2rayFormValues): string {
-  return buildSupportedXhttpExtra(data)
-}
-
-function generateV2rayLink(data: V2rayFormValues): string {
-  const {
-    protocol,
-    net,
-    tls,
-    path,
-    host,
-    type,
-    sni,
-    flow,
-    allowInsecure,
-    alpn,
-    ech,
-    id,
-    add,
-    port,
-    ps,
-    pbk,
-    fp,
-    sid,
-    spx,
-    pqv,
-    grpcMode,
-    grpcAuthority,
-    xhttpMode,
-    mux,
-  } = data
-
-  if (protocol === 'vless') {
-    const params: Record<string, unknown> = {
-      type: net === 'h2' ? 'http' : net,
-      security: tls,
-      host,
-      headerType: type,
-      sni,
-      allowInsecure,
-    }
-
-    if (net === 'tcp' && flow !== 'none') params.flow = flow
-
-    // Path handling based on network type
-    if (net === 'grpc') {
-      params.serviceName = path
-      if (grpcMode !== 'gun') params.mode = grpcMode
-      if (grpcAuthority) params.authority = grpcAuthority
-    } else if (net === 'xhttp') {
-      params.path = path
-      if (xhttpMode) params.mode = xhttpMode
-      const extra = buildXhttpExtra(data)
-      if (extra) params.extra = extra
-    } else if (net === 'meek') {
-      params.url = path
-    } else {
-      params.path = path
-    }
-    if (mux) params.mux = 1
-
-    if (alpn !== '') params.alpn = alpn
-    if (ech !== '') params.ech = ech
-    if ((tls === 'tls' || tls === 'reality') && fp !== '') params.fp = fp
-
-    // Reality-specific parameters
-    if (tls === 'reality') {
-      params.pbk = pbk
-      if (sid) params.sid = sid
-      if (spx) params.spx = spx
-      if (pqv) params.pqv = pqv
-    }
-
-    return generateURL({
-      protocol,
-      username: id,
-      host: add,
-      port,
-      hash: ps,
-      params,
-    })
-  }
-
-  if (protocol === 'vmess') {
-    const body: Record<string, unknown> = structuredClone(data)
-
-    body.aid = 0
-    body.type = ''
-
-    switch (body.net) {
-      case 'ws':
-      case 'h2':
-      case 'httpupgrade':
-      case 'grpc':
-        break
-      default:
-        body.path = ''
-    }
-    if (body.net === 'h2') body.net = 'http'
-
-    delete body.flow
-    delete body.mux
-
-    return `vmess://${Base64.encode(JSON.stringify(body))}`
-  }
-
-  return ''
-}
 
 export const v2rayProtocol: ProtocolConfig<V2rayFormValues> = {
   id: 'v2ray',
@@ -400,27 +290,6 @@ export const juicityProtocol: ProtocolConfig<JuicityFormValues> = {
 // ============================================================================
 
 type Hysteria2FormValues = z.infer<typeof hysteria2Schema>
-
-function generateHysteria2Link(data: Hysteria2FormValues): string {
-  const query = {
-    sni: data.sni,
-    ports: data.ports || '',
-    obfs: data.obfs,
-    'obfs-password': data.obfs === 'salamander' ? data.obfsPassword : '',
-    pinSHA256: data.pinSHA256,
-    maxTx: data.maxTx,
-    maxRx: data.maxRx,
-  }
-
-  return generateHysteria2URL({
-    protocol: 'hysteria2',
-    auth: data.auth,
-    host: data.server,
-    port: data.port,
-    params: query,
-    hash: data.name,
-  })
-}
 
 export const hysteria2Protocol: ProtocolConfig<Hysteria2FormValues> = {
   id: 'hysteria2',

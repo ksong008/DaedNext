@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { NodeFormProps } from './types'
-import { generateHysteria2URL, parseHysteria2Url } from '@daeuniverse/dae-node-parser'
+import { parseHysteria2Url } from '@daeuniverse/dae-node-parser'
 import { createPortal } from 'react-dom'
 
 import { FormActions } from '~/components/FormActions'
@@ -9,30 +9,9 @@ import { NumberInput } from '~/components/ui/number-input'
 import { Select } from '~/components/ui/select'
 import { DEFAULT_HYSTERIA2_FORM_VALUES, hysteria2Schema } from '~/constants'
 import { useNodeForm } from '~/hooks'
+import { generateHysteria2Link } from './protocols/generators'
 
 export type Hysteria2FormValues = z.infer<typeof hysteria2Schema>
-
-function generateHysteria2Link(data: Hysteria2FormValues): string {
-  /* hysteria2://[auth@]hostname[:port]/?[key=value]&[key=value]... */
-  const query = {
-    sni: data.sni,
-    ports: data.ports || '',
-    obfs: data.obfs,
-    'obfs-password': data.obfs === 'salamander' ? data.obfsPassword : '',
-    pinSHA256: data.pinSHA256,
-    maxTx: data.maxTx,
-    maxRx: data.maxRx,
-  }
-
-  return generateHysteria2URL({
-    protocol: 'hysteria2',
-    auth: data.auth,
-    host: data.server,
-    port: data.port,
-    params: query,
-    hash: data.name,
-  })
-}
 
 export function Hysteria2Form({ onLinkGeneration, initialValues, actionsPortal }: NodeFormProps<Hysteria2FormValues>) {
   const { formValues, setValue, handleSubmit, onSubmit, submit, resetForm, isDirty, isValid, errors, t } = useNodeForm({

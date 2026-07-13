@@ -1,9 +1,9 @@
-import type { GenerateURLParams } from '@daeuniverse/dae-node-parser'
 import type { ProtocolConfig } from './types'
-import { generateURL, parseHTTPUrl, parseSocks5Url } from '@daeuniverse/dae-node-parser'
+import { parseHTTPUrl, parseSocks5Url } from '@daeuniverse/dae-node-parser'
 import { z } from 'zod'
 
 import { DEFAULT_HTTP_FORM_VALUES, DEFAULT_SOCKS5_FORM_VALUES, httpSchema, socks5Schema } from '~/constants'
+import { generateHTTPLink, generateSocks5Link } from './generators'
 
 // ============================================================================
 // HTTP Protocol
@@ -14,37 +14,6 @@ const httpFormSchema = httpSchema.extend({
 })
 
 export type HTTPFormValues = z.infer<typeof httpFormSchema>
-
-function generateHTTPLink(data: HTTPFormValues): string {
-  const query: Record<string, unknown> = {}
-  if (data.transport) {
-    query.transport = true
-    query.host = data.transportHost
-  }
-  if (data.protocol === 'https') {
-    query.sni = data.sni
-    if (data.allowInsecure) query.allowInsecure = true
-    query.tlsImplementation = data.tlsImplementation
-    query.alpn = data.alpn
-    query.utlsImitate = data.utlsImitate
-  }
-
-  const params: GenerateURLParams = {
-    protocol: data.protocol,
-    host: data.host,
-    port: data.port,
-    hash: data.name,
-    path: data.transport ? data.transportPath : '',
-    params: query,
-  }
-
-  if (data.username && data.password) {
-    params.username = data.username
-    params.password = data.password
-  }
-
-  return generateURL(params)
-}
 
 export const httpProtocol: ProtocolConfig<HTTPFormValues> = {
   id: 'http',
@@ -154,22 +123,6 @@ export const httpProtocol: ProtocolConfig<HTTPFormValues> = {
 // ============================================================================
 
 export type Socks5FormValues = z.infer<typeof socks5Schema>
-
-function generateSocks5Link(data: Socks5FormValues): string {
-  const params: GenerateURLParams = {
-    protocol: 'socks5',
-    host: data.host,
-    port: data.port,
-    hash: data.name,
-  }
-
-  if (data.username && data.password) {
-    params.username = data.username
-    params.password = data.password
-  }
-
-  return generateURL(params)
-}
 
 export const socks5Protocol: ProtocolConfig<Socks5FormValues> = {
   id: 'socks5',

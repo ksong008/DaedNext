@@ -1,7 +1,6 @@
 import type { z } from 'zod'
 import type { NodeFormProps } from './types'
-import { generateURL, parseV2rayUrl } from '@daeuniverse/dae-node-parser'
-import { Base64 } from 'js-base64'
+import { parseV2rayUrl } from '@daeuniverse/dae-node-parser'
 import { createPortal } from 'react-dom'
 
 import { FormActions } from '~/components/FormActions'
@@ -12,7 +11,7 @@ import { Select } from '~/components/ui/select'
 import { Textarea } from '~/components/ui/textarea'
 import { DEFAULT_V2RAY_FORM_VALUES, v2rayProtocolSchema } from '~/constants'
 import { useNodeForm } from '~/hooks'
-import { buildSupportedXhttpExtra } from '~/utils/xhttp'
+import { generateV2rayLink } from './protocols/generators'
 
 const formSchema = v2rayProtocolSchema
 
@@ -58,116 +57,6 @@ const VLESS_NETWORK_OPTIONS = [
 
 function networkOptions(protocol: V2rayFormValues['protocol']) {
   return protocol === 'vmess' ? VMESS_NETWORK_OPTIONS : VLESS_NETWORK_OPTIONS
-}
-
-function buildXhttpExtra(data: V2rayFormValues): string {
-  return buildSupportedXhttpExtra(data)
-}
-
-function generateV2rayLink(data: V2rayFormValues): string {
-  const {
-    protocol,
-    net,
-    tls,
-    path,
-    host,
-    type,
-    sni,
-    flow,
-    allowInsecure,
-    alpn,
-    ech,
-    id,
-    add,
-    port,
-    ps,
-    pbk,
-    fp,
-    sid,
-    spx,
-    pqv,
-    grpcMode,
-    grpcAuthority,
-    xhttpMode,
-    mux,
-  } = data
-
-  if (protocol === 'vless') {
-    const params: Record<string, unknown> = {
-      type: net === 'h2' ? 'http' : net,
-      security: tls,
-      host,
-      headerType: type,
-      sni,
-      allowInsecure,
-    }
-
-    if (net === 'tcp' && flow !== 'none') params.flow = flow
-
-    // Path handling based on network type
-    if (net === 'grpc') {
-      params.serviceName = path
-      if (grpcMode !== 'gun') params.mode = grpcMode
-      if (grpcAuthority) params.authority = grpcAuthority
-    } else if (net === 'xhttp') {
-      params.path = path
-      if (xhttpMode) params.mode = xhttpMode
-      const extra = buildXhttpExtra(data)
-      if (extra) params.extra = extra
-    } else if (net === 'meek') {
-      params.url = path
-    } else {
-      params.path = path
-    }
-    if (mux) params.mux = 1
-
-    if (alpn !== '') params.alpn = alpn
-    if (ech !== '') params.ech = ech
-    if ((tls === 'tls' || tls === 'reality') && fp !== '') params.fp = fp
-
-    // Reality-specific parameters
-    if (tls === 'reality') {
-      params.pbk = pbk
-      if (sid) params.sid = sid
-      if (spx) params.spx = spx
-      if (pqv) params.pqv = pqv
-    }
-
-    return generateURL({
-      protocol,
-      username: id,
-      host: add,
-      port,
-      hash: ps,
-      params,
-    })
-  }
-
-  if (protocol === 'vmess') {
-    const body: Record<string, unknown> = structuredClone(data)
-
-    body.aid = 0
-    body.type = ''
-
-    switch (body.net) {
-      case 'ws':
-      case 'h2':
-      case 'httpupgrade':
-      case 'grpc':
-        // No operation, skip
-        break
-      default:
-        body.path = ''
-    }
-    if (body.net === 'h2') body.net = 'http'
-
-    delete body.flow
-    delete body.mux
-
-    return `vmess://${Base64.encode(JSON.stringify(body))}`
-  }
-
-  return ''
 }
 
 export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: NodeFormProps<V2rayFormValues>) {
