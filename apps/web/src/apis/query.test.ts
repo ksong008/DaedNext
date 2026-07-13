@@ -104,6 +104,11 @@ describe('mergeRuntimeOverviewDelta', () => {
         lastTransitionAt: '2026-05-03T12:00:00.000Z',
         reloadCount: 1,
       },
+      runtimeRevision: {
+        desiredMatchesActive: true,
+        activationIdentityConsistent: true,
+        activeProductGeneration: 'runtime-1',
+      },
       samples: [
         { timestamp: '2026-05-03T12:59:58.000Z', uploadRate: 10, downloadRate: 20 },
         { timestamp: '2026-05-03T12:59:59.000Z', uploadRate: 11, downloadRate: 21 },
@@ -137,6 +142,7 @@ describe('mergeRuntimeOverviewDelta', () => {
     expect(merged.activeConnections).toBe(8)
     expect(merged.cpuUsagePercent).toBe(12.5)
     expect(merged.runtime).toEqual(previousData.runtime)
+    expect(merged.runtimeRevision).toEqual(previousData.runtimeRevision)
     expect(merged.samples).toHaveLength(3)
     expect(merged.samples[2]).toEqual({
       timestamp: '2026-05-03T13:00:01.000Z',

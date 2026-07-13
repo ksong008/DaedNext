@@ -421,6 +421,8 @@ export interface GeneralDaemonState {
   version: string
   netnsLinkMode?: string
   attachBackend?: string
+  runtime?: RuntimeOverviewRuntimeState
+  runtimeRevision?: RuntimeRevisionReport
 }
 
 export interface GeneralStateView {
@@ -442,6 +444,31 @@ export interface RuntimeOverviewRuntimeState {
   lastTransitionAt?: string | null
   reloadCount?: number
   stopCount?: number
+  activeGeneration?: string | null
+  lastError?: string | null
+  pendingProcessTransition?: Record<string, unknown> | null
+  cleanup?: {
+    running?: boolean
+    state?: string
+    lastError?: string | null
+  } | null
+  apply?: {
+    generationId?: string | null
+    phase?: string | null
+    rollbackResult?: string | null
+    reconciliationRequired?: boolean
+    updatedAt?: string | null
+  } | null
+  applyCoordinator?: {
+    state?: string
+    activeIntent?: number | null
+    activeSource?: string | null
+    lastCompletedIntent?: number | null
+    lastResult?: string | null
+    coalescedCount?: number
+    supersededCount?: number
+    updatedAt?: string | null
+  } | null
   startupEvidence?: {
     cgroupPname?: {
       source?: string | null
@@ -469,6 +496,35 @@ export interface RuntimeOverviewRuntimeState {
   }
 }
 
+export interface RuntimeRevisionSection {
+  id?: number | null
+  version?: number | null
+}
+
+export interface RuntimeRevisionIdentity {
+  config?: RuntimeRevisionSection | null
+  dns?: RuntimeRevisionSection | null
+  routing?: RuntimeRevisionSection | null
+  groupVersionSum?: number
+  groupIds?: string
+  externalInputVersion?: number
+}
+
+export interface RuntimeRevisionReport {
+  desired?: RuntimeRevisionIdentity | null
+  active?: RuntimeRevisionIdentity | null
+  desiredMatchesActive?: boolean
+  pending?: boolean
+  activeProductGeneration?: string | null
+  persistedProductGeneration?: string | null
+  activeResidentProbeGeneration?: number | null
+  persistedResidentProbeGeneration?: number | null
+  productGenerationMatches?: boolean | null
+  probeGenerationMatches?: boolean
+  activationIdentityConsistent?: boolean
+  error?: string
+}
+
 export interface TrafficOverviewQueryData {
   updatedAt: string
   uploadRate: number
@@ -482,6 +538,7 @@ export interface TrafficOverviewQueryData {
   heapLiveBytes: string
   goroutines: number
   runtime?: RuntimeOverviewRuntimeState
+  runtimeRevision?: RuntimeRevisionReport
   samples: Array<{
     timestamp: string
     uploadRate: number

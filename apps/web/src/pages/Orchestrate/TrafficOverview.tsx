@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
+import { deriveRuntimeStatus } from '~/apis/runtime_status'
 import { Card, CardContent, CardTitle } from '~/components/ui/card'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '~/components/ui/chart'
 import { cn } from '~/lib/utils'
@@ -303,13 +304,16 @@ function StatusBadge({
   running,
   label,
   tone = 'enhanced',
+  title,
 }: {
   running?: boolean
   label: string
   tone?: RuntimeStatusTone
+  title?: string
 }) {
   return (
     <span
+      title={title}
       className={cn(
         'inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1 sm:text-sm',
         running && tone === 'comm' && 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
@@ -416,6 +420,7 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
   )
   const chartRateDomain = useMemo(() => computeDynamicRateDomain(visibleChartData), [visibleChartData])
   const runtime = runtimeOverview?.runtime
+  const runtimeStatus = deriveRuntimeStatus(runtime, runtimeOverview?.runtimeRevision)
   const runtimeDurationUnits = useMemo(
     () => ({
       days: t('trafficOverview.durationDays'),
@@ -430,8 +435,14 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
     runtime?.running && runtimeStartMs !== null
       ? formatRuntimeDuration(now.getTime() - runtimeStartMs, runtimeDurationUnits)
       : '—'
-  const runtimeStatusLabel =
-    typeof runtime?.running === 'boolean' ? (runtime.running ? t('shell.running') : t('shell.stopped')) : '—'
+  const runtimeStatusLabel = t(`trafficOverview.runtimeStates.${runtimeStatus.status}` as never) as string
+  const runtimeStatusTitle = [
+    runtimeStatus.activeGeneration ? `${t('trafficOverview.generation')}: ${runtimeStatus.activeGeneration}` : null,
+    runtimeStatus.desiredMatchesActive === false ? t('trafficOverview.desiredPending') : null,
+    runtimeStatus.activationIdentityConsistent === false ? t('trafficOverview.identityInconsistent') : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
   const runtimeStatusBadgeTone = runtimeStatusTone(runtime)
   const attachBackendLabel = formatRuntimeToken(runtime?.attachBackend)
   const linkModeLabel = formatRuntimeToken(runtime?.netnsLinkMode)
@@ -449,7 +460,12 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
             <CardTitle className="truncate text-base text-foreground sm:text-lg">
               {t('trafficOverview.title')}
             </CardTitle>
-            <StatusBadge running={runtime?.running} label={runtimeStatusLabel} tone={runtimeStatusBadgeTone} />
+            <StatusBadge
+              running={runtime?.running}
+              label={runtimeStatusLabel}
+              tone={runtimeStatusBadgeTone}
+              title={runtimeStatusTitle || runtimeStatusLabel}
+            />
           </div>
           <CurrentTimeText now={now} className="justify-self-end lg:col-start-3 lg:row-start-1" />
           <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-1.5 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:flex-nowrap lg:overflow-hidden">

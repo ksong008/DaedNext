@@ -1,4 +1,4 @@
-import type { RuntimeOverviewRuntimeState, TrafficOverviewQueryData } from './types'
+import type { RuntimeOverviewRuntimeState, RuntimeRevisionReport, TrafficOverviewQueryData } from './types'
 
 interface RuntimeOverviewAPI {
   updatedAt: string
@@ -13,6 +13,7 @@ interface RuntimeOverviewAPI {
   heapLiveBytes?: string | null
   goroutines?: number
   runtime?: RuntimeOverviewRuntimeState
+  runtimeRevision?: RuntimeRevisionReport
   samples?: Array<{
     timestamp: string
     uploadRate: string
@@ -66,6 +67,7 @@ export function adaptRuntimeOverview(data: RuntimeOverviewAPI): TrafficOverviewQ
     heapLiveBytes: data.heapLiveBytes || '0',
     goroutines: data.goroutines ?? 0,
     runtime: data.runtime,
+    runtimeRevision: data.runtimeRevision,
     samples: (data.samples ?? []).map((sample) => ({
       timestamp: sample.timestamp,
       uploadRate: Number(sample.uploadRate),
@@ -103,6 +105,7 @@ export function mergeRuntimeOverviewDelta(
     heapLiveBytes: delta.heapLiveBytes || previousData.heapLiveBytes || '0',
     goroutines: delta.goroutines ?? previousData.goroutines ?? 0,
     runtime: delta.runtime ?? previousData.runtime,
+    runtimeRevision: delta.runtimeRevision ?? previousData.runtimeRevision,
     samples: trimRuntimeOverviewSamples(
       [...previousData.samples, ...deltaSamples],
       delta.updatedAt,
