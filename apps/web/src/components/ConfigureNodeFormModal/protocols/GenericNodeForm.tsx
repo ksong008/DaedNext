@@ -10,8 +10,8 @@ import { NumberInput } from '~/components/ui/number-input'
 import { Select } from '~/components/ui/select'
 import { useNodeForm } from '~/hooks'
 
-interface GenericNodeFormProps extends NodeFormProps<FieldValues> {
-  config: ProtocolConfig<FieldValues>
+interface GenericNodeFormProps<TFormValues extends FieldValues> extends NodeFormProps<TFormValues> {
+  config: ProtocolConfig<TFormValues>
 }
 
 /**
@@ -97,7 +97,12 @@ function FormField({
 /**
  * Generic form component that can render any protocol form based on configuration
  */
-export function GenericNodeForm({ config, onLinkGeneration, initialValues, actionsPortal }: GenericNodeFormProps) {
+export function GenericNodeForm<TFormValues extends FieldValues>({
+  config,
+  onLinkGeneration,
+  initialValues,
+  actionsPortal,
+}: GenericNodeFormProps<TFormValues>) {
   const { formValues, setValue, handleSubmit, onSubmit, submit, resetForm, isDirty, isValid, errors, t } = useNodeForm({
     schema: config.schema,
     defaultValues: config.defaultValues,

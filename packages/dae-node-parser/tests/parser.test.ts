@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest'
 import {
   parseHTTPUrl,
   parseHysteria2Url,
+  parseMasqueUrl,
   parseNodeUrl,
   parseSocks5Url,
   parseSSUrl,
   parseTrojanUrl,
   parseV2rayUrl,
 } from '../src/parser'
+
+const masqueTemplate = '%2F.well-known%2Fmasque%2Fudp%2F%7Btarget_host%7D%2F%7Btarget_port%7D%2F'
 
 describe('parseHTTPUrl', () => {
   it('should parse basic HTTP URL', () => {
@@ -55,6 +58,53 @@ describe('parseHTTPUrl', () => {
 
   it('should return null for non-HTTP URL', () => {
     expect(parseHTTPUrl('socks5://example.com')).toBeNull()
+  })
+})
+
+describe('parseMasqueUrl', () => {
+  it('parses an explicit H2 basic-auth source without inferring ALPN', () => {
+    expect(
+      parseMasqueUrl(
+        `masque://identity:p%40ss@proxy.example:8443?transport=h2&auth=basic&template=${masqueTemplate}&sni=edge.example&allowInsecure=1#edge%20h2`,
+      ),
+    ).toEqual({
+      name: 'edge h2',
+      host: 'proxy.example',
+      port: 8443,
+      transport: 'h2',
+      authentication: 'basic',
+      username: 'identity',
+      password: 'p@ss',
+      targetTemplate: '/.well-known/masque/udp/{target_host}/{target_port}/',
+      sni: 'edge.example',
+      allowInsecure: true,
+    })
+  })
+
+  it('normalizes an IPv6 H3 no-auth authority', () => {
+    expect(
+      parseMasqueUrl(`masque://[2001:db8::1]:9443?transport=h3&auth=none&template=${masqueTemplate}`),
+    ).toMatchObject({
+      host: '2001:db8::1',
+      port: 9443,
+      transport: 'h3',
+      authentication: 'none',
+      sni: '2001:db8::1',
+    })
+  })
+
+  it('rejects implicit, ambiguous, and malformed source shapes', () => {
+    for (const link of [
+      `https://proxy.example:443?transport=h2&auth=none&template=${masqueTemplate}`,
+      `masque://proxy.example:443?auth=none&template=${masqueTemplate}`,
+      `masque://proxy.example:443?transport=h2&auth=none&template=${masqueTemplate}&fallback=h3`,
+      `masque://proxy.example:443?transport=h2&transport=h3&auth=none&template=${masqueTemplate}`,
+      `masque://user@proxy.example:443?transport=h2&auth=none&template=${masqueTemplate}`,
+      `masque://proxy.example:443?transport=h2&auth=basic&template=${masqueTemplate}`,
+      'masque://proxy.example:443?transport=h2&auth=none&template=%2Fudp%2F%7Btarget_host%7D%2F',
+    ]) {
+      expect(parseMasqueUrl(link), link).toBeNull()
+    }
   })
 })
 
@@ -494,6 +544,13 @@ describe('parseNodeUrl', () => {
     const vmessConfig = btoa(JSON.stringify({ add: 'example.com', port: 443 }))
     const result = parseNodeUrl(`vmess://${vmessConfig}`)
     expect(result?.type).toBe('v2ray')
+  })
+
+  it('should auto-detect explicit MASQUE protocol', () => {
+    const result = parseNodeUrl(
+      `masque://proxy.example:443?transport=h3&auth=none&template=${masqueTemplate}#connect-udp`,
+    )
+    expect(result?.type).toBe('masque')
   })
 
   it('should return null for unknown protocol', () => {

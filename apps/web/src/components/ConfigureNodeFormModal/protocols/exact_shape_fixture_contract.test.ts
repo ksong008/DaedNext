@@ -7,10 +7,8 @@ import fixture from './fixtures/resident_protocol_exact_shapes.json'
 type ExactShape = (typeof fixture.shapes)[number]
 
 async function generateFixtureLink(shape: ExactShape): Promise<string> {
-  const [{ hysteria2Protocol, v2rayProtocol }, { httpProtocol, socks5Protocol }] = await Promise.all([
-    import('./complex'),
-    import('./simple'),
-  ])
+  const [{ hysteria2Protocol, v2rayProtocol }, { httpProtocol, socks5Protocol }, { masqueProtocol }] =
+    await Promise.all([import('./complex'), import('./simple'), import('./masque')])
   const form = shape.form as Record<string, unknown>
   switch (shape.webGenerator) {
     case 'socks5':
@@ -33,6 +31,11 @@ async function generateFixtureLink(shape: ExactShape): Promise<string> {
         ...v2rayProtocol.defaultValues,
         ...form,
       } as typeof v2rayProtocol.defaultValues)
+    case 'masque':
+      return masqueProtocol.generateLink({
+        ...masqueProtocol.defaultValues,
+        ...form,
+      } as typeof masqueProtocol.defaultValues)
     default:
       throw new Error(`unsupported fixture generator: ${shape.webGenerator}`)
   }
@@ -44,6 +47,7 @@ function fixtureProtocolForWeb(shape: ExactShape): string {
     return String(form.protocol)
   }
   if (shape.webGenerator === 'socks5') return 'socks5'
+  if (shape.webGenerator === 'masque') return 'connect-udp'
   return 'hysteria2'
 }
 
@@ -53,6 +57,9 @@ function generatedWireSecurity(link: string, shape: ExactShape): string {
     return new URL(link).protocol === 'https:' ? 'tls' : 'none'
   }
   if (shape.webGenerator === 'socks5') return 'none'
+  if (shape.webGenerator === 'masque') {
+    return new URL(link).searchParams.get('transport') === 'h3' ? 'quic' : 'tls'
+  }
   if (link.startsWith('vmess://')) {
     const body = JSON.parse(atob(link.slice('vmess://'.length))) as { tls?: string }
     return body.tls || 'none'
@@ -77,6 +84,16 @@ describe('shared resident exact-shape fixture contract', () => {
       expect(parseNodeUrl(link), shape.id).not.toBeNull()
       expect(resolveNodeTransport(link, webProtocol), shape.id).toBe(shape.webTransport)
       expect(generatedWireSecurity(link, shape), shape.id).toBe(shape.wireSecurity)
+
+      if (shape.webGenerator === 'masque') {
+        expect(parseNodeUrl(link), shape.id).toMatchObject({
+          type: 'masque',
+          data: {
+            transport: shape.webTransport,
+            targetTemplate: (shape.form as Record<string, unknown>).targetTemplate,
+          },
+        })
+      }
     }
   })
 })
