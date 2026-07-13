@@ -1,6 +1,5 @@
-import type { GenerateURLParams } from '@daeuniverse/dae-node-parser'
 import type { NodeFormProps } from './types'
-import { generateURL, parseHTTPUrl } from '@daeuniverse/dae-node-parser'
+import { parseHTTPUrl } from '@daeuniverse/dae-node-parser'
 import { createPortal } from 'react-dom'
 import { z } from 'zod'
 
@@ -11,6 +10,7 @@ import { NumberInput } from '~/components/ui/number-input'
 import { Select } from '~/components/ui/select'
 import { DEFAULT_HTTP_FORM_VALUES, httpSchema } from '~/constants'
 import { useNodeForm } from '~/hooks'
+import { generateHTTPLink } from './protocols/generators'
 
 const formSchema = httpSchema.extend({
   protocol: z.enum(['http', 'https']),
@@ -21,39 +21,6 @@ export type HTTPFormValues = z.infer<typeof formSchema>
 const defaultValues: HTTPFormValues = {
   protocol: 'http',
   ...DEFAULT_HTTP_FORM_VALUES,
-}
-
-function generateHTTPLink(data: HTTPFormValues): string {
-  const query: Record<string, unknown> = {}
-  if (data.transport) {
-    query.transport = true
-    query.host = data.transportHost
-  }
-  if (data.protocol === 'https') {
-    query.sni = data.sni
-    if (data.allowInsecure) query.allowInsecure = true
-    query.tlsImplementation = data.tlsImplementation
-    query.alpn = data.alpn
-    query.utlsImitate = data.utlsImitate
-  }
-
-  const generateURLParams: GenerateURLParams = {
-    protocol: data.protocol,
-    host: data.host,
-    port: data.port,
-    hash: data.name,
-    path: data.transport ? data.transportPath : '',
-    params: query,
-  }
-
-  if (data.username && data.password) {
-    Object.assign(generateURLParams, {
-      username: data.username,
-      password: data.password,
-    })
-  }
-
-  return generateURL(generateURLParams)
 }
 
 export function HTTPForm({ onLinkGeneration, initialValues, actionsPortal }: NodeFormProps<HTTPFormValues>) {

@@ -1,7 +1,6 @@
-import type { GenerateURLParams } from '@daeuniverse/dae-node-parser'
 import type { z } from 'zod'
 import type { NodeFormProps } from './types'
-import { generateURL, parseSocks5Url } from '@daeuniverse/dae-node-parser'
+import { parseSocks5Url } from '@daeuniverse/dae-node-parser'
 import { createPortal } from 'react-dom'
 
 import { FormActions } from '~/components/FormActions'
@@ -9,26 +8,9 @@ import { Input } from '~/components/ui/input'
 import { NumberInput } from '~/components/ui/number-input'
 import { DEFAULT_SOCKS5_FORM_VALUES, socks5Schema } from '~/constants'
 import { useNodeForm } from '~/hooks'
+import { generateSocks5Link } from './protocols/generators'
 
 export type Socks5FormValues = z.infer<typeof socks5Schema>
-
-function generateSocks5Link(data: Socks5FormValues): string {
-  const generateURLParams: GenerateURLParams = {
-    protocol: 'socks5',
-    host: data.host,
-    port: data.port,
-    hash: data.name,
-  }
-
-  if (data.username && data.password) {
-    Object.assign(generateURLParams, {
-      username: data.username,
-      password: data.password,
-    })
-  }
-
-  return generateURL(generateURLParams)
-}
 
 export function Socks5Form({ onLinkGeneration, initialValues, actionsPortal }: NodeFormProps<Socks5FormValues>) {
   const { formValues, setValue, handleSubmit, onSubmit, submit, resetForm, isDirty, isValid, errors, t } = useNodeForm({
