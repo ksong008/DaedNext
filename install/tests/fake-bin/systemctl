@@ -1,0 +1,20 @@
+#!/bin/sh
+case "${1:-}" in
+	daemon-reload)
+		exit 0
+		;;
+	is-active)
+		exit "${DAED_TEST_IS_ACTIVE_EXIT:-0}"
+		;;
+	restart)
+		exit "${DAED_TEST_RESTART_EXIT:-0}"
+		;;
+	status)
+		echo "synthetic daed.service status" >&2
+		exit 0
+		;;
+	*)
+		echo "unexpected synthetic systemctl operation: ${1:-}" >&2
+		exit 2
+		;;
+esac
