@@ -13,8 +13,9 @@ LimitNOFILE=1048576
 RuntimeDirectory=daed
 RuntimeDirectoryMode=0700
 Environment=DAED_PRODUCT_LOG_DIR=/tmp/log/daed
-ExecStartPre=/usr/bin/daed validate -c /etc/daed/
-ExecStart=/usr/bin/daed run -c /etc/daed/
+ExecStartPre=/usr/bin/daed validate -c /etc/daed/ --state /etc/daed/daed.db
+ExecStart=/usr/bin/daed run -c /etc/daed/ --state /etc/daed/daed.db
+ExecStartPost=/usr/bin/daed wait-ready --timeout 60s
 ExecReload=/usr/bin/daed reload --timeout 60s
 Restart=on-failure
 RestartSec=5s
