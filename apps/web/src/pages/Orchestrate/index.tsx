@@ -104,7 +104,14 @@ interface NodePickerCandidate {
 }
 
 function progressFromLatencyJob(job: NodeLatencyJob, fallbackTotal: number) {
-  return manualLatencyProgressFromJob(job, fallbackTotal) ?? { completed: 0, total: fallbackTotal, jobId: null }
+  return (
+    manualLatencyProgressFromJob(job, fallbackTotal) ?? {
+      state: 'running' as const,
+      completed: 0,
+      total: fallbackTotal,
+      jobId: null,
+    }
+  )
 }
 
 export function OrchestratePage() {
@@ -158,11 +165,9 @@ export function OrchestratePage() {
   const testNodeLatenciesMutation = useTestNodeLatenciesMutation()
   const cancelNodeLatencyJobMutation = useCancelNodeLatencyJobMutation()
   const [manualLatencyProbeProgress, setManualLatencyProbeProgress] = useState<ManualLatencyProbeProgress | null>(null)
+  const manualLatencyAdmissionRef = useRef<'idle' | 'starting' | 'running' | 'cancelling'>('idle')
   const manualLatencyStartAbortRef = useRef<AbortController | null>(null)
-  const nodeLatencyJobQuery = useNodeLatencyJobQuery(
-    MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS,
-    !!manualLatencyProbeProgress?.jobId,
-  )
+  const nodeLatencyJobQuery = useNodeLatencyJobQuery(MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS, true)
   const [manualLatencyProbeOverrides, setManualLatencyProbeOverrides] = useState<
     Record<string, NodeLatencyProbeResult>
   >({})
@@ -427,11 +432,13 @@ export function OrchestratePage() {
   const latencyProbeFallbackTotal = Math.max(allLatencyProbeNodeIds.length, totalNodeCount)
 
   const testAllNodeLatencies = useCallback(async () => {
-    if (manualLatencyProbeProgress) return
+    if (manualLatencyAdmissionRef.current !== 'idle') return
 
     if (latencyProbeFallbackTotal === 0) return
 
+    manualLatencyAdmissionRef.current = 'starting'
     setManualLatencyProbeProgress({
+      state: 'starting',
       completed: 0,
       total: latencyProbeFallbackTotal,
       jobId: null,
@@ -446,7 +453,9 @@ export function OrchestratePage() {
       })
 
       if (response.job) {
-        setManualLatencyProbeProgress(progressFromLatencyJob(response.job, latencyProbeFallbackTotal))
+        const progress = progressFromLatencyJob(response.job, latencyProbeFallbackTotal)
+        manualLatencyAdmissionRef.current = progress.state
+        setManualLatencyProbeProgress(progress)
         if (isLatencyJobActive(response.job)) return
       }
 
@@ -454,19 +463,23 @@ export function OrchestratePage() {
         mergeNodeLatencyResults(response.items)
       }
       invalidateLatencyDependentViews(true)
+      manualLatencyAdmissionRef.current = 'idle'
       setManualLatencyProbeProgress(null)
     } catch (error) {
       console.error('Failed to start node latency job', error)
       try {
         const recoveredJob = (await nodeLatencyJobQuery.refetch()).data?.job
         if (isLatencyJobActive(recoveredJob)) {
-          setManualLatencyProbeProgress(manualLatencyProgressFromJob(recoveredJob, latencyProbeFallbackTotal))
+          const progress = manualLatencyProgressFromJob(recoveredJob, latencyProbeFallbackTotal)
+          manualLatencyAdmissionRef.current = progress?.state ?? 'running'
+          setManualLatencyProbeProgress(progress)
           return
         }
       } catch (recoveryError) {
         console.error('Failed to recover node latency job ownership', recoveryError)
       }
       toast.error(error instanceof Error ? error.message : t('error'))
+      manualLatencyAdmissionRef.current = 'idle'
       setManualLatencyProbeProgress(null)
     } finally {
       if (manualLatencyStartAbortRef.current === startAbort) {
@@ -475,7 +488,6 @@ export function OrchestratePage() {
     }
   }, [
     latencyProbeFallbackTotal,
-    manualLatencyProbeProgress,
     invalidateLatencyDependentViews,
     mergeNodeLatencyResults,
     nodeLatencyJobQuery,
@@ -487,6 +499,8 @@ export function OrchestratePage() {
     const progress = manualLatencyProbeProgress
     if (!progress) return
 
+    manualLatencyAdmissionRef.current = 'cancelling'
+    setManualLatencyProbeProgress({ ...progress, state: 'cancelling' })
     manualLatencyStartAbortRef.current?.abort(new Error('manual latency probe start cancelled'))
     let jobId = progress.jobId
     if (!jobId) {
@@ -494,7 +508,9 @@ export function OrchestratePage() {
         const currentJob = (await nodeLatencyJobQuery.refetch()).data?.job
         if (isLatencyJobActive(currentJob)) {
           jobId = currentJob?.id ?? null
-          setManualLatencyProbeProgress(manualLatencyProgressFromJob(currentJob, progress.total))
+          const currentProgress = manualLatencyProgressFromJob(currentJob, progress.total)
+          manualLatencyAdmissionRef.current = currentProgress?.state ?? 'cancelling'
+          setManualLatencyProbeProgress(currentProgress)
         }
       } catch (error) {
         console.error('Failed to resolve node latency job before cancellation', error)
@@ -502,13 +518,16 @@ export function OrchestratePage() {
     }
 
     if (!jobId) {
+      manualLatencyAdmissionRef.current = 'idle'
       setManualLatencyProbeProgress(null)
       return
     }
 
     try {
       const job = await cancelNodeLatencyJobMutation.mutateAsync(jobId)
-      setManualLatencyProbeProgress(isLatencyJobActive(job) ? manualLatencyProgressFromJob(job, progress.total) : null)
+      const nextProgress = isLatencyJobActive(job) ? manualLatencyProgressFromJob(job, progress.total) : null
+      manualLatencyAdmissionRef.current = nextProgress?.state ?? 'idle'
+      setManualLatencyProbeProgress(nextProgress)
       if (!isLatencyJobActive(job)) {
         invalidateLatencyDependentViews(true)
       }
@@ -526,10 +545,19 @@ export function OrchestratePage() {
 
   useEffect(() => {
     const job = nodeLatencyJobQuery.data?.job
-    if (!manualLatencyProbeProgress || !job) return
+    if (!job) return
+    if (!manualLatencyProbeProgress) {
+      if (isLatencyJobActive(job)) {
+        const recovered = progressFromLatencyJob(job, latencyProbeFallbackTotal)
+        manualLatencyAdmissionRef.current = recovered.state
+        setManualLatencyProbeProgress(recovered)
+      }
+      return
+    }
     if (!manualLatencyProbeProgress.jobId || job.id !== manualLatencyProbeProgress.jobId) return
 
     const nextProgress = progressFromLatencyJob(job, manualLatencyProbeProgress.total)
+    manualLatencyAdmissionRef.current = nextProgress.state
     const jobActive = isLatencyJobActive(job)
     const hasNewLatencyResults = job.completed > manualLatencyProbeProgress.completed || !jobActive
     setManualLatencyProbeProgress((currentProgress) => {
@@ -545,9 +573,15 @@ export function OrchestratePage() {
     }
 
     if (!jobActive) {
+      manualLatencyAdmissionRef.current = 'idle'
       setManualLatencyProbeProgress(null)
     }
-  }, [invalidateLatencyDependentViews, manualLatencyProbeProgress, nodeLatencyJobQuery.data?.job])
+  }, [
+    invalidateLatencyDependentViews,
+    latencyProbeFallbackTotal,
+    manualLatencyProbeProgress,
+    nodeLatencyJobQuery.data?.job,
+  ])
 
   useEffect(() => {
     const visibleNodeIdSet = new Set(allLatencyProbeNodeIds)

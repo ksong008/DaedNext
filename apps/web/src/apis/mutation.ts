@@ -980,14 +980,21 @@ export function useTestNodeLatenciesMutation() {
     }: { ids?: string[]; signal?: AbortSignal; timeoutMs?: number } = {}) => {
       const data = await apiClient.post<{
         items: Parameters<typeof adaptNodeLatencyProbeResults>[0]
+        admission: NodeLatencyProbeResponse['admission']
         job?: Parameters<typeof adaptNodeLatencyJob>[0]
       }>('/nodes/latencies', ids && ids.length > 0 ? { ids: ids.map(toNumericID) } : {}, undefined, {
         signal,
         timeoutMs,
+        suppressErrorToast: true,
       })
+
+      if (data.admission !== 'started' && data.admission !== 'existing') {
+        throw new Error('invalid manual latency admission response')
+      }
 
       return {
         items: adaptNodeLatencyProbeResults(data.items),
+        admission: data.admission,
         job: adaptNodeLatencyJob(data.job),
       } satisfies NodeLatencyProbeResponse
     },

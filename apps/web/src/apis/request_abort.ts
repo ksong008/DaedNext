@@ -3,6 +3,7 @@ export const DEFAULT_API_REQUEST_TIMEOUT_MS = 120_000
 export interface APIRequestOptions {
   signal?: AbortSignal
   timeoutMs?: number
+  suppressErrorToast?: boolean
 }
 
 export interface APIRequestAbortScope {

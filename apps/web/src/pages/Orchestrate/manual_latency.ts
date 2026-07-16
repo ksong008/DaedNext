@@ -1,6 +1,9 @@
 import type { NodeLatencyJob } from '~/apis'
 
+export type ManualLatencyProbeState = 'idle' | 'starting' | 'running' | 'cancelling'
+
 export interface ManualLatencyProbeProgress {
+  state: Exclude<ManualLatencyProbeState, 'idle'>
   completed: number
   total: number
   jobId: string | null
@@ -18,6 +21,7 @@ export function manualLatencyProgressFromJob(
   const total = job.total > 0 ? job.total : fallbackTotal
   const completed = isLatencyJobActive(job) ? job.completed : Math.max(job.completed, total)
   return {
+    state: job.status === 'cancelling' ? 'cancelling' : 'running',
     completed: Math.min(completed, total),
     total,
     jobId: job.id,

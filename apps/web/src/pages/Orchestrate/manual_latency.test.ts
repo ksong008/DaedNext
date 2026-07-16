@@ -20,10 +20,16 @@ describe('manual latency ownership', () => {
   it('keeps a cancelling backend job visible until it reaches a terminal state', () => {
     expect(isLatencyJobActive(job('cancelling'))).toBe(true)
     expect(manualLatencyProgressFromJob(job('cancelling'), 12)).toEqual({
+      state: 'cancelling',
       completed: 3,
       total: 10,
       jobId: '7',
     })
+  })
+
+  it('maps queued and running jobs to the explicit running state', () => {
+    expect(manualLatencyProgressFromJob(job('queued'), 12)?.state).toBe('running')
+    expect(manualLatencyProgressFromJob(job('running'), 12)?.state).toBe('running')
   })
 
   it('does not fabricate failed node results when no backend job can be recovered', () => {

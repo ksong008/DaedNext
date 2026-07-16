@@ -1412,7 +1412,7 @@ function updateMockLatencyJob(body: unknown) {
     finishedAt: new Date().toISOString(),
     message: 'mock manual latency probe finished',
   }
-  return { items, job: mockLatencyJob }
+  return { items, admission: 'started', job: mockLatencyJob }
 }
 
 export { isMockMode, MOCK_DEFAULT_IDS }
