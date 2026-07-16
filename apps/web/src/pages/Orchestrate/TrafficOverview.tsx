@@ -420,7 +420,7 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
   )
   const chartRateDomain = useMemo(() => computeDynamicRateDomain(visibleChartData), [visibleChartData])
   const runtime = runtimeOverview?.runtime
-  const runtimeStatus = deriveRuntimeStatus(runtime, runtimeOverview?.runtimeRevision)
+  const runtimeStatus = deriveRuntimeStatus(runtime)
   const runtimeDurationUnits = useMemo(
     () => ({
       days: t('trafficOverview.durationDays'),
@@ -436,13 +436,6 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
       ? formatRuntimeDuration(now.getTime() - runtimeStartMs, runtimeDurationUnits)
       : '—'
   const runtimeStatusLabel = t(`trafficOverview.runtimeStates.${runtimeStatus.status}` as never) as string
-  const runtimeStatusTitle = [
-    runtimeStatus.activeGeneration ? `${t('trafficOverview.generation')}: ${runtimeStatus.activeGeneration}` : null,
-    runtimeStatus.desiredMatchesActive === false ? t('trafficOverview.desiredPending') : null,
-    runtimeStatus.activationIdentityConsistent === false ? t('trafficOverview.identityInconsistent') : null,
-  ]
-    .filter(Boolean)
-    .join('\n')
   const runtimeStatusBadgeTone = runtimeStatusTone(runtime)
   const attachBackendLabel = formatRuntimeToken(runtime?.attachBackend)
   const linkModeLabel = formatRuntimeToken(runtime?.netnsLinkMode)
@@ -461,10 +454,10 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
               {t('trafficOverview.title')}
             </CardTitle>
             <StatusBadge
-              running={runtime?.running}
+              running={runtimeStatus.status === 'running'}
               label={runtimeStatusLabel}
               tone={runtimeStatusBadgeTone}
-              title={runtimeStatusTitle || runtimeStatusLabel}
+              title={runtimeStatusLabel}
             />
           </div>
           <CurrentTimeText now={now} className="justify-self-end lg:col-start-3 lg:row-start-1" />

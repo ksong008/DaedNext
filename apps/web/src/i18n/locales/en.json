@@ -388,22 +388,13 @@
     "durationSeconds": "s",
     "connectionsUnit": "conn",
     "sessionsUnit": "sessions",
-    "generation": "Generation",
-    "desiredPending": "Desired configuration is pending",
-    "identityInconsistent": "Runtime generation identity is inconsistent",
     "runtimeStates": {
-      "active": "Active",
-      "applying": "Applying",
-      "coalesced": "Active · Coalesced",
-      "failed": "Apply failed",
-      "inconsistent": "Generation inconsistent",
-      "pending": "Desired pending",
-      "pendingProcessTransition": "Process transition pending",
-      "rolledBack": "Rolled back",
+      "running": "Running",
+      "starting": "Starting",
+      "failed": "Error",
       "stopped": "Stopped",
       "stopping": "Stopping",
-      "unknown": "Unknown",
-      "waitingForHost": "Waiting for host"
+      "unknown": "Unknown"
     }
   },
   "notifications": {
