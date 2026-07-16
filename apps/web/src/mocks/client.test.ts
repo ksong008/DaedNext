@@ -31,10 +31,12 @@ describe('mock API client group resource mutations', () => {
 
     const response = await client.post<{
       items: Array<{ id: string; alive: boolean }>
+      admission: 'started' | 'existing'
       job: { id: number; status: string; total: number; completed: number }
     }>('/nodes/latencies')
 
     expect(response.items.length).toBeGreaterThan(0)
+    expect(response.admission).toBe('started')
     expect(response.job.status).toBe('finished')
     expect(response.job.completed).toBe(response.job.total)
 

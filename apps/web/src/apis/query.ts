@@ -630,7 +630,10 @@ export function useNodeLatencyJobQuery(refetchIntervalMs: number, enabled = true
     },
     enabled: queryEnabled,
     placeholderData: (previousData) => previousData,
-    refetchInterval: () => refetchIntervalMs,
+    refetchInterval: (query) => {
+      const status = query.state.data?.job?.status
+      return status === 'queued' || status === 'running' || status === 'cancelling' ? refetchIntervalMs : false
+    },
     refetchIntervalInBackground: false,
   })
 }

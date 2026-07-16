@@ -571,9 +571,12 @@ export interface NodeLatencyJobView {
   job: NodeLatencyJob | null
 }
 
+export type NodeLatencyProbeAdmission = 'started' | 'existing'
+
 export interface NodeLatencyProbeResponse {
   items: NodeLatencyProbeResult[]
-  job?: NodeLatencyJob | null
+  admission: NodeLatencyProbeAdmission
+  job: NodeLatencyJob | null
 }
 
 export interface LogEntry {

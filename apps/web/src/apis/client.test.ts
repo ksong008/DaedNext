@@ -42,6 +42,42 @@ describe('normalizeEndpointURL', () => {
 })
 
 describe('aPI client', () => {
+  it('preserves typed retryable HTTP errors for caller-owned recovery', async () => {
+    vi.stubGlobal('location', {
+      protocol: 'http:',
+      hostname: '127.0.0.1',
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response(
+          JSON.stringify({
+            error: 'request header read timeout',
+            errorCode: 'request_header_timeout',
+            retryable: true,
+          }),
+          {
+            status: 408,
+            headers: { 'content-type': 'application/json' },
+          },
+        )
+      }),
+    )
+
+    const { APIClient, APIResponseError } = await import('./client')
+    const client = new APIClient('http://127.0.0.1:2023/api')
+    const error = await client
+      .post('/nodes/latencies', {}, undefined, { suppressErrorToast: true })
+      .catch((value: unknown) => value)
+
+    expect(error).toBeInstanceOf(APIResponseError)
+    expect(error).toMatchObject({
+      status: 408,
+      errorCode: 'request_header_timeout',
+      retryable: true,
+    })
+  })
+
   it('forwards a caller abort signal to fetch', async () => {
     vi.stubGlobal('location', {
       protocol: 'http:',

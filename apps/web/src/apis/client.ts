@@ -146,6 +146,29 @@ function responseErrorMessage(response: Response, payload: unknown): string {
   return `${response.status} ${response.statusText}`
 }
 
+export class APIResponseError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly errorCode: string | null,
+    readonly retryable: boolean,
+  ) {
+    super(message)
+    this.name = 'APIResponseError'
+  }
+}
+
+function responseErrorMetadata(payload: unknown) {
+  if (typeof payload !== 'object' || !payload) {
+    return { errorCode: null, retryable: false }
+  }
+  const record = payload as Record<string, unknown>
+  return {
+    errorCode: typeof record.errorCode === 'string' ? record.errorCode : null,
+    retryable: record.retryable === true,
+  }
+}
+
 export class APIClient implements APIClientInterface {
   constructor(
     private readonly endpointURL: string,
@@ -209,8 +232,11 @@ export class APIClient implements APIClientInterface {
       const payload = parseResponsePayload(text, response.headers.get('content-type'))
       if (!response.ok) {
         const message = responseErrorMessage(response, payload)
-        toast.error(message)
-        throw new Error(message)
+        const metadata = responseErrorMetadata(payload)
+        if (!options?.suppressErrorToast) {
+          toast.error(message)
+        }
+        throw new APIResponseError(message, response.status, metadata.errorCode, metadata.retryable)
       }
 
       return payload as T
