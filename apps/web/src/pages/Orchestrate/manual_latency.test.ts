@@ -2,7 +2,8 @@ import type { NodeLatencyJob } from '~/apis'
 
 import { describe, expect, it } from 'vitest'
 
-import { isLatencyJobActive, manualLatencyProgressFromJob } from './manual_latency'
+import { isNodeLatencyJobActive } from '~/apis/node_latency_job'
+import { manualLatencyProgressFromJob, ManualLatencyTerminalTracker } from './manual_latency'
 
 function job(status: string): NodeLatencyJob {
   return {
@@ -18,7 +19,7 @@ function job(status: string): NodeLatencyJob {
 
 describe('manual latency ownership', () => {
   it('keeps a cancelling backend job visible until it reaches a terminal state', () => {
-    expect(isLatencyJobActive(job('cancelling'))).toBe(true)
+    expect(isNodeLatencyJobActive(job('cancelling'))).toBe(true)
     expect(manualLatencyProgressFromJob(job('cancelling'), 12)).toEqual({
       state: 'cancelling',
       completed: 3,
@@ -34,6 +35,35 @@ describe('manual latency ownership', () => {
 
   it('does not fabricate failed node results when no backend job can be recovered', () => {
     expect(manualLatencyProgressFromJob(null, 12)).toBeNull()
-    expect(isLatencyJobActive(job('cancelled'))).toBe(false)
+    expect(isNodeLatencyJobActive(job('cancelled'))).toBe(false)
+  })
+
+  it('refreshes dependent views once when an active job becomes terminal', () => {
+    const tracker = new ManualLatencyTerminalTracker()
+
+    expect(tracker.shouldRefresh(job('queued'))).toBe(false)
+    expect(tracker.shouldRefresh(job('running'))).toBe(false)
+    expect(tracker.shouldRefresh(job('finished'))).toBe(true)
+    expect(tracker.shouldRefresh(job('finished'))).toBe(false)
+    expect(tracker.shouldRefresh(null)).toBe(false)
+  })
+
+  it('treats a cleared active job and a replacement job as separate terminal transitions', () => {
+    const tracker = new ManualLatencyTerminalTracker()
+    const replacement = { ...job('running'), id: '8' }
+
+    expect(tracker.shouldRefresh(job('running'))).toBe(false)
+    expect(tracker.shouldRefresh(null)).toBe(true)
+    expect(tracker.shouldRefresh(null)).toBe(false)
+    expect(tracker.shouldRefresh(replacement)).toBe(false)
+    expect(tracker.shouldRefresh({ ...replacement, status: 'failed' })).toBe(true)
+  })
+
+  it('refreshes a reused job id after a backend lifecycle replacement', () => {
+    const tracker = new ManualLatencyTerminalTracker()
+
+    expect(tracker.shouldRefresh(job('finished'))).toBe(true)
+    expect(tracker.shouldRefresh(job('running'))).toBe(false)
+    expect(tracker.shouldRefresh(job('finished'))).toBe(true)
   })
 })

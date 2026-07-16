@@ -1,6 +1,5 @@
 import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
-import type { ManualLatencyProbeProgress } from './manual_latency'
-import type { NodeLatencyJob, NodeLatencyProbeResult } from '~/apis'
+import type { NodeLatencyProbeResult } from '~/apis'
 import type {
   GroupListView,
   GroupSummaryResource,
@@ -18,9 +17,7 @@ import { ListPlus, Network } from 'lucide-react'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
-import { toast } from 'sonner'
 import {
-  useCancelNodeLatencyJobMutation,
   useConfigQuery,
   useConfigSummariesQuery,
   useGeneralStateQuery,
@@ -33,12 +30,10 @@ import {
   useGroupsSummaryQuery,
   useInterfacesQuery,
   useNodeLatenciesQuery,
-  useNodeLatencyJobQuery,
   useNodesQuery,
   useSubscriptionBackedNodesQuery,
   useSubscriptionsQuery,
   useSubscriptionsSummaryQuery,
-  useTestNodeLatenciesMutation,
 } from '~/apis'
 import { webQueryKeys } from '~/apis/query_cache'
 import { Policy } from '~/apis/types'
@@ -59,8 +54,8 @@ import { deriveTime } from '~/utils'
 import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 import { reconcileSortOrder } from '~/utils/sort_order'
 import { NODE_DROPPABLE_ID } from './dndConstants'
-import { isLatencyJobActive, manualLatencyProgressFromJob } from './manual_latency'
 import { TrafficOverviewIsland } from './TrafficOverviewIsland'
+import { useManualLatencyJob } from './useManualLatencyJob'
 import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
 
 const ConfigPanel = lazy(() => import('./Config').then((module) => ({ default: module.Config })))
@@ -83,8 +78,6 @@ function arrayMove<T>(array: T[], from: number, to: number): T[] {
   return newArray
 }
 
-const MANUAL_LATENCY_PROBE_START_TIMEOUT_MS = 8_000
-const MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS = 500
 const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
 const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
 const EMPTY_CONFIG_SUMMARIES: SectionSummaryResource[] = []
@@ -101,17 +94,6 @@ type SummaryGroupEditMode = 'actions' | 'nodes' | 'subscriptions'
 interface NodePickerCandidate {
   node: NodeListView['nodes']['items'][number]
   sourceLabel: string
-}
-
-function progressFromLatencyJob(job: NodeLatencyJob, fallbackTotal: number) {
-  return (
-    manualLatencyProgressFromJob(job, fallbackTotal) ?? {
-      state: 'running' as const,
-      completed: 0,
-      total: fallbackTotal,
-      jobId: null,
-    }
-  )
 }
 
 export function OrchestratePage() {
@@ -162,12 +144,6 @@ export function OrchestratePage() {
   const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
   const groupDelNodesMutation = useGroupDelNodesMutation()
   const groupDelSubscriptionsMutation = useGroupDelSubscriptionsMutation()
-  const testNodeLatenciesMutation = useTestNodeLatenciesMutation()
-  const cancelNodeLatencyJobMutation = useCancelNodeLatencyJobMutation()
-  const [manualLatencyProbeProgress, setManualLatencyProbeProgress] = useState<ManualLatencyProbeProgress | null>(null)
-  const manualLatencyAdmissionRef = useRef<'idle' | 'starting' | 'running' | 'cancelling'>('idle')
-  const manualLatencyStartAbortRef = useRef<AbortController | null>(null)
-  const nodeLatencyJobQuery = useNodeLatencyJobQuery(MANUAL_LATENCY_PROBE_JOB_REFETCH_INTERVAL_MS, true)
   const [manualLatencyProbeOverrides, setManualLatencyProbeOverrides] = useState<
     Record<string, NodeLatencyProbeResult>
   >({})
@@ -375,16 +351,10 @@ export function OrchestratePage() {
     [queryClient],
   )
 
-  const invalidateLatencyDependentViews = useCallback(
-    (includeJob = false) => {
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
-      void queryClient.invalidateQueries({ queryKey: webQueryKeys.group.summary() })
-      if (includeJob) {
-        void queryClient.invalidateQueries({ queryKey: webQueryKeys.node.latencyJob() })
-      }
-    },
-    [queryClient],
-  )
+  const refreshLatencyDependentViews = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: QUERY_KEY_NODE_LATENCY })
+    void queryClient.invalidateQueries({ queryKey: webQueryKeys.group.summary() })
+  }, [queryClient])
 
   // Get sorted node IDs
   const sortedNodeIds = nodeSortOrder
@@ -430,158 +400,16 @@ export function OrchestratePage() {
     return Array.from(nodeIDs)
   }, [sortedNodes, sortedSubscriptions, subscriptionBackedNodes])
   const latencyProbeFallbackTotal = Math.max(allLatencyProbeNodeIds.length, totalNodeCount)
-
-  const testAllNodeLatencies = useCallback(async () => {
-    if (manualLatencyAdmissionRef.current !== 'idle') return
-
-    if (latencyProbeFallbackTotal === 0) return
-
-    manualLatencyAdmissionRef.current = 'starting'
-    setManualLatencyProbeProgress({
-      state: 'starting',
-      completed: 0,
-      total: latencyProbeFallbackTotal,
-      jobId: null,
-    })
-    const startAbort = new AbortController()
-    manualLatencyStartAbortRef.current = startAbort
-
-    try {
-      const response = await testNodeLatenciesMutation.mutateAsync({
-        signal: startAbort.signal,
-        timeoutMs: MANUAL_LATENCY_PROBE_START_TIMEOUT_MS,
-      })
-
-      if (response.job) {
-        const progress = progressFromLatencyJob(response.job, latencyProbeFallbackTotal)
-        manualLatencyAdmissionRef.current = progress.state
-        setManualLatencyProbeProgress(progress)
-        if (isLatencyJobActive(response.job)) return
-      }
-
-      if (response.items.length > 0) {
-        mergeNodeLatencyResults(response.items)
-      }
-      invalidateLatencyDependentViews(true)
-      manualLatencyAdmissionRef.current = 'idle'
-      setManualLatencyProbeProgress(null)
-    } catch (error) {
-      console.error('Failed to start node latency job', error)
-      try {
-        const recoveredJob = (await nodeLatencyJobQuery.refetch()).data?.job
-        if (isLatencyJobActive(recoveredJob)) {
-          const progress = manualLatencyProgressFromJob(recoveredJob, latencyProbeFallbackTotal)
-          manualLatencyAdmissionRef.current = progress?.state ?? 'running'
-          setManualLatencyProbeProgress(progress)
-          return
-        }
-      } catch (recoveryError) {
-        console.error('Failed to recover node latency job ownership', recoveryError)
-      }
-      toast.error(error instanceof Error ? error.message : t('error'))
-      manualLatencyAdmissionRef.current = 'idle'
-      setManualLatencyProbeProgress(null)
-    } finally {
-      if (manualLatencyStartAbortRef.current === startAbort) {
-        manualLatencyStartAbortRef.current = null
-      }
-    }
-  }, [
-    latencyProbeFallbackTotal,
-    invalidateLatencyDependentViews,
-    mergeNodeLatencyResults,
-    nodeLatencyJobQuery,
-    t,
-    testNodeLatenciesMutation,
-  ])
-
-  const cancelManualLatencyProbe = useCallback(async () => {
-    const progress = manualLatencyProbeProgress
-    if (!progress) return
-
-    manualLatencyAdmissionRef.current = 'cancelling'
-    setManualLatencyProbeProgress({ ...progress, state: 'cancelling' })
-    manualLatencyStartAbortRef.current?.abort(new Error('manual latency probe start cancelled'))
-    let jobId = progress.jobId
-    if (!jobId) {
-      try {
-        const currentJob = (await nodeLatencyJobQuery.refetch()).data?.job
-        if (isLatencyJobActive(currentJob)) {
-          jobId = currentJob?.id ?? null
-          const currentProgress = manualLatencyProgressFromJob(currentJob, progress.total)
-          manualLatencyAdmissionRef.current = currentProgress?.state ?? 'cancelling'
-          setManualLatencyProbeProgress(currentProgress)
-        }
-      } catch (error) {
-        console.error('Failed to resolve node latency job before cancellation', error)
-      }
-    }
-
-    if (!jobId) {
-      manualLatencyAdmissionRef.current = 'idle'
-      setManualLatencyProbeProgress(null)
-      return
-    }
-
-    try {
-      const job = await cancelNodeLatencyJobMutation.mutateAsync(jobId)
-      const nextProgress = isLatencyJobActive(job) ? manualLatencyProgressFromJob(job, progress.total) : null
-      manualLatencyAdmissionRef.current = nextProgress?.state ?? 'idle'
-      setManualLatencyProbeProgress(nextProgress)
-      if (!isLatencyJobActive(job)) {
-        invalidateLatencyDependentViews(true)
-      }
-    } catch (error) {
-      console.error('Failed to cancel node latency job', error)
-      toast.error(error instanceof Error ? error.message : t('error'))
-    }
-  }, [
-    cancelNodeLatencyJobMutation,
-    invalidateLatencyDependentViews,
-    manualLatencyProbeProgress,
-    nodeLatencyJobQuery,
-    t,
-  ])
-
-  useEffect(() => {
-    const job = nodeLatencyJobQuery.data?.job
-    if (!job) return
-    if (!manualLatencyProbeProgress) {
-      if (isLatencyJobActive(job)) {
-        const recovered = progressFromLatencyJob(job, latencyProbeFallbackTotal)
-        manualLatencyAdmissionRef.current = recovered.state
-        setManualLatencyProbeProgress(recovered)
-      }
-      return
-    }
-    if (!manualLatencyProbeProgress.jobId || job.id !== manualLatencyProbeProgress.jobId) return
-
-    const nextProgress = progressFromLatencyJob(job, manualLatencyProbeProgress.total)
-    manualLatencyAdmissionRef.current = nextProgress.state
-    const jobActive = isLatencyJobActive(job)
-    const hasNewLatencyResults = job.completed > manualLatencyProbeProgress.completed || !jobActive
-    setManualLatencyProbeProgress((currentProgress) => {
-      if (!currentProgress) return currentProgress
-      if (currentProgress.completed === nextProgress.completed && currentProgress.total === nextProgress.total) {
-        return currentProgress
-      }
-      return { ...nextProgress, jobId: currentProgress.jobId }
-    })
-
-    if (hasNewLatencyResults) {
-      invalidateLatencyDependentViews(!jobActive)
-    }
-
-    if (!jobActive) {
-      manualLatencyAdmissionRef.current = 'idle'
-      setManualLatencyProbeProgress(null)
-    }
-  }, [
-    invalidateLatencyDependentViews,
-    latencyProbeFallbackTotal,
-    manualLatencyProbeProgress,
-    nodeLatencyJobQuery.data?.job,
-  ])
+  const {
+    cancel: cancelManualLatencyProbe,
+    cancelling: cancellingManualLatencyProbe,
+    progress: manualLatencyProbeProgress,
+    start: testAllNodeLatencies,
+  } = useManualLatencyJob({
+    fallbackTotal: latencyProbeFallbackTotal,
+    onProbeResults: mergeNodeLatencyResults,
+    onTerminal: refreshLatencyDependentViews,
+  })
 
   useEffect(() => {
     const visibleNodeIdSet = new Set(allLatencyProbeNodeIds)
@@ -1238,7 +1066,7 @@ export function OrchestratePage() {
             onTestAllNodeLatencies={testAllNodeLatencies}
             onCancelNodeLatencies={cancelManualLatencyProbe}
             testingLatencies={manualLatencyProbeProgress !== null}
-            cancellingLatencies={cancelNodeLatencyJobMutation.isPending}
+            cancellingLatencies={cancellingManualLatencyProbe}
             testingLatencyProgress={manualLatencyProbeProgress}
           />
         </>
@@ -1443,7 +1271,7 @@ export function OrchestratePage() {
                     sortedSubscriptions={sortedSubscriptions}
                     nodeLatencies={nodeLatencies}
                     testingLatencies={manualLatencyProbeProgress !== null}
-                    cancellingLatencies={cancelNodeLatencyJobMutation.isPending}
+                    cancellingLatencies={cancellingManualLatencyProbe}
                     testingLatencyProgress={manualLatencyProbeProgress}
                     lastLatencyProbeAt={lastLatencyProbeAt}
                     onTestAllNodeLatencies={testAllNodeLatencies}

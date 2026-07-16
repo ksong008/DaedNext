@@ -1,5 +1,7 @@
 import type { NodeLatencyJob } from '~/apis'
 
+import { isNodeLatencyJobActive } from '~/apis/node_latency_job'
+
 export type ManualLatencyProbeState = 'idle' | 'starting' | 'running' | 'cancelling'
 
 export interface ManualLatencyProbeProgress {
@@ -9,8 +11,26 @@ export interface ManualLatencyProbeProgress {
   jobId: string | null
 }
 
-export function isLatencyJobActive(job?: NodeLatencyJob | null) {
-  return job?.status === 'queued' || job?.status === 'running' || job?.status === 'cancelling'
+export class ManualLatencyTerminalTracker {
+  private previousActiveJobId: string | null = null
+  private refreshedTerminalJobId: string | null = null
+
+  shouldRefresh(job: NodeLatencyJob | null | undefined) {
+    if (job && isNodeLatencyJobActive(job)) {
+      if (this.previousActiveJobId !== job.id && this.refreshedTerminalJobId === job.id) {
+        this.refreshedTerminalJobId = null
+      }
+      this.previousActiveJobId = job.id
+      return false
+    }
+
+    const terminalJobId = job?.id ?? this.previousActiveJobId
+    this.previousActiveJobId = null
+    if (!terminalJobId || this.refreshedTerminalJobId === terminalJobId) return false
+
+    this.refreshedTerminalJobId = terminalJobId
+    return true
+  }
 }
 
 export function manualLatencyProgressFromJob(
@@ -19,7 +39,7 @@ export function manualLatencyProgressFromJob(
 ): ManualLatencyProbeProgress | null {
   if (!job) return null
   const total = job.total > 0 ? job.total : fallbackTotal
-  const completed = isLatencyJobActive(job) ? job.completed : Math.max(job.completed, total)
+  const completed = isNodeLatencyJobActive(job) ? job.completed : Math.max(job.completed, total)
   return {
     state: job.status === 'cancelling' ? 'cancelling' : 'running',
     completed: Math.min(completed, total),

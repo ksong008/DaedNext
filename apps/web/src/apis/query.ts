@@ -23,8 +23,6 @@ import type {
   LogEntry,
   LogSettings,
   NodeCollection,
-  NodeLatencyJob,
-  NodeLatencyJobView,
   NodeLatencyProbeResult,
   NodeListView,
   NodeResource,
@@ -48,6 +46,7 @@ import { useAPIClient } from '~/contexts'
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { buildEventStreamURL, subscribeEventStream } from './event_stream'
+import { nodeLatencyJobQueryOptions } from './node_latency_job_query'
 import { resolveNodeTransport } from './node_transport'
 import { webQueryKeys } from './query_cache'
 import { handleRuntimeGroupSelectionEvent } from './runtime_event_cache'
@@ -136,19 +135,6 @@ interface NodeLatencyAPI {
   latencyMs?: number | null
   alive: boolean
   testedAt: string
-  message?: string | null
-}
-
-interface NodeLatencyJobAPI {
-  id: number
-  status: string
-  total: number
-  completed: number
-  succeeded: number
-  failed: number
-  queuedAt: string
-  startedAt?: string | null
-  finishedAt?: string | null
   message?: string | null
 }
 
@@ -583,22 +569,6 @@ export function adaptNodeLatencyProbeResults(items: NodeLatencyAPI[]): NodeLaten
   }))
 }
 
-export function adaptNodeLatencyJob(job?: NodeLatencyJobAPI | null): NodeLatencyJob | null {
-  if (!job) return null
-  return {
-    id: String(job.id),
-    status: job.status,
-    total: job.total,
-    completed: job.completed,
-    succeeded: job.succeeded,
-    failed: job.failed,
-    queuedAt: job.queuedAt,
-    startedAt: job.startedAt ?? null,
-    finishedAt: job.finishedAt ?? null,
-    message: job.message ?? null,
-  }
-}
-
 export function useNodeLatenciesQuery(refetchIntervalMs: number, enabled = true) {
   const apiClient = useAPIClient()
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
@@ -621,20 +591,8 @@ export function useNodeLatencyJobQuery(refetchIntervalMs: number, enabled = true
   const queryEnabled = useAuthenticatedQueryEnabled(enabled)
 
   return useQuery({
-    queryKey: webQueryKeys.node.latencyJob(),
-    queryFn: async ({ signal }): Promise<NodeLatencyJobView> => {
-      const data = await apiClient.get<{ job?: NodeLatencyJobAPI | null }>('/nodes/latencies/job', undefined, {
-        signal,
-      })
-      return { job: adaptNodeLatencyJob(data.job) }
-    },
+    ...nodeLatencyJobQueryOptions(apiClient, refetchIntervalMs),
     enabled: queryEnabled,
-    placeholderData: (previousData) => previousData,
-    refetchInterval: (query) => {
-      const status = query.state.data?.job?.status
-      return status === 'queued' || status === 'running' || status === 'cancelling' ? refetchIntervalMs : false
-    },
-    refetchIntervalInBackground: false,
   })
 }
 

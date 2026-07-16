@@ -1,5 +1,7 @@
 export * from './group_subscription_preview'
 export * from './mutation'
+export * from './node_latency_job'
+export * from './node_latency_job_query'
 export * from './profile_selection'
 export * from './query'
 export * from './resource_updates'
