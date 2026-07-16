@@ -31,8 +31,10 @@ import { useAPIClient } from '~/contexts'
 import { defaultResourcesAtom } from '~/store'
 import { mapWithConcurrency } from './bounded_concurrency'
 import { toID, toNumericID } from './client'
+import { setCachedNodeLatencyJob } from './node_latency_job'
+import { adaptNodeLatencyJob } from './node_latency_job_query'
 import { selectProfileResources } from './profile_selection'
-import { adaptNodeLatencyJob, adaptNodeLatencyProbeResults } from './query'
+import { adaptNodeLatencyProbeResults } from './query'
 import { invalidateQueryKeys, webQueryKeys } from './query_cache'
 import { updateSubscriptionResource, updateUserProfile } from './resource_updates'
 import { invalidateChangedSubscriptionResources } from './subscription_cache'
@@ -971,6 +973,7 @@ export function useUpdateGeodataSourceMutation() {
 
 export function useTestNodeLatenciesMutation() {
   const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async ({
@@ -992,17 +995,26 @@ export function useTestNodeLatenciesMutation() {
         throw new Error('invalid manual latency admission response')
       }
 
+      const job = adaptNodeLatencyJob(data.job)
+      if (!job) {
+        throw new Error('manual latency admission did not return a job')
+      }
+
       return {
         items: adaptNodeLatencyProbeResults(data.items),
         admission: data.admission,
-        job: adaptNodeLatencyJob(data.job),
+        job,
       } satisfies NodeLatencyProbeResponse
+    },
+    onSuccess: (response) => {
+      setCachedNodeLatencyJob(queryClient, response.job)
     },
   })
 }
 
 export function useCancelNodeLatencyJobMutation() {
   const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (jobId: string) => {
@@ -1010,6 +1022,9 @@ export function useCancelNodeLatencyJobMutation() {
         job?: Parameters<typeof adaptNodeLatencyJob>[0]
       }>('/nodes/latencies/job', { id: toNumericID(jobId) })
       return adaptNodeLatencyJob(data.job)
+    },
+    onSuccess: (job) => {
+      setCachedNodeLatencyJob(queryClient, job)
     },
   })
 }
