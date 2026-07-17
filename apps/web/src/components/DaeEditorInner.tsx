@@ -1,23 +1,23 @@
-import type { DaeEditorProps } from './DaeEditor'
 import type { Monaco } from '@monaco-editor/react'
 import type * as monacoEditor from 'monaco-editor'
+import type { DaeEditorProps } from './DaeEditor'
 import { Editor } from '@monaco-editor/react'
 import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EDITOR_OPTIONS, EDITOR_THEME_DARK, EDITOR_THEME_LIGHT } from '~/constants'
 import { dynamicCompletionItemsAtom } from '~/editor_completions'
 import {
+  acquireLsp,
   applyDynamicCompletionItems,
   applyShikiThemes,
   getLspClient,
   handleEditorBeforeMount,
-  initLsp,
   isShikiReady,
   syncModelWithLsp,
 } from '~/monaco'
-import '~/suppress-monaco-errors'
-
 import { colorSchemeAtom } from '~/store'
+
+import '~/suppress-monaco-errors'
 
 export function DaeEditorInner({
   value,
@@ -31,12 +31,22 @@ export function DaeEditorInner({
   const [, forceUpdate] = useState({})
   const monacoRef = useRef<Monaco | null>(null)
   const lspSyncRef = useRef<{ dispose: () => void } | null>(null)
+  const lspOwnerRef = useRef<{ dispose: () => void } | null>(null)
   const modelRef = useRef<monacoEditor.editor.ITextModel | null>(null)
+  const retiredRef = useRef(false)
 
   useEffect(() => {
     return () => {
+      retiredRef.current = true
       lspSyncRef.current?.dispose()
       lspSyncRef.current = null
+      const model = modelRef.current
+      modelRef.current = null
+      if (model && !model.isDisposed()) {
+        model.dispose()
+      }
+      lspOwnerRef.current?.dispose()
+      lspOwnerRef.current = null
     }
   }, [])
 
@@ -65,7 +75,13 @@ export function DaeEditorInner({
         forceUpdate({})
       }
 
-      await initLsp(monacoInstance)
+      const lspOwner = await acquireLsp(monacoInstance)
+      if (retiredRef.current) {
+        lspOwner.dispose()
+        return
+      }
+      lspOwnerRef.current?.dispose()
+      lspOwnerRef.current = lspOwner
 
       const lspClient = getLspClient()
       if (lspClient) {

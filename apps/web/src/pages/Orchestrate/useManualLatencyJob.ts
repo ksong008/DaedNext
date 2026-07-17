@@ -43,6 +43,15 @@ export function useManualLatencyJob({ fallbackTotal, onProbeResults, onTerminal 
   const cancellationRequestedRef = useRef(false)
   const terminalTrackerRef = useRef(new ManualLatencyTerminalTracker())
 
+  useEffect(() => {
+    return () => {
+      startAbortRef.current?.abort(new Error('manual latency page owner retired'))
+      startAbortRef.current = null
+      startRequestRef.current = null
+      terminalTrackerRef.current = new ManualLatencyTerminalTracker()
+    }
+  }, [])
+
   const getCachedJob = useCallback(
     () => queryClient.getQueryData<NodeLatencyJobView>(webQueryKeys.node.latencyJob())?.job ?? null,
     [queryClient],

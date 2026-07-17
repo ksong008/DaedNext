@@ -40,4 +40,16 @@ describe('request abort scope', () => {
 
     expect(scope.signal.aborted).toBe(false)
   })
+
+  it('propagates a page lifecycle signal independently of a caller signal', () => {
+    const page = new AbortController()
+    const caller = new AbortController()
+    const scope = createAPIRequestAbortScope({ signal: caller.signal }, [page.signal])
+
+    page.abort(new Error('page closed'))
+
+    expect(scope.signal.aborted).toBe(true)
+    expect(scope.signal.reason).toEqual(new Error('page closed'))
+    scope.dispose()
+  })
 })

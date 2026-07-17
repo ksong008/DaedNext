@@ -1,9 +1,11 @@
+import type { APIClientInterface } from '~/apis/client'
 import { useStore } from '@nanostores/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createContext, use, useEffect, useMemo } from 'react'
 
-import { APIClient, type APIClientInterface, normalizeEndpointURL } from '~/apis/client'
+import { createContext, use, useEffect, useMemo } from 'react'
+import { APIClient, buildAPIURL, normalizeEndpointURL } from '~/apis/client'
 import { isMockMode, MockAPIClient } from '~/mocks'
+import { PAGE_INSTANCE_HEADER, pageInstanceId, registerPageRetireHandler, retirePageOwners } from '~/page_lifecycle'
 import { endpointURLAtom, tokenAtom } from '~/store'
 
 export type APIClientType = APIClientInterface
@@ -73,6 +75,55 @@ export function QueryProvider({ children, colorScheme, themeMode, setThemeMode }
     }
     return new APIClient(normalizedEndpointURL, token)
   }, [endpointURL, token])
+
+  useEffect(() => {
+    if (!token || isMockMode()) return
+    const heartbeat = new AbortController()
+    const touch = () => {
+      void apiClient
+        .post('/ui/session', undefined, undefined, {
+          signal: heartbeat.signal,
+          suppressErrorToast: true,
+          timeoutMs: 5_000,
+        })
+        .catch(() => undefined)
+    }
+    touch()
+    const timer = window.setInterval(touch, 3_000)
+    const unregisterRetireHandler = registerPageRetireHandler(() => {
+      heartbeat.abort()
+      window.clearInterval(timer)
+    })
+    return () => {
+      unregisterRetireHandler()
+      heartbeat.abort()
+      window.clearInterval(timer)
+    }
+  }, [apiClient, token])
+
+  useEffect(() => {
+    const closeHint = () => {
+      if (!token || isMockMode()) return
+      const url = buildAPIURL(normalizeEndpointURL(endpointURL), '/ui/session/close')
+      void fetch(url, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          [PAGE_INSTANCE_HEADER]: pageInstanceId(),
+        },
+        keepalive: true,
+      }).catch(() => undefined)
+    }
+    const retire = (event: PageTransitionEvent) => {
+      if (event.persisted) return
+      closeHint()
+      void queryClient.cancelQueries()
+      queryClient.clear()
+      retirePageOwners()
+    }
+    window.addEventListener('pagehide', retire)
+    return () => window.removeEventListener('pagehide', retire)
+  }, [endpointURL, queryClient, token])
 
   const colorSchemeContextValue = useMemo(
     () => ({ colorScheme, themeMode, setThemeMode }),

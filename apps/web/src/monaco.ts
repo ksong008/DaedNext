@@ -1,5 +1,6 @@
 import type { Monaco } from '@monaco-editor/react'
 import type * as monacoEditor from 'monaco-editor'
+import type { RoutingCompletionItem } from '~/editor_completions'
 import {
   applyShikiThemes as applyShikiThemesBase,
   DiagnosticSeverity,
@@ -12,7 +13,6 @@ import {
   setDynamicCompletionItems as setDynamicCompletionItemsBase,
   SHIKI_THEMES,
 } from '@daeuniverse/dae-editor'
-import { getDynamicCompletionItems, type RoutingCompletionItem } from '~/editor_completions'
 // Import the browser LSP server worker
 import DaeLspWorker from '@daeuniverse/dae-lsp/server/browser?worker'
 import { loader } from '@monaco-editor/react'
@@ -21,6 +21,20 @@ import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker'
 import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
+import { getDynamicCompletionItems } from '~/editor_completions'
+import { registerPageRetireHandler } from '~/page_lifecycle'
+
+const DNS_COMMENT_RE = /#[^\n]*/
+const DNS_SINGLE_QUOTED_STRING_RE = /'[^']*'/
+const DNS_DOUBLE_QUOTED_STRING_RE = /"[^"]*"/
+const DNS_CONTROL_KEYWORD_RE = /\b(upstream|routing|request|response|fallback|accept|reject|asis)\b/
+const DNS_MATCH_KEYWORD_RE = /\b(qname|qtype|rcode|qclass)\b/
+const DNS_RESOURCE_TYPE_RE = /\b(geosite|geoip)\b/
+const DNS_BRACKET_RE = /[{}()]/
+const DNS_ARROW_RE = /->/
+const DNS_DELIMITER_RE = /:/
+const DNS_IDENTIFIER_RE = /[\w.-]+/
+const DNS_WHITESPACE_RE = /\s+/
 
 // Configure Monaco workers for Vite
 globalThis.MonacoEnvironment = {
@@ -47,6 +61,9 @@ loader.config({ monaco })
 // LSP Client instance (singleton)
 let lspClient: MonacoLspClient | null = null
 let lspInitialized = false
+let lspOwners = 0
+let lspInitialization: Promise<void> | null = null
+let lspGeneration = 0
 
 // Cache for dynamic completion items (set before LSP client is initialized)
 let pendingDynamicCompletionItems: RoutingCompletionItem[] = getDynamicCompletionItems()
@@ -67,17 +84,17 @@ function registerDnsALanguage(monacoInstance: Monaco): void {
   monacoInstance.languages.setMonarchTokensProvider(id, {
     tokenizer: {
       root: [
-        [/#[^\n]*/, 'comment'],
-        [/'[^']*'/, 'string'],
-        [/"[^"]*"/, 'string'],
-        [/\b(upstream|routing|request|response|fallback|accept|reject|asis)\b/, 'keyword'],
-        [/\b(qname|qtype|rcode|qclass)\b/, 'keyword'],
-        [/\b(geosite|geoip)\b/, 'type.identifier'],
-        [/[{}()]/, '@brackets'],
-        [/->/, 'operator'],
-        [/:/, 'delimiter'],
-        [/[\w.-]+/, 'identifier'],
-        [/\s+/, 'white'],
+        [DNS_COMMENT_RE, 'comment'],
+        [DNS_SINGLE_QUOTED_STRING_RE, 'string'],
+        [DNS_DOUBLE_QUOTED_STRING_RE, 'string'],
+        [DNS_CONTROL_KEYWORD_RE, 'keyword'],
+        [DNS_MATCH_KEYWORD_RE, 'keyword'],
+        [DNS_RESOURCE_TYPE_RE, 'type.identifier'],
+        [DNS_BRACKET_RE, '@brackets'],
+        [DNS_ARROW_RE, 'operator'],
+        [DNS_DELIMITER_RE, 'delimiter'],
+        [DNS_IDENTIFIER_RE, 'identifier'],
+        [DNS_WHITESPACE_RE, 'white'],
       ],
     },
   })
@@ -88,54 +105,107 @@ function registerDnsALanguage(monacoInstance: Monaco): void {
  */
 async function initLspClient(monacoInstance: Monaco): Promise<void> {
   if (lspInitialized) return
+  if (lspInitialization) return lspInitialization
 
-  try {
+  const generation = lspGeneration
+  lspInitialization = (async () => {
     // Create worker using Vite's ?worker import (returns a Worker constructor)
     const worker = new DaeLspWorker() as Worker
 
     // Create LSP client with the worker instance
-    lspClient = new MonacoLspClient(worker)
-
-    // Initialize the LSP connection
-    await lspClient.initialize()
-
-    // Register Monaco providers
-    lspClient.registerProviders(monacoInstance as unknown as typeof monacoEditor, 'routingA')
-
-    // Apply any pending dynamic completion items that were set before LSP was initialized
-    if (pendingDynamicCompletionItems.length > 0) {
-      applyDynamicCompletionItems(pendingDynamicCompletionItems)
-    }
-
-    // Set up diagnostics handling
-    lspClient.onDiagnostics((uri, diagnostics) => {
-      const model = monacoInstance.editor
-        .getModels()
-        .find((m: monacoEditor.editor.ITextModel) => m.uri.toString() === uri)
-      if (model) {
-        const markers = diagnostics.map((d) => ({
-          severity:
-            d.severity === DiagnosticSeverity.Error
-              ? monacoInstance.MarkerSeverity.Error
-              : d.severity === DiagnosticSeverity.Warning
-                ? monacoInstance.MarkerSeverity.Warning
-                : monacoInstance.MarkerSeverity.Info,
-          startLineNumber: d.range.start.line + 1,
-          startColumn: d.range.start.character + 1,
-          endLineNumber: d.range.end.line + 1,
-          endColumn: d.range.end.character + 1,
-          message: d.message,
-          source: d.source || 'dae',
-        }))
-        monacoInstance.editor.setModelMarkers(model, 'dae', markers)
+    const client = new MonacoLspClient(worker)
+    try {
+      // Initialize the LSP connection
+      await client.initialize()
+      if (generation !== lspGeneration || lspOwners === 0) {
+        client.dispose()
+        return
       }
-    })
+      lspClient = client
 
-    lspInitialized = true
+      // Register Monaco providers
+      client.registerProviders(monacoInstance as unknown as typeof monacoEditor, 'routingA')
+
+      // Apply any pending dynamic completion items that were set before LSP was initialized
+      if (pendingDynamicCompletionItems.length > 0) {
+        applyDynamicCompletionItems(pendingDynamicCompletionItems)
+      }
+
+      // Set up diagnostics handling
+      client.onDiagnostics((uri, diagnostics) => {
+        const model = monacoInstance.editor
+          .getModels()
+          .find((m: monacoEditor.editor.ITextModel) => m.uri.toString() === uri)
+        if (model) {
+          const markers = diagnostics.map((d) => ({
+            severity:
+              d.severity === DiagnosticSeverity.Error
+                ? monacoInstance.MarkerSeverity.Error
+                : d.severity === DiagnosticSeverity.Warning
+                  ? monacoInstance.MarkerSeverity.Warning
+                  : monacoInstance.MarkerSeverity.Info,
+            startLineNumber: d.range.start.line + 1,
+            startColumn: d.range.start.character + 1,
+            endLineNumber: d.range.end.line + 1,
+            endColumn: d.range.end.character + 1,
+            message: d.message,
+            source: d.source || 'dae',
+          }))
+          monacoInstance.editor.setModelMarkers(model, 'dae', markers)
+        }
+      })
+
+      lspInitialized = true
+    } catch (error) {
+      client.dispose()
+      throw error
+    }
+  })()
+  try {
+    await lspInitialization
   } catch (error) {
     console.error('Failed to initialize DAE LSP client:', error)
+    lspClient?.dispose()
+    lspClient = null
+  } finally {
+    lspInitialization = null
   }
 }
+
+export interface LspOwner {
+  dispose: () => void
+}
+
+export async function acquireLsp(monacoInstance: Monaco): Promise<LspOwner> {
+  lspOwners += 1
+  let released = false
+  await initLspClient(monacoInstance)
+  return {
+    dispose() {
+      if (released) return
+      released = true
+      lspOwners = Math.max(0, lspOwners - 1)
+      if (lspOwners === 0) {
+        disposeMonacoRuntime()
+      }
+    },
+  }
+}
+
+export function disposeMonacoRuntime(): void {
+  lspGeneration += 1
+  lspClient?.dispose()
+  lspClient = null
+  lspInitialized = false
+  lspInitialization = null
+  lspOwners = 0
+  for (const model of monaco.editor.getModels()) {
+    monaco.editor.setModelMarkers(model, 'dae', [])
+    model.dispose()
+  }
+}
+
+registerPageRetireHandler(disposeMonacoRuntime)
 
 // Handler for beforeMount prop in Editor component
 // Registers routingA language definition (LSP provides all providers)
@@ -152,10 +222,6 @@ export async function applyShikiThemes(monacoInstance: Monaco) {
 /**
  * Initialize LSP for the editor (call after editor is mounted)
  */
-export async function initLsp(monacoInstance: Monaco) {
-  await initLspClient(monacoInstance)
-}
-
 /**
  * Get the LSP client instance
  */
