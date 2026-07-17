@@ -1,5 +1,6 @@
 import type { APIQueryValue } from './client'
 
+import { PAGE_INSTANCE_HEADER, pageInstanceId, pageLifecycleSignal } from '~/page_lifecycle'
 import { buildAPIURL, normalizeEndpointURL } from './client'
 
 const TRAILING_CARRIAGE_RETURN_RE = /\r$/
@@ -23,10 +24,20 @@ export function buildEventStreamURL(endpointURL: string, path: string, query?: R
 
 export function subscribeEventStream(options: SubscribeEventStreamOptions) {
   const controller = new AbortController()
+  const pageSignal = pageLifecycleSignal()
+  const abortFromPage = () => controller.abort(pageSignal.reason)
+  if (pageSignal.aborted) {
+    abortFromPage()
+  } else {
+    pageSignal.addEventListener('abort', abortFromPage, { once: true })
+  }
 
-  void runEventStreamSubscription(options, controller.signal)
+  void runEventStreamSubscription(options, controller.signal).finally(() => {
+    pageSignal.removeEventListener('abort', abortFromPage)
+  })
 
   return () => {
+    pageSignal.removeEventListener('abort', abortFromPage)
     controller.abort()
   }
 }
@@ -57,6 +68,7 @@ async function readEventStream(options: SubscribeEventStreamOptions, signal: Abo
     headers: {
       accept: 'text/event-stream',
       authorization: `Bearer ${options.token}`,
+      [PAGE_INSTANCE_HEADER]: pageInstanceId(),
     },
     signal,
   })

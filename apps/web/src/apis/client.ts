@@ -1,6 +1,7 @@
 import type { APIRequestOptions } from './request_abort'
 import { toast } from 'sonner'
 
+import { PAGE_INSTANCE_HEADER, pageInstanceId, pageLifecycleSignal } from '~/page_lifecycle'
 import { tokenAtom } from '~/store'
 import { APIRequestTimeoutError, createAPIRequestAbortScope, DEFAULT_API_REQUEST_TIMEOUT_MS } from './request_abort'
 
@@ -204,10 +205,13 @@ export class APIClient implements APIClientInterface {
     options?: APIRequestOptions,
   ): Promise<T> {
     const url = buildAPIURL(this.endpointURL, path, query)
-    const abortScope = createAPIRequestAbortScope({
-      signal: options?.signal,
-      timeoutMs: options?.timeoutMs ?? this.requestTimeoutMs,
-    })
+    const abortScope = createAPIRequestAbortScope(
+      {
+        signal: options?.signal,
+        timeoutMs: options?.timeoutMs ?? this.requestTimeoutMs,
+      },
+      [pageLifecycleSignal()],
+    )
 
     try {
       const response = await fetch(url, {
@@ -215,6 +219,7 @@ export class APIClient implements APIClientInterface {
         headers: {
           ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
           ...(this.token ? { authorization: `Bearer ${this.token}` } : {}),
+          [PAGE_INSTANCE_HEADER]: pageInstanceId(),
         },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: abortScope.signal,

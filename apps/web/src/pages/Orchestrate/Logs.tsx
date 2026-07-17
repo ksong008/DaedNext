@@ -250,6 +250,7 @@ export function LogResource() {
     return () => {
       unsubscribe()
       pendingEntriesRef.current = []
+      knownEntryIdsRef.current.clear()
       if (flushTimerRef.current !== null) {
         window.clearTimeout(flushTimerRef.current)
         flushTimerRef.current = null

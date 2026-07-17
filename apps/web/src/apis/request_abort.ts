@@ -18,20 +18,33 @@ export class APIRequestTimeoutError extends Error {
   }
 }
 
-export function createAPIRequestAbortScope(options: APIRequestOptions = {}): APIRequestAbortScope {
+export function createAPIRequestAbortScope(
+  options: APIRequestOptions = {},
+  inheritedSignals: readonly AbortSignal[] = [],
+): APIRequestAbortScope {
   const controller = new AbortController()
-  const callerSignal = options.signal
+  const signals = [...inheritedSignals, ...(options.signal ? [options.signal] : [])]
   const timeoutMs = options.timeoutMs
   let timeout: ReturnType<typeof setTimeout> | null = null
 
-  const abortFromCaller = () => {
-    controller.abort(callerSignal?.reason)
+  const abortFromSignal = (signal: AbortSignal) => {
+    controller.abort(signal.reason)
   }
 
-  if (callerSignal?.aborted) {
-    abortFromCaller()
-  } else {
-    callerSignal?.addEventListener('abort', abortFromCaller, { once: true })
+  const listeners = signals.map((signal) => {
+    const listener = () => abortFromSignal(signal)
+    if (signal.aborted) {
+      abortFromSignal(signal)
+    } else if (!controller.signal.aborted) {
+      signal.addEventListener('abort', listener, { once: true })
+    }
+    return { signal, listener }
+  })
+
+  if (controller.signal.aborted) {
+    for (const { signal, listener } of listeners) {
+      signal.removeEventListener('abort', listener)
+    }
   }
 
   if (!controller.signal.aborted && timeoutMs != null && Number.isFinite(timeoutMs) && timeoutMs > 0) {
@@ -43,7 +56,9 @@ export function createAPIRequestAbortScope(options: APIRequestOptions = {}): API
   return {
     signal: controller.signal,
     dispose() {
-      callerSignal?.removeEventListener('abort', abortFromCaller)
+      for (const { signal, listener } of listeners) {
+        signal.removeEventListener('abort', listener)
+      }
       if (timeout !== null) {
         clearTimeout(timeout)
         timeout = null
