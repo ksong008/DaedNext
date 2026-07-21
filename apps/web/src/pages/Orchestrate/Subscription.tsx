@@ -12,6 +12,7 @@ import {
   useUpdateSubscriptionMutation,
   useUpdateSubscriptionsMutation,
 } from '~/apis'
+import { DuplicateSubscriptionTagError } from '~/apis/subscription_import'
 import { EditSubscriptionFormModal } from '~/components/EditSubscriptionFormModal'
 import { ImportResourceFormModal } from '~/components/ImportResourceFormModal'
 import { QRCodeModal } from '~/components/QRCodeModal'
@@ -243,9 +244,16 @@ export function SubscriptionResource({
         onClose={closeImportSubscriptionFormModal}
         showUseProxySubscription
         handleSubmit={async (values) => {
-          return importSubscriptionsMutation.mutateAsync(
-            values.resources.map(({ link, tag }) => ({ link, tag, useProxy: values.useProxySubscription })),
-          )
+          try {
+            return await importSubscriptionsMutation.mutateAsync(
+              values.resources.map(({ link, tag }) => ({ link, tag, useProxy: values.useProxySubscription })),
+            )
+          } catch (error) {
+            if (error instanceof DuplicateSubscriptionTagError) {
+              return [{ error: t('subscriptionTagDuplicateInImport') }]
+            }
+            throw error
+          }
         }}
       />
 
