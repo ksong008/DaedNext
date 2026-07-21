@@ -507,6 +507,7 @@
   "software options": "软件选项",
   "step": "步骤",
   "subscription": "订阅",
+  "subscriptionTagDuplicateInImport": "同一次导入中的订阅标签不能重复。",
   "subscriptionNodeWindow": {
     "showMore": "再显示 {{count}} 个节点 · {{visible}}/{{total}}"
   },

@@ -507,6 +507,7 @@
   "software options": "Software Options",
   "step": "Step",
   "subscription": "Subscription",
+  "subscriptionTagDuplicateInImport": "Each subscription tag must be unique within one import.",
   "subscriptionNodeWindow": {
     "showMore": "Show {{count}} more nodes · {{visible}}/{{total}}"
   },
