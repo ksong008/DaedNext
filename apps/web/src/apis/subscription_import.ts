@@ -6,6 +6,12 @@ import { toID } from './client'
 
 export const SUBSCRIPTION_BULK_REQUEST_CONCURRENCY = 4
 
+interface SubscriptionOperationError {
+  code: string
+  message: string
+  retryable: boolean
+}
+
 interface SubscriptionImportResponse {
   link: string
   error?: string | null
@@ -13,6 +19,8 @@ interface SubscriptionImportResponse {
   importedNodeCount: number
   failedNodeCount: number
   partialFailure: boolean
+  fetchError?: SubscriptionOperationError | null
+  refreshError?: SubscriptionOperationError | null
   nodeImportResult: Array<{
     link: string
     error?: string | null
@@ -61,6 +69,8 @@ export function importSubscriptions(
       importedNodeCount: result.importedNodeCount,
       failedNodeCount: result.failedNodeCount,
       partialFailure: result.partialFailure,
+      fetchError: result.fetchError ?? null,
+      refreshError: result.refreshError ?? null,
       subscription: {
         id: toID(result.subscription.id),
       },
