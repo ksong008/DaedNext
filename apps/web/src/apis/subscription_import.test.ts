@@ -9,6 +9,8 @@ function response(id: number) {
     importedNodeCount: 0,
     failedNodeCount: 0,
     partialFailure: false,
+    fetchError: null,
+    refreshError: null,
     subscription: { id },
     nodeImportResult: [],
   }
@@ -56,5 +58,32 @@ describe('subscription import admission', () => {
 
     expect(post).toHaveBeenCalledTimes(4)
     expect(imported).toHaveLength(4)
+  })
+
+  it('keeps a failed initial fetch separate from node import failures', async () => {
+    const { importSubscriptions } = await import('./subscription_import')
+    const post = vi.fn(async () => ({
+      ...response(9),
+      error:
+        'subscription 9 was created, but its initial fetch failed: subscription TLS certificate is not issued by a trusted authority',
+      partialFailure: true,
+      fetchError: {
+        code: 'tls_unknown_issuer',
+        message: 'subscription TLS certificate is not issued by a trusted authority',
+        retryable: false,
+      },
+      failedNodeCount: 0,
+      nodeImportResult: [],
+    }))
+    const client = { post } as unknown as Pick<APIClientInterface, 'post'>
+
+    const [result] = await importSubscriptions(client, [{ link: 'https://subscription.invalid/nine', tag: 'nine' }])
+
+    expect(result.subscriptionCreated).toBe(true)
+    expect(result.fetchError?.code).toBe('tls_unknown_issuer')
+    expect(result.failedNodeCount).toBe(0)
+    expect(result.nodeImportResult).toEqual([])
+    expect(result.error).toContain('initial fetch failed')
+    expect(result.error).not.toContain('node import')
   })
 })

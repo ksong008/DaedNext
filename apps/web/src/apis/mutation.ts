@@ -16,12 +16,8 @@ import type {
   ImportArgument,
   LogSettings,
   NodeLatencyProbeResponse,
-  NodeLatencyProbeResult,
-  NodeListView,
   Policy,
   PolicyParam,
-  SubscriptionListView,
-  SubscriptionSummaryListView,
 } from './types'
 import type { MODE } from '~/constants'
 
@@ -38,6 +34,7 @@ import { adaptNodeLatencyProbeResults } from './query'
 import { invalidateQueryKeys, webQueryKeys } from './query_cache'
 import { updateSubscriptionResource, updateUserProfile } from './resource_updates'
 import { invalidateChangedSubscriptionResources } from './subscription_cache'
+import { applyOptimisticSubscriptionDelete, restoreSubscriptionDeleteCache } from './subscription_delete_cache'
 import { importSubscriptions, SUBSCRIPTION_BULK_REQUEST_CONCURRENCY } from './subscription_import'
 
 interface CountResponse {
@@ -162,53 +159,6 @@ function invalidateEditedSubscriptionResources(queryClient: QueryClient) {
     webQueryKeys.group.expanded(),
     webQueryKeys.general.state(),
   ])
-}
-
-function pruneDeletedSubscriptionResources(queryClient: QueryClient, ids: string[]) {
-  const deletedSubscriptionIds = new Set(ids)
-  const removedNodeIds = new Set<string>()
-
-  queryClient.setQueryData<SubscriptionSummaryListView | undefined>(webQueryKeys.subscription.summary(), (current) =>
-    current
-      ? {
-          ...current,
-          subscriptions: current.subscriptions.filter((subscription) => !deletedSubscriptionIds.has(subscription.id)),
-        }
-      : current,
-  )
-  queryClient.setQueryData<SubscriptionListView | undefined>(webQueryKeys.subscription.expanded(), (current) =>
-    current
-      ? {
-          ...current,
-          subscriptions: current.subscriptions.filter((subscription) => !deletedSubscriptionIds.has(subscription.id)),
-        }
-      : current,
-  )
-  queryClient.setQueryData<NodeListView | undefined>(webQueryKeys.node.subscriptionBackedList(), (current) => {
-    if (!current) return current
-
-    const nodes = current.nodes.items.filter((node) => {
-      if (node.subscriptionID && deletedSubscriptionIds.has(node.subscriptionID)) {
-        removedNodeIds.add(node.id)
-        return false
-      }
-      return true
-    })
-
-    return {
-      ...current,
-      nodes: {
-        ...current.nodes,
-        items: nodes,
-        totalCount: nodes.length,
-      },
-    }
-  })
-  if (removedNodeIds.size > 0) {
-    queryClient.setQueryData<NodeLatencyProbeResult[] | undefined>(webQueryKeys.node.latency(), (current) =>
-      current?.filter((result) => !removedNodeIds.has(result.id)),
-    )
-  }
 }
 
 export function useSetJsonStorageMutation() {
@@ -996,8 +946,11 @@ export function useRemoveSubscriptionsMutation() {
       const result = await apiClient.delete<{ removed: number }>('/subscriptions', { ids: ids.map(toNumericID) })
       return result.removed
     },
-    onSuccess: (_removed, ids) => {
-      pruneDeletedSubscriptionResources(queryClient, ids)
+    onMutate: (ids) => applyOptimisticSubscriptionDelete(queryClient, ids),
+    onError: (_error, _ids, snapshots) => {
+      restoreSubscriptionDeleteCache(queryClient, snapshots)
+    },
+    onSettled: () => {
       void invalidateQueryKeys(queryClient, [
         webQueryKeys.subscription.summary(),
         webQueryKeys.subscription.expanded(),
