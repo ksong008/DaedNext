@@ -113,6 +113,7 @@ export interface GroupSubscriptionResource {
 export interface GroupResource {
   id: string
   name: string
+  version: number
   nodes: NodeResource[]
   subscriptions: GroupSubscriptionResource[]
   policy: Policy

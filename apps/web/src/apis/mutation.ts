@@ -678,6 +678,31 @@ export function useGroupAddNodesMutation() {
   })
 }
 
+export function useGroupReplaceNodesMutation() {
+  const apiClient = useAPIClient()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      nodeIDs,
+      expectedVersion,
+    }: {
+      id: string
+      nodeIDs: string[]
+      expectedVersion: number
+    }) => {
+      await apiClient.put(`/groups/${id}/nodes`, {
+        nodeIds: nodeIDs.map(toNumericID),
+        expectedVersion,
+      })
+    },
+    onSuccess: async () => {
+      await invalidateGroupResource(queryClient, { generalState: true })
+    },
+  })
+}
+
 export function useGroupDelNodesMutation() {
   const apiClient = useAPIClient()
   const queryClient = useQueryClient()
