@@ -21,6 +21,7 @@ import {
   useGroupAddSubscriptionsMutation,
   useGroupDelNodesMutation,
   useGroupDelSubscriptionsMutation,
+  useGroupReplaceNodesMutation,
   useGroupsQuery,
   useNodesQuery,
   useRemoveGroupMutation,
@@ -79,6 +80,7 @@ export function GroupResource({
   const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
   const groupDelNodesMutation = useGroupDelNodesMutation()
   const groupDelSubscriptionsMutation = useGroupDelSubscriptionsMutation()
+  const groupReplaceNodesMutation = useGroupReplaceNodesMutation()
   const updateGroupFormModalRef = useRef<GroupFormModalRef>(null)
   const { data: subscriptionsQuery } = useSubscriptionsQuery()
   const [addingNodesGroupId, setAddingNodesGroupId] = useState<string | null>(null)
@@ -390,17 +392,21 @@ export function GroupResource({
         onClose={() => setAddingNodesGroupId(null)}
         groupName={addingNodesGroup?.name || t('group')}
         items={addableNodeItems}
-        loading={groupAddNodesMutation.isPending || groupDelNodesMutation.isPending}
+        loading={
+          groupAddNodesMutation.isPending || groupDelNodesMutation.isPending || groupReplaceNodesMutation.isPending
+        }
         resetKey={addingNodesGroupId || ''}
         selectionMode={addingNodesGroup?.policy === Policy.Fixed ? 'single' : 'multiple'}
         onSubmit={async (nodeIDs) => {
           if (!addingNodesGroupId) return
 
-          if (addingNodesGroup?.policy === Policy.Fixed && addingNodesGroup.nodes.length > 0) {
-            await groupDelNodesMutation.mutateAsync({
+          if (addingNodesGroup?.policy === Policy.Fixed) {
+            await groupReplaceNodesMutation.mutateAsync({
               id: addingNodesGroupId,
-              nodeIDs: addingNodesGroup.nodes.map((node) => node.id),
+              nodeIDs,
+              expectedVersion: addingNodesGroup.version,
             })
+            return
           }
 
           await groupAddNodesMutation.mutateAsync({

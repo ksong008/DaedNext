@@ -26,6 +26,7 @@ import {
   useGroupAddSubscriptionsMutation,
   useGroupDelNodesMutation,
   useGroupDelSubscriptionsMutation,
+  useGroupReplaceNodesMutation,
   useGroupsQuery,
   useGroupsSummaryQuery,
   useInterfacesQuery,
@@ -144,6 +145,7 @@ export function OrchestratePage() {
   const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
   const groupDelNodesMutation = useGroupDelNodesMutation()
   const groupDelSubscriptionsMutation = useGroupDelSubscriptionsMutation()
+  const groupReplaceNodesMutation = useGroupReplaceNodesMutation()
   const [manualLatencyProbeOverrides, setManualLatencyProbeOverrides] = useState<
     Record<string, NodeLatencyProbeResult>
   >({})
@@ -229,6 +231,24 @@ export function OrchestratePage() {
   const getGroupById = useCallback(
     (groupId: string) => groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === groupId),
     [groupsQuery?.groups],
+  )
+  const assignNodeToGroup = useCallback(
+    (groupId: string, nodeId: string) => {
+      const group = getGroupById(groupId)
+      if (!group || group.nodes.some((node) => node.id === nodeId)) return false
+
+      if (group.policy === Policy.Fixed) {
+        groupReplaceNodesMutation.mutate({
+          id: groupId,
+          nodeIDs: [nodeId],
+          expectedVersion: group.version,
+        })
+      } else {
+        groupAddNodesMutation.mutate({ id: groupId, nodeIDs: [nodeId] })
+      }
+      return true
+    },
+    [getGroupById, groupAddNodesMutation, groupReplaceNodesMutation],
   )
   const getGroupSubscriptionBinding = useCallback(
     (groupId: string, subscriptionId: string) =>
@@ -783,16 +803,7 @@ export function OrchestratePage() {
 
         if (sourceDroppableId === 'node-list') {
           const nodeId = draggableId.replace('node-', '')
-          const targetGroup = groupsQuery?.groups.find(
-            (group: GroupListView['groups'][number]) => group.id === fallbackGroupId,
-          )
-          if (
-            targetGroup &&
-            !targetGroup.nodes.some((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
-          ) {
-            groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [nodeId] })
-            return
-          }
+          if (assignNodeToGroup(fallbackGroupId, nodeId)) return
         }
 
         if (
@@ -801,34 +812,14 @@ export function OrchestratePage() {
           sourceDroppableId !== 'subscription-list'
         ) {
           const nodeId = draggableId.replace('subscription-node-', '')
-          const targetGroup = groupsQuery?.groups.find(
-            (group: GroupListView['groups'][number]) => group.id === fallbackGroupId,
-          )
-          if (
-            targetGroup &&
-            !targetGroup.nodes.some((node: GroupListView['groups'][number]['nodes'][number]) => node.id === nodeId)
-          ) {
-            groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [nodeId] })
-            return
-          }
+          if (assignNodeToGroup(fallbackGroupId, nodeId)) return
         }
 
         if (sourceDroppableId.endsWith('-nodes')) {
           const sourceGroupId = sourceDroppableId.replace('-nodes', '')
           const parsed = parseGroupItemId(draggableId)
           if (parsed && sourceGroupId !== fallbackGroupId) {
-            const targetGroup = groupsQuery?.groups.find(
-              (group: GroupListView['groups'][number]) => group.id === fallbackGroupId,
-            )
-            if (
-              targetGroup &&
-              !targetGroup.nodes.some(
-                (node: GroupListView['groups'][number]['nodes'][number]) => node.id === parsed.itemId,
-              )
-            ) {
-              groupAddNodesMutation.mutate({ id: fallbackGroupId, nodeIDs: [parsed.itemId] })
-              return
-            }
+            if (assignNodeToGroup(fallbackGroupId, parsed.itemId)) return
           }
         }
 
@@ -881,14 +872,7 @@ export function OrchestratePage() {
     if (isFromSubscriptionNodes && confirmedDestDroppableId.endsWith('-nodes')) {
       const nodeId = draggableId.replace('subscription-node-', '')
       const targetGroupId = confirmedDestDroppableId.replace('-nodes', '')
-      const targetGroup = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === targetGroupId)
-
-      if (
-        targetGroup &&
-        !targetGroup.nodes.some((n: GroupListView['groups'][number]['nodes'][number]) => n.id === nodeId)
-      ) {
-        groupAddNodesMutation.mutate({ id: targetGroupId, nodeIDs: [nodeId] })
-      }
+      assignNodeToGroup(targetGroupId, nodeId)
       return
     }
 
@@ -911,13 +895,7 @@ export function OrchestratePage() {
         // Cross-group drag - add node to target group
         const parsed = parseGroupItemId(draggableId)
         if (parsed) {
-          const targetGroup = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === destGroupId)
-          if (
-            targetGroup &&
-            !targetGroup.nodes.some((n: GroupListView['groups'][number]['nodes'][number]) => n.id === parsed.itemId)
-          ) {
-            groupAddNodesMutation.mutate({ id: destGroupId, nodeIDs: [parsed.itemId] })
-          }
+          assignNodeToGroup(destGroupId, parsed.itemId)
         }
       }
       return
@@ -962,14 +940,7 @@ export function OrchestratePage() {
     if (sourceDroppableId === 'node-list' && confirmedDestDroppableId.endsWith('-nodes')) {
       const nodeId = draggableId.replace('node-', '')
       const targetGroupId = confirmedDestDroppableId.replace('-nodes', '')
-      const targetGroup = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === targetGroupId)
-
-      if (
-        targetGroup &&
-        !targetGroup.nodes.some((n: GroupListView['groups'][number]['nodes'][number]) => n.id === nodeId)
-      ) {
-        groupAddNodesMutation.mutate({ id: targetGroupId, nodeIDs: [nodeId] })
-      }
+      assignNodeToGroup(targetGroupId, nodeId)
       return
     }
 
@@ -1130,7 +1101,9 @@ export function OrchestratePage() {
         items={summaryEditableNodeItems}
         initialSelectedIds={summarySelectedNodeItemIds}
         allowEmptySubmit
-        loading={groupAddNodesMutation.isPending || groupDelNodesMutation.isPending}
+        loading={
+          groupAddNodesMutation.isPending || groupDelNodesMutation.isPending || groupReplaceNodesMutation.isPending
+        }
         resetKey={summaryEditingGroupId || ''}
         selectionMode={summaryEditingGroup?.policy === Policy.Fixed ? 'single' : 'multiple'}
         onSubmit={async (nodeIDs) => {
@@ -1162,8 +1135,11 @@ export function OrchestratePage() {
               : Promise.resolve()
 
           if (summaryEditingGroup.policy === Policy.Fixed) {
-            await deleteNodes()
-            await addNodes()
+            await groupReplaceNodesMutation.mutateAsync({
+              id: summaryEditingGroupId,
+              nodeIDs,
+              expectedVersion: summaryEditingGroup.version,
+            })
           } else {
             await Promise.all([deleteNodes(), addNodes()])
           }

@@ -669,6 +669,7 @@ export class MockAPIClient implements APIClientInterface {
           items: mockGroups.groups.map((group) => ({
             id: numericID(group.id),
             name: group.name,
+            version: 1,
             policy: group.policy,
             policyParams: group.policyParams,
             nodes: group.nodes.map((node) => toMockNodeAPI(node)),
@@ -920,12 +921,14 @@ export class MockAPIClient implements APIClientInterface {
     }
 
     const groupNodesMatch = path.match(groupNodesPathPattern)
-    if (groupNodesMatch && (method === 'POST' || method === 'DELETE')) {
-      const payload = body as { nodeIds?: number[] }
+    if (groupNodesMatch && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
+      const payload = body as { nodeIds?: number[]; expectedVersion?: number }
       const updated =
         method === 'POST'
           ? addMockGroupNodes(groupNodesMatch[1], payload.nodeIds ?? [])
-          : deleteMockGroupNodes(groupNodesMatch[1], payload.nodeIds ?? [])
+          : method === 'PUT'
+            ? replaceMockGroupNodes(groupNodesMatch[1], payload.nodeIds ?? [])
+            : deleteMockGroupNodes(groupNodesMatch[1], payload.nodeIds ?? [])
       return { updated } as T
     }
 
@@ -1270,6 +1273,15 @@ function deleteMockGroupNodes(groupID: string | number, nodeIDs: number[]) {
   const before = group.nodes.length
   group.nodes = group.nodes.filter((node) => !deletedNodeIDs.has(numericID(node.id)))
   return before - group.nodes.length
+}
+
+function replaceMockGroupNodes(groupID: string | number, nodeIDs: number[]) {
+  const group = findMockGroup(groupID)
+  if (!group) return 0
+
+  const replacements = nodeIDs.map(findMockNode).filter((node) => node !== null)
+  group.nodes = replacements
+  return replacements.length
 }
 
 function addMockGroupSubscriptions(

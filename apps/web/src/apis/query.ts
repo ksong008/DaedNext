@@ -173,6 +173,7 @@ interface SectionSummaryAPI {
 interface GroupAPI {
   id: number
   name: string
+  version: number
   policy: string
   policyParams: Array<{ key?: string | null; val: string }>
   nodes: NodeAPI[]
@@ -971,6 +972,7 @@ function adaptGroup(group: GroupAPI): GroupResource {
   return {
     id: String(group.id),
     name: group.name,
+    version: group.version,
     nodes: group.nodes.map(adaptNode),
     subscriptions: group.subscriptions.map((binding) => ({
       nameFilterRegex: binding.nameFilterRegex ?? null,
