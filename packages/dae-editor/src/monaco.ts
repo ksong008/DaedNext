@@ -2,13 +2,25 @@ import type { Monaco } from '@monaco-editor/react'
 import type * as monaco from 'monaco-editor'
 import type { RoutingACompletionItem } from './constants'
 import { shikiToMonaco } from '@shikijs/monaco'
-
-import { createHighlighter } from 'shiki'
+import { createHighlighterCore } from 'shiki/core'
+import { createOnigurumaEngine } from 'shiki/engine/oniguruma'
+import css from 'shiki/langs/css.mjs'
+import html from 'shiki/langs/html.mjs'
+import javascript from 'shiki/langs/javascript.mjs'
+import json from 'shiki/langs/json.mjs'
+import markdown from 'shiki/langs/markdown.mjs'
+import shell from 'shiki/langs/shell.mjs'
+import typescript from 'shiki/langs/typescript.mjs'
+import yaml from 'shiki/langs/yaml.mjs'
+import githubDark from 'shiki/themes/github-dark.mjs'
+import githubLight from 'shiki/themes/github-light.mjs'
+import vitesseDark from 'shiki/themes/vitesse-dark.mjs'
+import vitesseLight from 'shiki/themes/vitesse-light.mjs'
 import { EDITOR_LANGUAGE_ROUTINGA, ROUTINGA_COMPLETION_ITEMS } from './constants'
 import { formatRoutingA } from './formatter'
 
 // Shiki highlighter instance
-let shikiHighlighter: Awaited<ReturnType<typeof createHighlighter>> | null = null
+let shikiHighlighter: Awaited<ReturnType<typeof createHighlighterCore>> | null = null
 
 // Track if Shiki themes have been applied to Monaco globally
 let shikiThemesApplied = false
@@ -32,9 +44,10 @@ export function isShikiReady(): boolean {
 export async function initShikiHighlighter() {
   if (shikiHighlighter) return shikiHighlighter
 
-  shikiHighlighter = await createHighlighter({
-    themes: ['vitesse-dark', 'vitesse-light', 'github-dark', 'github-light'],
-    langs: ['json', 'javascript', 'typescript', 'html', 'css', 'yaml', 'markdown', 'shell'],
+  shikiHighlighter = await createHighlighterCore({
+    themes: [vitesseDark, vitesseLight, githubDark, githubLight],
+    langs: [json, javascript, typescript, html, css, yaml, markdown, shell],
+    engine: createOnigurumaEngine(import('shiki/wasm')),
   })
 
   return shikiHighlighter
