@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="apps/web/public/logo-rounded.png" alt="daed logo" width="120" />
+  <img src="apps/web/public/logo.webp" alt="daed logo" width="120" />
   <h1>daed</h1>
   <p><strong>Product shell and web dashboard for dae</strong></p>
 
