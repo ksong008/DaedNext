@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DAENEXT_ROOT="${DAENEXT_ROOT:-/root/project/DaeNext}"
 RUST_TARGET="${RUST_TARGET:-aarch64-unknown-linux-gnu}"
 DEB_ARCH="${DEB_ARCH:-arm64}"
+RPM_ARCH="${RPM_ARCH:-aarch64}"
 OUT_DIR="${OUT_DIR:-"$ROOT_DIR/build/packages-linux-arm64-$(date +%Y%m%d-%H%M%S)"}"
 TARGET_DIR="${TARGET_DIR:-"$ROOT_DIR/build/target-linux-arm64-jemalloc"}"
 BUILD_LOG="$OUT_DIR/daed-linux-arm64-build.log"
@@ -44,10 +45,11 @@ build_daed() {
   ) >"$BUILD_LOG" 2>&1
 }
 
-package_deb() {
+package_linux() {
   local binary="$1"
   local package_root="$OUT_DIR/package-root"
-  local package="$OUT_DIR/installer-daed-linux-arm64.deb"
+  local deb_package="$OUT_DIR/installer-daed-linux-arm64.deb"
+  local rpm_package="$OUT_DIR/installer-daed-linux-arm64.rpm"
 
   require_file "$binary"
   require_file "$ROOT_DIR/build/package-sources/geodata/geoip.dat"
@@ -85,7 +87,7 @@ package_deb() {
     install -m 0644 "$icon" "$package_root/usr/share/icons/hicolor/$size/apps/daed.png"
   done
 
-  rm -f "$package"
+  rm -f "$deb_package" "$rpm_package"
   fpm -s dir -t deb -a "$DEB_ARCH" \
     --version "$PACKAGE_VERSION" \
     --iteration "$PACKAGE_RELEASE" \
@@ -94,15 +96,30 @@ package_deb() {
     --maintainer 'DaedNext Maintainers <noreply@github.com>' \
     --name daed \
     --license 'MIT AGPL' \
-    --package "$package" \
+    --package "$deb_package" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \
     --after-remove "$ROOT_DIR/install/package_after_remove.sh" \
     -C "$package_root" \
     .
 
-  sha256sum "$package" >"$OUT_DIR/SHA256SUMS"
+  fpm -s dir -t rpm -a "$RPM_ARCH" \
+    --version "$PACKAGE_VERSION" \
+    --iteration "$PACKAGE_RELEASE" \
+    --url 'https://github.com/ksong008/DaedNext' \
+    --description 'DaedNext product shell for dae.' \
+    --maintainer 'DaedNext Maintainers <noreply@github.com>' \
+    --name daed \
+    --license 'MIT AGPL' \
+    --package "$rpm_package" \
+    --after-install "$ROOT_DIR/install/package_after_install.sh" \
+    --after-remove "$ROOT_DIR/install/package_after_remove.sh" \
+    -C "$package_root" \
+    .
+
+  sha256sum "$deb_package" "$rpm_package" >"$OUT_DIR/SHA256SUMS"
   file "$package_root/usr/bin/daed" >"$OUT_DIR/daed-linux-arm64.file"
-  dpkg-deb -I "$package" >"$OUT_DIR/installer-daed-linux-arm64.deb.control"
+  dpkg-deb -I "$deb_package" >"$OUT_DIR/installer-daed-linux-arm64.deb.control"
+  rpm -qip "$rpm_package" >"$OUT_DIR/installer-daed-linux-arm64.rpm.info"
 }
 
 main() {
@@ -118,11 +135,12 @@ main() {
   build_daed
 
   local binary="$TARGET_DIR/$RUST_TARGET/release/daed"
-  package_deb "$binary"
+  package_linux "$binary"
 
   printf '%s\n' "$OUT_DIR" >"$ROOT_DIR/build/latest-linux-arm64-package-dir"
   printf 'packages written to %s\n' "$OUT_DIR"
   printf 'deb=%s\n' "$OUT_DIR/installer-daed-linux-arm64.deb"
+  printf 'rpm=%s\n' "$OUT_DIR/installer-daed-linux-arm64.rpm"
   printf 'build_log=%s\n' "$BUILD_LOG"
 }
 
