@@ -27,6 +27,7 @@ import { useAPIClient } from '~/contexts'
 import { defaultResourcesAtom } from '~/store'
 import { mapWithConcurrency } from './bounded_concurrency'
 import { toID, toNumericID } from './client'
+import { flushGroupSortStateWrites } from './group_sort_storage'
 import { setCachedNodeLatencyJob } from './node_latency_job'
 import { adaptNodeLatencyJob } from './node_latency_job_query'
 import { selectProfileResources } from './profile_selection'
@@ -302,6 +303,7 @@ export function useExportDAEBundleMutation() {
 
   return useMutation({
     mutationFn: async (): Promise<DAEBundle> => {
+      await flushGroupSortStateWrites()
       return apiClient.get<DAEBundle>('/user/me/dae-bundle')
     },
   })
@@ -313,6 +315,7 @@ export function useImportDAEBundleMutation() {
 
   return useMutation({
     mutationFn: async (bundle: DAEBundle) => {
+      await flushGroupSortStateWrites()
       return apiClient.put<{ imported: boolean }>('/user/me/dae-bundle', bundle)
     },
     onSuccess: () => {

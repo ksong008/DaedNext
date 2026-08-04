@@ -316,6 +316,12 @@ export interface DAEBundleGroup {
   subscriptionBindings: DAEBundleGroupSubscription[]
 }
 
+export interface DAEBundleGroupSortState {
+  version: 1
+  groupSortableKeys: string[]
+  groupSortOrders: Record<string, { nodes: string[]; subscriptions: string[] }>
+}
+
 export interface DAEBundle {
   schemaVersion: number
   exportedAt: string
@@ -328,6 +334,7 @@ export interface DAEBundle {
   subscriptions: DAEBundleSubscription[]
   nodes: DAEBundleNode[]
   groups: DAEBundleGroup[]
+  groupSortState?: DAEBundleGroupSortState | null
 }
 
 export interface DAEConfigFileExportResult {

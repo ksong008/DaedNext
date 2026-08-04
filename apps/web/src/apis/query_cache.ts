@@ -75,6 +75,7 @@ export const webQueryKeys = {
     expanded: () => childKey(QUERY_KEY_ROUTING, 'expanded'),
   },
   storage: () => rootKey(QUERY_KEY_STORAGE),
+  groupSortState: (authScope: string) => childKey(QUERY_KEY_STORAGE, 'group-sort-state-v1', authScope),
   subscription: {
     root: () => rootKey(QUERY_KEY_SUBSCRIPTION),
     summary: () => childKey(QUERY_KEY_SUBSCRIPTION, 'summary'),
