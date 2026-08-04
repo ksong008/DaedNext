@@ -48,7 +48,11 @@ import {
 } from '~/components/ui/scrollable-dialog'
 import { DraggableResourceType, ORCHESTRATE_SECTION_IDS, QUERY_KEY_NODE_LATENCY } from '~/constants'
 import { useMediaQuery } from '~/hooks'
-import { usePersistentGroupSortOrders, usePersistentSortOrder } from '~/hooks/usePersistentSortOrder'
+import {
+  usePersistentGroupSortOrders,
+  usePersistentSortOrder,
+  useServerGroupSortState,
+} from '~/hooks/usePersistentSortOrder'
 import { cn } from '~/lib/utils'
 import { appStateAtom, groupSortOrdersAtom } from '~/store'
 import { deriveTime } from '~/utils'
@@ -101,6 +105,7 @@ export function OrchestratePage() {
   const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
+  const groupSortStateReady = useServerGroupSortState()
   const activeWorkspacePanel = useMemo(() => {
     const panel = searchParams.get('panel')
     if (!panel || panel === 'overview') return null
@@ -216,7 +221,7 @@ export function OrchestratePage() {
     'groupSortableKeys',
     storedGroupSortOrder,
     currentGroupIds,
-    groupSummariesQuery !== undefined,
+    groupSortStateReady && groupSummariesQuery !== undefined,
   )
   const groupSortMemberships = useMemo(
     () =>
@@ -227,7 +232,7 @@ export function OrchestratePage() {
       })),
     [groups],
   )
-  usePersistentGroupSortOrders(groupSortMemberships, groupsQuery !== undefined)
+  usePersistentGroupSortOrders(groupSortMemberships, groupSortStateReady && groupsQuery !== undefined)
   const getGroupById = useCallback(
     (groupId: string) => groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === groupId),
     [groupsQuery?.groups],
