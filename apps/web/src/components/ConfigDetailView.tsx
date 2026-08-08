@@ -126,10 +126,6 @@ export function ConfigDetailView({ config }: ConfigDetailViewProps) {
           value={<BooleanBadge value={global.autoConfigKernelParameter} />}
         />
         <DetailItem label={t('mptcp')} value={<BooleanBadge value={global.mptcp} />} />
-        <DetailItem
-          label={t('enableLocalTcpFastRedirect')}
-          value={<BooleanBadge value={global.enableLocalTcpFastRedirect} />}
-        />
       </SectionCard>
 
       {/* Connecting Options */}
