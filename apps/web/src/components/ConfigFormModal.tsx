@@ -554,12 +554,6 @@ export function ConfigFormDrawer({
                           />
 
                           <Checkbox
-                            label={t('enableLocalTcpFastRedirect')}
-                            checked={formValues.enableLocalTcpFastRedirect}
-                            onCheckedChange={(checked) => setValue('enableLocalTcpFastRedirect', !!checked)}
-                          />
-
-                          <Checkbox
                             label={t('mptcp')}
                             checked={formValues.mptcp}
                             onCheckedChange={(checked) => setValue('mptcp', !!checked)}
