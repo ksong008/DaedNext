@@ -388,6 +388,10 @@
     "durationSeconds": "s",
     "connectionsUnit": "conn",
     "sessionsUnit": "sessions",
+    "trafficStatus": "Traffic",
+    "trafficActive": "Live",
+    "trafficUnavailable": "Temporarily unavailable",
+    "trafficStale": "Stale; polling",
     "runtimeStates": {
       "running": "Running",
       "starting": "Starting",

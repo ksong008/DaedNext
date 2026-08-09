@@ -82,7 +82,8 @@ export const webQueryKeys = {
     expanded: () => childKey(QUERY_KEY_SUBSCRIPTION, 'expanded'),
   },
   traffic: {
-    overview: (windowSec: number, maxPoints: number) => childKey(QUERY_KEY_TRAFFIC, windowSec, maxPoints),
+    overview: (scope: string, windowSec: number, maxPoints: number) =>
+      childKey(QUERY_KEY_TRAFFIC, scope, windowSec, maxPoints),
   },
   user: () => rootKey(QUERY_KEY_USER),
 } as const

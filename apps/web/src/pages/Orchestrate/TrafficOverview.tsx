@@ -441,6 +441,12 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
   const linkModeLabel = formatRuntimeToken(runtime?.netnsLinkMode)
   const minLatencyLabel =
     typeof minLatencyMs === 'number' && Number.isFinite(minLatencyMs) ? `${minLatencyMs} ms` : t('latency.unavailable')
+  const trafficStatusLabel =
+    runtimeOverview?.trafficAvailable === false
+      ? t('trafficOverview.trafficUnavailable')
+      : (runtimeOverview?.trafficAgeMs ?? 0) > 3_000
+        ? t('trafficOverview.trafficStale')
+        : t('trafficOverview.trafficActive')
 
   return (
     <Card withBorder shadow="sm" padding="none" className="overflow-hidden backdrop-blur-sm" style={runtimeStatusStyle}>
@@ -481,6 +487,11 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
             <HeaderChip
               value={`${t('trafficOverview.subscriptions')} ${subscriptionCount ?? '—'} · ${t('trafficOverview.nodes')} ${nodeCount ?? '—'}`}
               tone="resource"
+            />
+            <HeaderChip
+              label={t('trafficOverview.trafficStatus')}
+              value={trafficStatusLabel}
+              tone={trafficStatusLabel === t('trafficOverview.trafficActive') ? 'resource' : 'neutral'}
             />
           </div>
         </div>

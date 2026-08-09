@@ -388,6 +388,10 @@
     "durationSeconds": "秒",
     "connectionsUnit": "连接",
     "sessionsUnit": "会话",
+    "trafficStatus": "流量",
+    "trafficActive": "实时",
+    "trafficUnavailable": "暂时不可用",
+    "trafficStale": "数据过期，轮询中",
     "runtimeStates": {
       "running": "运行中",
       "starting": "启动中",

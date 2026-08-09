@@ -2,7 +2,7 @@ import type { TrafficOverviewQueryData } from './types'
 
 import { describe, expect, it, vi } from 'vitest'
 import { deriveTransport, resolveNodeTransport } from './node_transport'
-import { mergeRuntimeOverviewDelta } from './runtime_overview'
+import { adaptRuntimeOverview, mergeRuntimeOverviewDelta } from './runtime_overview'
 
 async function loadBuildLogEventsURL() {
   Object.defineProperty(globalThis, 'location', {
@@ -83,6 +83,26 @@ describe('deriveTransport', () => {
 })
 
 describe('mergeRuntimeOverviewDelta', () => {
+  it('rejects non-finite and negative traffic values', () => {
+    const adapted = adaptRuntimeOverview({
+      updatedAt: '2026-05-03T13:00:00.000Z',
+      uploadRate: 'NaN',
+      downloadRate: '-1',
+      uploadTotal: '10',
+      downloadTotal: '20',
+      activeConnections: 0,
+      udpSessions: 0,
+      samples: [
+        { timestamp: 'invalid', uploadRate: '1', downloadRate: '2' },
+        { timestamp: '2026-05-03T13:00:00.000Z', uploadRate: 'Infinity', downloadRate: '-9' },
+      ],
+    })
+
+    expect(adapted.uploadRate).toBe(0)
+    expect(adapted.downloadRate).toBe(0)
+    expect(adapted.samples).toEqual([{ timestamp: '2026-05-03T13:00:00.000Z', uploadRate: 0, downloadRate: 0 }])
+  })
+
   it('appends new delta samples and updates scalar fields', () => {
     const previousData: TrafficOverviewQueryData = {
       updatedAt: '2026-05-03T13:00:00.000Z',
