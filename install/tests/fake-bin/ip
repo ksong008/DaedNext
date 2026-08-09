@@ -1,0 +1,10 @@
+#!/bin/sh
+case "${1:-}" in
+    link|netns)
+        exit 0
+        ;;
+    *)
+        echo "unexpected synthetic ip operation: ${1:-}" >&2
+        exit 2
+        ;;
+esac
