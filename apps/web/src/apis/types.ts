@@ -545,6 +545,14 @@ export interface TrafficOverviewQueryData {
   rssBytes: string
   heapLiveBytes: string
   goroutines: number
+  trafficAvailable?: boolean
+  trafficSampleStatus?: 'active' | 'temporarily-unavailable' | 'runtime-stopped' | 'unknown'
+  trafficScope?: string
+  directIncluded?: boolean
+  counterEpoch?: number
+  trafficAgeMs?: number | null
+  lastTrafficSampleAt?: string | null
+  sequence?: number
   runtime?: RuntimeOverviewRuntimeState
   runtimeRevision?: RuntimeRevisionReport
   samples: Array<{

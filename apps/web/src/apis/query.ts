@@ -42,9 +42,10 @@ import { useStore } from '@nanostores/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAPIClient } from '~/contexts'
-
 import { isMockMode } from '~/mocks'
+
 import { endpointURLAtom, tokenAtom } from '~/store'
+import { normalizeEndpointURL } from './client'
 import { buildEventStreamURL, subscribeEventStream } from './event_stream'
 import { nodeLatencyJobQueryOptions } from './node_latency_job_query'
 import { resolveNodeTransport } from './node_transport'
@@ -104,6 +105,14 @@ interface RuntimeOverviewAPI {
   rssBytes?: string
   heapLiveBytes?: string | null
   goroutines?: number
+  trafficAvailable?: boolean
+  trafficSampleStatus?: string
+  trafficScope?: string
+  directIncluded?: boolean
+  counterEpoch?: number
+  trafficAgeMs?: number | null
+  lastTrafficSampleAt?: string | null
+  sequence?: number
   runtime?: RuntimeOverviewRuntimeState
   runtimeRevision?: RuntimeRevisionReport
   samples?: Array<{
@@ -302,8 +311,18 @@ function normalizeConfigGlobal(global?: Partial<ConfigGlobal> | null): ConfigGlo
   }
 }
 
-function trafficOverviewQueryKey(windowSec: number, maxPoints: number) {
-  return webQueryKeys.traffic.overview(windowSec, maxPoints)
+function trafficOverviewQueryKey(scope: string, windowSec: number, maxPoints: number) {
+  return webQueryKeys.traffic.overview(scope, windowSec, maxPoints)
+}
+
+function trafficCacheScope(endpointURL: string, token: string) {
+  const input = `${normalizeEndpointURL(endpointURL)}\0${token}`
+  let hash = 2166136261
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return `runtime-${(hash >>> 0).toString(16)}`
 }
 
 export function buildRuntimeEventsURL(endpointURL: string, windowSec: number, maxPoints: number) {
@@ -479,10 +498,19 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   const endpointURL = useStore(endpointURLAtom)
   const token = useStore(tokenAtom)
   const [isStreamLive, setIsStreamLive] = useState(false)
+  const [streamGeneration, setStreamGeneration] = useState(0)
+  const lastFreshEventAt = useRef(0)
+  const lastUpdatedAtMs = useRef(0)
+  const lastDeltaSequence = useRef<number | null>(null)
+  const freshEventStreak = useRef(0)
   const groupSelectionGeneration = useRef<string | null>(null)
   const queryEnabled = isMockMode() || !!token
   const streamEnabled = !isMockMode() && !!token && typeof fetch !== 'undefined'
-  const queryKey = useMemo(() => trafficOverviewQueryKey(windowSec, maxPoints), [windowSec, maxPoints])
+  const cacheScope = useMemo(() => trafficCacheScope(endpointURL, token), [endpointURL, token])
+  const queryKey = useMemo(
+    () => trafficOverviewQueryKey(cacheScope, windowSec, maxPoints),
+    [cacheScope, maxPoints, windowSec],
+  )
   const streamURL = useMemo(
     () => (streamEnabled ? buildRuntimeEventsURL(endpointURL, windowSec, maxPoints) : null),
     [endpointURL, maxPoints, streamEnabled, windowSec],
@@ -495,13 +523,35 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
     }
 
     setIsStreamLive(false)
+    lastFreshEventAt.current = Date.now()
+    lastUpdatedAtMs.current = 0
+    lastDeltaSequence.current = null
+    freshEventStreak.current = 0
     groupSelectionGeneration.current = null
+
+    const markFresh = (payload: RuntimeOverviewAPI, delta: boolean) => {
+      const updatedAtMs = Date.parse(payload.updatedAt)
+      if (!Number.isFinite(updatedAtMs)) return false
+      const wallAgeMs = Date.now() - updatedAtMs
+      if (wallAgeMs > 10_000 || wallAgeMs < -60_000) return false
+      if (delta && Number.isFinite(payload.sequence)) {
+        const sequence = payload.sequence as number
+        if (lastDeltaSequence.current !== null && sequence <= lastDeltaSequence.current) return false
+        lastDeltaSequence.current = sequence
+      }
+      if (lastUpdatedAtMs.current > 0 && updatedAtMs + 1_000 < lastUpdatedAtMs.current) return false
+      lastUpdatedAtMs.current = Math.max(lastUpdatedAtMs.current, updatedAtMs)
+      lastFreshEventAt.current = Date.now()
+      freshEventStreak.current = Math.min(freshEventStreak.current + 1, 3)
+      if (freshEventStreak.current >= 2) setIsStreamLive(true)
+      return true
+    }
 
     const handleOverview = (data: string) => {
       try {
         const payload = JSON.parse(data) as RuntimeOverviewAPI
         queryClient.setQueryData(queryKey, adaptRuntimeOverview(payload))
-        setIsStreamLive(true)
+        markFresh(payload, false)
       } catch {
         setIsStreamLive(false)
       }
@@ -509,10 +559,10 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
     const handleOverviewDelta = (data: string) => {
       try {
         const payload = JSON.parse(data) as RuntimeOverviewAPI
+        if (!markFresh(payload, true)) return
         queryClient.setQueryData<TrafficOverviewQueryData>(queryKey, (previousData) =>
           mergeRuntimeOverviewDelta(previousData, payload, windowSec, maxPoints),
         )
-        setIsStreamLive(true)
       } catch {
         setIsStreamLive(false)
       }
@@ -545,7 +595,43 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
     return () => {
       unsubscribe()
     }
-  }, [maxPoints, queryClient, queryKey, streamURL, token, windowSec])
+  }, [maxPoints, queryClient, queryKey, streamGeneration, streamURL, token, windowSec])
+
+  useEffect(() => {
+    const watchdog = window.setInterval(() => {
+      if (!streamEnabled) return
+      const age = lastFreshEventAt.current > 0 ? Date.now() - lastFreshEventAt.current : Number.POSITIVE_INFINITY
+      if (age > 3_000) {
+        freshEventStreak.current = 0
+        setIsStreamLive(false)
+      }
+      if (age > 10_000) {
+        lastFreshEventAt.current = Date.now()
+        setStreamGeneration((generation) => generation + 1)
+      }
+    }, 1_000)
+    const refreshOnVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      void queryClient.refetchQueries({ queryKey })
+      if (Date.now() - lastFreshEventAt.current > 3_000) {
+        setStreamGeneration((generation) => generation + 1)
+      }
+    }
+    document.addEventListener('visibilitychange', refreshOnVisible)
+    window.addEventListener('pageshow', refreshOnVisible)
+    return () => {
+      window.clearInterval(watchdog)
+      document.removeEventListener('visibilitychange', refreshOnVisible)
+      window.removeEventListener('pageshow', refreshOnVisible)
+    }
+  }, [queryClient, queryKey, streamEnabled])
+
+  useEffect(
+    () => () => {
+      queryClient.removeQueries({ queryKey, exact: true })
+    },
+    [queryClient, queryKey],
+  )
 
   return useQuery({
     queryKey,
