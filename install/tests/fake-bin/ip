@@ -1,4 +1,8 @@
 #!/bin/sh
+if [ -n "${DAED_TEST_CALL_LOG:-}" ]; then
+    printf 'ip %s\n' "$*" >>"$DAED_TEST_CALL_LOG"
+fi
+
 case "${1:-}" in
     link|netns)
         exit 0
