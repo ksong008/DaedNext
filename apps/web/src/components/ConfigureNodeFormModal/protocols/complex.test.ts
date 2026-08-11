@@ -111,6 +111,76 @@ describe('manual node protocol registry', () => {
     expect(new URL(muxLink).searchParams.get('mux')).toBe('1')
   })
 
+  it('generates and validates a VLESS Encryption account without leaking it to VMess', async () => {
+    vi.stubGlobal('location', {
+      hostname: '127.0.0.1',
+      origin: 'http://127.0.0.1',
+      protocol: 'http:',
+    })
+
+    const { v2rayProtocol } = await import('./complex')
+    const encryption = 'mlkem768x25519plus.native.1rtt.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    const encryptedLink = v2rayProtocol.generateLink({
+      ...v2rayProtocol.defaultValues,
+      protocol: 'vless',
+      id: 'uuid',
+      add: 'example.com',
+      port: 443,
+      net: 'tcp',
+      tls: 'tls',
+      vlessEncryption: encryption,
+    })
+    expect(new URL(encryptedLink).searchParams.get('encryption')).toBe(encryption)
+
+    const noEncryptionLink = v2rayProtocol.generateLink({
+      ...v2rayProtocol.defaultValues,
+      protocol: 'vless',
+      id: 'uuid',
+      add: 'example.com',
+      port: 443,
+      net: 'tcp',
+      tls: 'tls',
+      vlessEncryption: 'none',
+    })
+    expect(new URL(noEncryptionLink).searchParams.has('encryption')).toBe(false)
+
+    const vmessLink = v2rayProtocol.generateLink({
+      ...v2rayProtocol.defaultValues,
+      protocol: 'vmess',
+      id: 'uuid',
+      add: 'example.com',
+      port: 443,
+      vlessEncryption: encryption,
+    })
+    const vmessBody = JSON.parse(atob(vmessLink.slice('vmess://'.length)))
+    expect(vmessBody).not.toHaveProperty('vlessEncryption')
+
+    expect(
+      v2rayProtocol.schema.safeParse({
+        ...v2rayProtocol.defaultValues,
+        protocol: 'vless',
+        id: 'uuid',
+        add: 'example.com',
+        port: 443,
+        net: 'tcp',
+        tls: 'tls',
+        vlessEncryption: encryption,
+      }).success,
+    ).toBe(true)
+    expect(
+      v2rayProtocol.schema.safeParse({
+        ...v2rayProtocol.defaultValues,
+        protocol: 'vless',
+        id: 'uuid',
+        add: 'example.com',
+        port: 443,
+        net: 'tcp',
+        tls: 'tls',
+        vlessEncryption: 'mlkem768x25519plus.native.1rtt.bad-key',
+      }).success,
+    ).toBe(false)
+  })
+
   it('generates resident VLESS and VMess h2 settings with official http transport names', async () => {
     vi.stubGlobal('location', {
       hostname: '127.0.0.1',

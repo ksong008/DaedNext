@@ -37,6 +37,7 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
     grpcAuthority,
     xhttpMode,
     mux,
+    vlessEncryption,
   } = data
 
   if (protocol === 'vless') {
@@ -75,6 +76,8 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
       if (spx) params.spx = spx
       if (pqv) params.pqv = pqv
     }
+    const encryption = vlessEncryption.trim()
+    if (encryption !== '' && encryption !== 'none') params.encryption = encryption
 
     return generateURL({ protocol, username: id, host: add, port, hash: ps, params })
   }
@@ -87,6 +90,7 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
     if (body.net === 'h2') body.net = 'http'
     delete body.flow
     delete body.mux
+    delete body.vlessEncryption
     return `vmess://${Base64.encode(JSON.stringify(body))}`
   }
 
