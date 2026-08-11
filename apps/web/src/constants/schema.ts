@@ -3,6 +3,55 @@ import { validateXhttpFormFields } from '~/utils/xhttp'
 
 const UNSIGNED_INTEGER_PATTERN = /^\d+$/
 
+const VLESS_ENCRYPTION_KEY_LENGTHS = new Set([43, 1579])
+const VLESS_ENCRYPTION_KEY_PATTERN = /^[\w-]+$/
+const VLESS_ENCRYPTION_PADDING_PATTERN = /^(\d{1,3})-(\d+)-(\d+)$/
+
+function vlessEncryptionIssue(value: string): string | null {
+  const raw = value.trim()
+  if (raw === '' || raw === 'none') return null
+  if (raw !== value) return 'VLESS Encryption cannot contain leading or trailing whitespace'
+
+  const fields = raw.split('.')
+  if (fields.length < 4 || fields.includes('')) {
+    return 'VLESS Encryption must use mlkem768x25519plus.<mode>.<rtt>.<client-key> syntax'
+  }
+  if (fields[0] !== 'mlkem768x25519plus') {
+    return 'VLESS Encryption must start with mlkem768x25519plus'
+  }
+  if (!['native', 'xorpub', 'random'].includes(fields[1])) {
+    return 'VLESS Encryption mode must be native, xorpub, or random'
+  }
+  if (!['1rtt', '0rtt'].includes(fields[2])) {
+    return 'VLESS Encryption RTT must be 1rtt or 0rtt'
+  }
+
+  let keyCount = 0
+  let paddingCount = 0
+  for (const field of fields.slice(3)) {
+    if (field.length >= 20) {
+      if (!VLESS_ENCRYPTION_KEY_LENGTHS.has(field.length) || !VLESS_ENCRYPTION_KEY_PATTERN.test(field)) {
+        return 'VLESS Encryption client keys must be unpadded base64url X25519 (43 chars) or ML-KEM-768 (1579 chars)'
+      }
+      keyCount += 1
+      continue
+    }
+
+    const match = field.match(VLESS_ENCRYPTION_PADDING_PATTERN)
+    if (!match) return 'VLESS Encryption padding must use probability-from-to form'
+    const probability = Number(match[1])
+    const from = Number(match[2])
+    const to = Number(match[3])
+    if (probability > 100 || from > to) return 'VLESS Encryption padding range is invalid'
+    if (paddingCount === 0 && (probability !== 100 || from < 35 || to < 35)) {
+      return 'The first VLESS Encryption padding rule must reserve at least 35 bytes'
+    }
+    paddingCount += 1
+  }
+  if (keyCount === 0) return 'VLESS Encryption requires at least one client public key'
+  return null
+}
+
 export const v2raySchema = z
   .object({
     ps: z.string(),
@@ -46,6 +95,8 @@ export const v2raySchema = z
     alpn: z.string(),
     ech: z.string(), // Encrypted Client Hello
     scy: z.enum(['auto', 'aes-128-gcm', 'chacha20-poly1305', 'none', 'zero']),
+    /** VLESS Encryption account string; VMess always keeps this at none. */
+    vlessEncryption: z.string(),
     v: z.string(),
     allowInsecure: z.boolean(),
     mux: z.boolean(),
@@ -118,6 +169,31 @@ export const v2rayProtocolSchema = v2raySchema
         })
       }
       return
+    }
+
+    const encryptionError = vlessEncryptionIssue(data.vlessEncryption)
+    if (encryptionError) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['vlessEncryption'],
+        message: encryptionError,
+      })
+    }
+    if (data.vlessEncryption.trim() !== '' && data.vlessEncryption.trim() !== 'none') {
+      if (data.mux && data.flow !== 'none') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['mux'],
+          message: 'VLESS Encryption cannot be combined with Vision mux/XUDP',
+        })
+      }
+      if (data.net === 'h2' || data.net === 'meek') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['net'],
+          message: 'VLESS Encryption is not available with legacy H2 or Meek',
+        })
+      }
     }
 
     if (!['tcp', 'ws', 'grpc', 'httpupgrade', 'h2', 'xhttp', 'meek'].includes(data.net)) {

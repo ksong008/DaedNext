@@ -277,6 +277,17 @@ describe('parseV2rayUrl', () => {
     })
   })
 
+  it('should preserve the VLESS Encryption account field', () => {
+    const encryption = 'mlkem768x25519plus.native.1rtt.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    const result = parseV2rayUrl(
+      `vless://uuid@example.com:443?type=tcp&security=tls&encryption=${encryption}#encrypted-vless`,
+    )
+    expect(result).toMatchObject({
+      protocol: 'vless',
+      vlessEncryption: encryption,
+    })
+  })
+
   it('should parse VLESS URL with WebSocket', () => {
     const result = parseV2rayUrl(
       'vless://uuid@example.com:443?type=ws&security=tls&host=example.com&path=%2Fws#ws-vless',

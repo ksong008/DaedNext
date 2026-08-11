@@ -114,6 +114,7 @@ export const DEFAULT_V2RAY_FORM_VALUES: z.infer<typeof v2raySchema> = {
   tls: 'none',
   net: 'tcp',
   scy: 'auto',
+  vlessEncryption: 'none',
   add: '',
   aid: 0,
   allowInsecure: false,

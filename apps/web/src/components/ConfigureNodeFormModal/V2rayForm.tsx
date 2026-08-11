@@ -87,6 +87,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
     setValue('mux', false)
     setValue('type', 'none')
     if (protocol === 'vmess') {
+      setValue('vlessEncryption', 'none')
       if (!VMESS_NETWORK_OPTIONS.some((option) => option.value === formValues.net)) {
         setValue('net', 'tcp')
       }
@@ -142,6 +143,18 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
       />
 
       <Input label="ID" withAsterisk value={formValues.id} onChange={(e) => setValue('id', e.target.value)} />
+
+      {formValues.protocol === 'vless' && (
+        <Input
+          label="Encryption"
+          description="Optional Xray VLESS Encryption account. Use none or the complete mlkem768x25519plus string."
+          placeholder="none or mlkem768x25519plus.native.1rtt.<client-public-key>"
+          value={formValues.vlessEncryption}
+          error={errors.vlessEncryption?.message as string | undefined}
+          aria-invalid={!!errors.vlessEncryption}
+          onChange={(e) => setValue('vlessEncryption', e.target.value)}
+        />
+      )}
 
       {formValues.protocol === 'vmess' && (
         <NumberInput label="AlterID" min={0} max={0} value={formValues.aid} onChange={() => setValue('aid', 0)} />
