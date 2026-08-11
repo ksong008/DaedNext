@@ -32,6 +32,8 @@ export interface V2rayConfig {
   // Protocol fields (4.2)
   aid: number // alterId (VMess only, deprecated for AEAD)
   scy: 'auto' | 'aes-128-gcm' | 'chacha20-poly1305' | 'none' | 'zero' // encryption
+  /** VLESS Encryption account string (Xray mlkem768x25519plus.* form). */
+  vlessEncryption?: string
   // Transport fields (4.3)
   net: 'tcp' | 'kcp' | 'ws' | 'http' | 'h2' | 'grpc' | 'httpupgrade' | 'xhttp' | 'meek' // type
   type: 'none' | 'http' | 'srtp' | 'utp' | 'wechat-video' | 'dtls' | 'wireguard' // headerType (mKCP/TCP)

@@ -897,7 +897,10 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       port: parsed.port ? Number.parseInt(parsed.port, 10) : 443,
       ps: decodeURIComponent(parsed.hash.slice(1) || ''),
       // Protocol fields
-      scy: 'none', // VLESS encryption is always 'none'
+      // VMess `scy` remains a typed cipher selector. VLESS Encryption is a
+      // separate Xray account field and must be preserved verbatim.
+      scy: 'none',
+      vlessEncryption: params.get('encryption') || 'none',
       aid: 0,
       // Transport fields (4.3)
       net: normalizeNetworkType(netType),
