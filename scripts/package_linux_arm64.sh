@@ -41,7 +41,8 @@ build_daed() {
     CC_aarch64_unknown_linux_gnu="${CC_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-gcc}" \
     CXX_aarch64_unknown_linux_gnu="${CXX_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-g++}" \
     AR_aarch64_unknown_linux_gnu="${AR_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-ar}" \
-      cargo build -p dae-daemon --bin daed --release --target "$RUST_TARGET"
+    CARGO_PROFILE_RELEASE_LTO="${CARGO_PROFILE_RELEASE_LTO:-false}" \
+      cargo build --locked -p dae-daemon --bin daed --release --target "$RUST_TARGET"
   ) >"$BUILD_LOG" 2>&1
 }
 
