@@ -88,6 +88,7 @@ package_flavor() {
     --maintainer 'DaedNext Maintainers <noreply@github.com>' \
     --name daed \
     --license 'MIT AGPL' \
+    --depends ca-certificates \
     --package "$package_base.deb" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \
     --after-remove "$ROOT_DIR/install/package_after_remove.sh" \
@@ -102,6 +103,7 @@ package_flavor() {
     --maintainer 'DaedNext Maintainers <noreply@github.com>' \
     --name daed \
     --license 'MIT AGPL' \
+    --depends ca-certificates \
     --package "$package_base.rpm" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \
     --after-remove "$ROOT_DIR/install/package_after_remove.sh" \

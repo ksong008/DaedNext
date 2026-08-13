@@ -96,6 +96,7 @@ package_linux() {
     --maintainer 'DaedNext Maintainers <noreply@github.com>' \
     --name daed \
     --license 'MIT AGPL' \
+    --depends ca-certificates \
     --package "$deb_package" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \
     --after-remove "$ROOT_DIR/install/package_after_remove.sh" \
@@ -110,6 +111,7 @@ package_linux() {
     --maintainer 'DaedNext Maintainers <noreply@github.com>' \
     --name daed \
     --license 'MIT AGPL' \
+    --depends ca-certificates \
     --package "$rpm_package" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \
     --after-remove "$ROOT_DIR/install/package_after_remove.sh" \
