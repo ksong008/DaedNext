@@ -10,7 +10,6 @@ import {
   tuicProtocol,
   v2rayProtocol,
 } from './complex'
-import { masqueProtocol } from './masque'
 import { httpProtocol, socks5Protocol } from './simple'
 
 /**
@@ -57,7 +56,6 @@ protocolRegistry.register(anytlsProtocol as unknown as ProtocolConfig)
 protocolRegistry.register(tuicProtocol as unknown as ProtocolConfig)
 protocolRegistry.register(httpProtocol as unknown as ProtocolConfig)
 protocolRegistry.register(socks5Protocol as unknown as ProtocolConfig)
-protocolRegistry.register(masqueProtocol as unknown as ProtocolConfig)
 
 /**
  * Get all registered protocols

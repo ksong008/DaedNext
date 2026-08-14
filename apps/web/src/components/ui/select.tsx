@@ -152,6 +152,7 @@ interface SimpleSelectProps {
   data: Array<{ label: string; value: string }>
   value?: string
   onChange?: (value: string) => void
+  disabled?: boolean
   placeholder?: string
   className?: string
   label?: string
@@ -163,6 +164,7 @@ function SimpleSelect({
   data,
   value,
   onChange,
+  disabled,
   placeholder,
   className,
   label,
@@ -181,7 +183,7 @@ function SimpleSelect({
         </Label>
       )}
       {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
         <SelectTrigger className={cn('w-full', className)}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>

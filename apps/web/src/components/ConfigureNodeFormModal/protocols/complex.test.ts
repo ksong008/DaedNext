@@ -5,6 +5,19 @@ describe('manual node protocol registry', () => {
     vi.unstubAllGlobals()
   })
 
+  it('keeps MASQUE out of the WebUI protocol registry until the core executor exists', async () => {
+    vi.stubGlobal('location', {
+      hostname: '127.0.0.1',
+      origin: 'http://127.0.0.1',
+      protocol: 'http:',
+    })
+
+    const { getProtocol, getProtocols } = await import('./registry')
+
+    expect(getProtocol('masque')).toBeUndefined()
+    expect(getProtocols().map((protocol) => protocol.id)).not.toContain('masque')
+  })
+
   it('keeps Hysteria2 port hopping when generating registry links', async () => {
     vi.stubGlobal('location', {
       hostname: '127.0.0.1',
@@ -150,10 +163,39 @@ describe('manual node protocol registry', () => {
       id: 'uuid',
       add: 'example.com',
       port: 443,
+      net: 'grpc',
+      tls: 'tls',
+      alpn: 'h2',
+      ech: 'ech-config-list',
+      fp: 'firefox',
+      grpcMode: 'multi',
+      grpcAuthority: 'grpc.example.com',
+      pbk: 'vless-only-public-key',
+      sid: 'vless-only-short-id',
+      spx: '/vless-only',
+      pqv: 'vless-only-pqv',
+      flow: 'xtls-rprx-vision',
+      mux: true,
       vlessEncryption: encryption,
     })
     const vmessBody = JSON.parse(atob(vmessLink.slice('vmess://'.length)))
     expect(vmessBody).not.toHaveProperty('vlessEncryption')
+    expect(vmessBody).not.toHaveProperty('pbk')
+    expect(vmessBody).not.toHaveProperty('sid')
+    expect(vmessBody).not.toHaveProperty('spx')
+    expect(vmessBody).not.toHaveProperty('pqv')
+    expect(vmessBody).not.toHaveProperty('flow')
+    expect(vmessBody).not.toHaveProperty('mux')
+    expect(vmessBody).toMatchObject({
+      aid: 0,
+      net: 'grpc',
+      tls: 'tls',
+      alpn: 'h2',
+      ech: 'ech-config-list',
+      fp: 'firefox',
+      grpcMode: 'multi',
+      grpcAuthority: 'grpc.example.com',
+    })
 
     expect(
       v2rayProtocol.schema.safeParse({
@@ -177,6 +219,18 @@ describe('manual node protocol registry', () => {
         net: 'tcp',
         tls: 'tls',
         vlessEncryption: 'mlkem768x25519plus.native.1rtt.bad-key',
+      }).success,
+    ).toBe(false)
+    expect(
+      v2rayProtocol.schema.safeParse({
+        ...v2rayProtocol.defaultValues,
+        protocol: 'vless',
+        id: 'uuid',
+        add: 'example.com',
+        port: 443,
+        net: 'tcp',
+        tls: 'tls',
+        vlessEncryption: `${encryption}.100-65554-65554`,
       }).success,
     ).toBe(false)
   })

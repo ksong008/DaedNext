@@ -1,3 +1,4 @@
+import { validateEchConfigListBase64 } from './ech'
 export type XhttpValidationPath = 'xhttpMode' | 'xhttpExtra' | 'downloadSettingsRaw' | 'xmuxRaw' | 'alpn'
 
 export interface XhttpValidationIssue {
@@ -81,8 +82,17 @@ const XHTTP_SETTINGS_KEYS = [
   'downloadSettings',
   'extra',
 ]
-const TLS_SETTINGS_KEYS = ['allowInsecure', 'serverName', 'alpn']
-const REALITY_SETTINGS_KEYS = ['allowInsecure', 'serverName', 'alpn', 'publicKey', 'shortId', 'spiderX']
+const TLS_SETTINGS_KEYS = ['allowInsecure', 'serverName', 'alpn', 'fingerprint', 'echConfigList']
+const REALITY_SETTINGS_KEYS = [
+  'allowInsecure',
+  'serverName',
+  'alpn',
+  'fingerprint',
+  'publicKey',
+  'shortId',
+  'spiderX',
+  'mldsa65Verify',
+]
 const DOWNLOAD_TRANSPORT_KEYS = XHTTP_SETTINGS_KEYS
 const XMUX_KEYS = [
   'maxConcurrency',
@@ -334,9 +344,14 @@ function validateTlsSettings(value: unknown): string | null {
   if (value.serverName !== undefined && value.serverName !== null && typeof value.serverName !== 'string') {
     return 'downloadSettings.tlsSettings.serverName must be a string'
   }
+  if (value.fingerprint !== undefined && value.fingerprint !== null && typeof value.fingerprint !== 'string') {
+    return 'downloadSettings.tlsSettings.fingerprint must be a string'
+  }
   if (value.allowInsecure !== undefined && value.allowInsecure !== null && typeof value.allowInsecure !== 'boolean') {
     return 'downloadSettings.tlsSettings.allowInsecure must be a boolean'
   }
+  const ech = validateEchConfigListBase64(value.echConfigList, 'downloadSettings.tlsSettings.echConfigList')
+  if (ech) return ech
   return validateAlpnValue(value.alpn, 'downloadSettings.tlsSettings.alpn')
 }
 
@@ -347,7 +362,7 @@ function validateRealitySettings(value: unknown): string | null {
   const unsupported = unsupportedFieldsMessage('downloadSettings.realitySettings', value, REALITY_SETTINGS_KEYS)
   if (unsupported) return unsupported
 
-  for (const key of ['serverName', 'publicKey', 'shortId', 'spiderX']) {
+  for (const key of ['serverName', 'fingerprint', 'publicKey', 'shortId', 'spiderX', 'mldsa65Verify']) {
     if (value[key] !== undefined && value[key] !== null && typeof value[key] !== 'string') {
       return `downloadSettings.realitySettings.${key} must be a string`
     }
