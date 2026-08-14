@@ -30,6 +30,11 @@ function parseStrictBoolParam(value: string | null): boolean | null {
   return null
 }
 
+function parseGrpcMode(value: unknown): V2rayConfig['grpcMode'] | null {
+  if (value === undefined || value === null || value === '') return 'gun'
+  return value === 'gun' || value === 'multi' ? value : null
+}
+
 function countOccurrences(value: string, needle: string): number {
   return value.split(needle).length - 1
 }
@@ -638,6 +643,10 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
     try {
       const config = JSON.parse(decoded)
 
+      const net = normalizeNetworkType(config.net || 'tcp')
+      const grpcMode = net === 'grpc' ? parseGrpcMode(config.grpcMode ?? config.mode) : 'gun'
+      if (grpcMode === null) return null
+
       return {
         protocol: 'vmess',
         ps: config.ps || '',
@@ -645,7 +654,7 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         port: Number(config.port) || 0,
         id: config.id || '',
         aid: Number(config.aid) || 0,
-        net: normalizeNetworkType(config.net || 'tcp'),
+        net,
         type: config.type || 'none',
         host: config.host || '',
         path: config.path || '',
@@ -664,8 +673,8 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         spx: config.spx || '',
         pqv: '',
         ech: '',
-        grpcMode: 'gun',
-        grpcAuthority: '',
+        grpcMode,
+        grpcAuthority: net === 'grpc' ? config.grpcAuthority || config.authority || '' : '',
         xhttpMode: '',
         xhttpExtra: '',
         xPaddingBytes: '',
@@ -709,6 +718,8 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
 
     // Normalize network type: http -> h2 for HTTP/2
     const netType = params.get('type') || 'tcp'
+    const grpcMode = netType === 'grpc' ? parseGrpcMode(params.get('mode')) : 'gun'
+    if (grpcMode === null) return null
 
     return {
       id: decodeURIComponent(parsed.username),
@@ -724,7 +735,7 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
       host: params.get('host') || '',
       path: getPathValue(params, netType),
       // gRPC specific
-      grpcMode: netType === 'grpc' ? ((params.get('mode') || 'gun') as V2rayConfig['grpcMode']) : 'gun',
+      grpcMode,
       grpcAuthority: params.get('authority') || '',
       // XHTTP specific
       xhttpMode: netType === 'xhttp' ? params.get('mode') || '' : '',
@@ -890,6 +901,8 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
 
     // Get network type
     const netType = params.get('type') || 'tcp'
+    const grpcMode = netType === 'grpc' ? parseGrpcMode(params.get('mode')) : 'gun'
+    if (grpcMode === null) return null
 
     return {
       id: decodeURIComponent(parsed.username),
@@ -908,7 +921,7 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       host: params.get('host') || '',
       path: getPathValue(params, netType),
       // gRPC specific
-      grpcMode: netType === 'grpc' ? ((params.get('mode') || 'gun') as V2rayConfig['grpcMode']) : 'gun',
+      grpcMode,
       grpcAuthority: params.get('authority') || '',
       // XHTTP specific
       xhttpMode: netType === 'xhttp' ? params.get('mode') || '' : '',

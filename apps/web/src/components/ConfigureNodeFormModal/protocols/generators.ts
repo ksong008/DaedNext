@@ -83,14 +83,28 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
   }
 
   if (protocol === 'vmess') {
-    const body: Record<string, unknown> = structuredClone(data)
-    body.aid = 0
-    body.type = ''
-    if (!['ws', 'h2', 'httpupgrade', 'grpc'].includes(String(body.net))) body.path = ''
-    if (body.net === 'h2') body.net = 'http'
-    delete body.flow
-    delete body.mux
-    delete body.vlessEncryption
+    const vmessNet = net === 'h2' ? 'http' : net
+    const body: Record<string, unknown> = {
+      v: data.v || '2',
+      ps,
+      add,
+      port,
+      id,
+      aid: 0,
+      scy: data.scy,
+      net: vmessNet,
+      type: '',
+      host,
+      path: ['ws', 'h2', 'httpupgrade', 'grpc'].includes(net) ? path : '',
+      tls,
+      sni,
+      alpn,
+      ech,
+      fp,
+      allowInsecure,
+      grpcMode: net === 'grpc' ? grpcMode : 'gun',
+      grpcAuthority: net === 'grpc' ? grpcAuthority : '',
+    }
     return `vmess://${Base64.encode(JSON.stringify(body))}`
   }
 

@@ -314,6 +314,19 @@ describe('parseV2rayUrl', () => {
     })
   })
 
+  it('should accept only official Xray gRPC modes', () => {
+    expect(
+      parseV2rayUrl('vless://uuid@example.com:443?type=grpc&security=tls&serviceName=myservice&mode=multi#grpc-vless'),
+    ).toMatchObject({
+      protocol: 'vless',
+      net: 'grpc',
+      grpcMode: 'multi',
+    })
+    expect(
+      parseV2rayUrl('vless://uuid@example.com:443?type=grpc&security=tls&serviceName=myservice&mode=guna#grpc-vless'),
+    ).toBeNull()
+  })
+
   it('should parse VLESS URL with REALITY', () => {
     const result = parseV2rayUrl(
       'vless://uuid@example.com:443?type=tcp&security=reality&pbk=publickey&sid=shortid&fp=chrome&sni=sni.example.com&flow=xtls-rprx-vision#reality-vless',

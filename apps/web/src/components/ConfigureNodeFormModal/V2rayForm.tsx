@@ -1,8 +1,9 @@
 import type { z } from 'zod'
 import type { NodeFormProps } from './types'
+import type {VlessEncryptionMode, VlessEncryptionRtt} from '~/utils/vless_encryption';
 import { parseV2rayUrl } from '@daeuniverse/dae-node-parser'
-import { createPortal } from 'react-dom'
 
+import { createPortal } from 'react-dom'
 import { FormActions } from '~/components/FormActions'
 import { Checkbox } from '~/components/ui/checkbox'
 import { Input } from '~/components/ui/input'
@@ -11,6 +12,15 @@ import { Select } from '~/components/ui/select'
 import { Textarea } from '~/components/ui/textarea'
 import { DEFAULT_V2RAY_FORM_VALUES, v2rayProtocolSchema } from '~/constants'
 import { useNodeForm } from '~/hooks'
+import {
+  buildVlessEncryptionAccount,
+  hasVlessEncryptionAccountPrefix,
+  parseVlessEncryptionAccount,
+  supportsVlessEncryptionNetwork,
+  VLESS_ENCRYPTION_SUITE
+  
+  
+} from '~/utils/vless_encryption'
 import { generateV2rayLink } from './protocols/generators'
 
 const formSchema = v2rayProtocolSchema
@@ -55,6 +65,17 @@ const VLESS_NETWORK_OPTIONS = [
   { label: 'Meek', value: 'meek' },
 ]
 
+const VLESS_ENCRYPTION_MODE_OPTIONS = [
+  { label: 'Native', value: 'native' },
+  { label: 'XOR public key', value: 'xorpub' },
+  { label: 'Random', value: 'random' },
+]
+
+const VLESS_ENCRYPTION_RTT_OPTIONS = [
+  { label: '1-RTT', value: '1rtt' },
+  { label: '0-RTT', value: '0rtt' },
+]
+
 function networkOptions(protocol: V2rayFormValues['protocol']) {
   return protocol === 'vmess' ? VMESS_NETWORK_OPTIONS : VLESS_NETWORK_OPTIONS
 }
@@ -70,7 +91,18 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
   })
   const isCustomAlpn = formValues.alpn !== '' && !COMMON_ALPN_OPTIONS.some((option) => option.value === formValues.alpn)
   const alpnSelectValue = isCustomAlpn ? '__custom__' : formValues.alpn || undefined
-  const currentNetworkOptions = networkOptions(formValues.protocol || 'vmess')
+  const vlessEncryption = parseVlessEncryptionAccount(formValues.vlessEncryption)
+  const currentNetworkOptions = networkOptions(formValues.protocol || 'vmess').filter(
+    (option) =>
+      formValues.protocol !== 'vless' ||
+      !vlessEncryption.enabled ||
+      supportsVlessEncryptionNetwork(option.value) ||
+      option.value === formValues.net,
+  )
+  const vlessEncryptionUnavailable =
+    formValues.protocol === 'vless' &&
+    !vlessEncryption.enabled &&
+    !supportsVlessEncryptionNetwork(formValues.net || 'tcp')
   const supportsFlow = formValues.protocol === 'vless' && formValues.net === 'tcp'
   const supportsMux =
     formValues.protocol === 'vless' &&
@@ -112,6 +144,10 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
     }
   }
 
+  const setVlessEncryption = (changes: Partial<typeof vlessEncryption>) => {
+    setValue('vlessEncryption', buildVlessEncryptionAccount({ ...vlessEncryption, ...changes }))
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-2">
       <Select
@@ -145,15 +181,63 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
       <Input label="ID" withAsterisk value={formValues.id} onChange={(e) => setValue('id', e.target.value)} />
 
       {formValues.protocol === 'vless' && (
-        <Input
-          label="Encryption"
-          description="Optional Xray VLESS Encryption account. Use none or the complete mlkem768x25519plus string."
-          placeholder="none or mlkem768x25519plus.native.1rtt.<client-public-key>"
-          value={formValues.vlessEncryption}
-          error={errors.vlessEncryption?.message as string | undefined}
-          aria-invalid={!!errors.vlessEncryption}
-          onChange={(e) => setValue('vlessEncryption', e.target.value)}
-        />
+        <>
+          <Select
+            label="VLESS Encryption"
+            description={vlessEncryptionUnavailable ? 'H2 and Meek do not support VLESS Encryption.' : undefined}
+            data={[
+              { label: 'Off', value: 'none' },
+              { label: 'ML-KEM-768 + X25519', value: VLESS_ENCRYPTION_SUITE },
+            ]}
+            value={vlessEncryption.enabled ? VLESS_ENCRYPTION_SUITE : 'none'}
+            disabled={vlessEncryptionUnavailable}
+            onChange={(value) => setVlessEncryption({ enabled: value === VLESS_ENCRYPTION_SUITE })}
+          />
+
+          {vlessEncryption.enabled && (
+            <>
+              <Select
+                label="Encryption Mode"
+                data={VLESS_ENCRYPTION_MODE_OPTIONS}
+                value={vlessEncryption.mode}
+                onChange={(value) => setVlessEncryption({ mode: (value || 'native') as VlessEncryptionMode })}
+              />
+              <Select
+                label="Encryption RTT"
+                data={VLESS_ENCRYPTION_RTT_OPTIONS}
+                value={vlessEncryption.rtt}
+                onChange={(value) => setVlessEncryption({ rtt: (value || '1rtt') as VlessEncryptionRtt })}
+              />
+              <div className="space-y-2">
+                <label htmlFor="vless-encryption-fields" className="text-sm font-medium">
+                  Client Keys / Padding
+                  <span className="ml-1 text-destructive">*</span>
+                </label>
+                <Textarea
+                  id="vless-encryption-fields"
+                  placeholder="<client-public-key>[.<client-public-key>][.100-35-35]"
+                  value={vlessEncryption.fields}
+                  aria-invalid={!!errors.vlessEncryption}
+                  aria-required="true"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    if (hasVlessEncryptionAccountPrefix(value)) {
+                      setValue('vlessEncryption', value.trim())
+                    } else {
+                      setVlessEncryption({ fields: value })
+                    }
+                  }}
+                />
+                {errors.vlessEncryption?.message && (
+                  <p className="text-xs text-destructive">{errors.vlessEncryption.message}</p>
+                )}
+              </div>
+            </>
+          )}
+        </>
       )}
 
       {formValues.protocol === 'vmess' && (
@@ -204,7 +288,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
         <Input label="SNI" value={formValues.sni} onChange={(e) => setValue('sni', e.target.value)} />
       )}
 
-      {(formValues.tls === 'reality' || (formValues.protocol === 'vless' && formValues.tls === 'tls')) && (
+      {formValues.tls !== 'none' && (
         <Select
           label={t('configureNode.fingerprint')}
           data={[
@@ -282,6 +366,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
           setNetwork(net)
         }}
       />
+      {errors.net?.message && <p className="text-xs text-destructive">{errors.net.message}</p>}
 
       {formValues.net === 'tcp' && (
         <Select
@@ -378,7 +463,6 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
             data={[
               { label: 'gun', value: 'gun' },
               { label: 'multi', value: 'multi' },
-              { label: 'guna', value: 'guna' },
             ]}
             value={formValues.grpcMode}
             onChange={(val) => setValue('grpcMode', (val || 'gun') as V2rayFormValues['grpcMode'])}
