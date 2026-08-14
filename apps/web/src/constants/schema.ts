@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { validateEchConfigListBase64 } from '~/utils/ech'
 import { validateXhttpFormFields } from '~/utils/xhttp'
 
 const UNSIGNED_INTEGER_PATTERN = /^\d+$/
@@ -28,6 +29,7 @@ function vlessEncryptionIssue(value: string): string | null {
 
   let keyCount = 0
   let paddingCount = 0
+  let maxPaddingTotal = 0
   for (const field of fields.slice(3)) {
     if (field.length >= 20) {
       if (!VLESS_ENCRYPTION_KEY_LENGTHS.has(field.length) || !VLESS_ENCRYPTION_KEY_PATTERN.test(field)) {
@@ -46,9 +48,11 @@ function vlessEncryptionIssue(value: string): string | null {
     if (paddingCount === 0 && (probability !== 100 || from < 35 || to < 35)) {
       return 'The first VLESS Encryption padding rule must reserve at least 35 bytes'
     }
+    if (paddingCount % 2 === 0) maxPaddingTotal += to
     paddingCount += 1
   }
   if (keyCount === 0) return 'VLESS Encryption requires at least one client public key'
+  if (maxPaddingTotal > 65_553) return 'VLESS Encryption padding total is outside the Xray contract'
   return null
 }
 
@@ -64,7 +68,7 @@ export const v2raySchema = z
     host: z.string(),
     path: z.string(),
     // gRPC specific
-    grpcMode: z.enum(['gun', 'multi', 'guna']),
+    grpcMode: z.enum(['gun', 'multi']),
     grpcAuthority: z.string(),
     // XHTTP specific
     xhttpMode: z.string(),
@@ -109,6 +113,14 @@ export const v2raySchema = z
     pqv: z.string(), // ML-DSA-65 public key (mldsa65Verify)
   })
   .superRefine((data, ctx) => {
+    const ech = validateEchConfigListBase64(data.ech, 'ECHConfigList')
+    if (ech) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ech'],
+        message: ech,
+      })
+    }
     if (data.net !== 'xhttp') return
 
     for (const issue of validateXhttpFormFields(data)) {

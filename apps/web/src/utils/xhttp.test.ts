@@ -15,6 +15,7 @@ const DOWNLOAD_SETTINGS = JSON.stringify({
     serverName: 'download.example.com',
     alpn: ['h2'],
     allowInsecure: true,
+    echConfigList: 'AD7+DQA6AAAgACC7Lynj4wV+BBnVL8X0QRh3b422HOpP33YHm5NgbFpiSAAIAAEAAQABAAMAB2VjaC5jb20AAA==',
   },
   xhttpSettings: {
     host: 'download.example.com',
@@ -109,6 +110,13 @@ it('validateXhttpXmuxRaw accepts official signed ranges and hKeepAlivePeriod', (
   ).toBeNull()
 })
 
+it('validateXhttpDownloadSettingsRaw rejects non-standard ECHConfigList encoding', () => {
+  const download = JSON.parse(DOWNLOAD_SETTINGS)
+  download.tlsSettings.echConfigList = 'AA-_'
+
+  expect(validateXhttpDownloadSettingsRaw(JSON.stringify(download))).toContain('padded standard Base64')
+})
+
 it('validateXhttpXmuxRaw blocks unsupported xmux fields and official conflicts', () => {
   expect(validateXhttpXmuxRaw('{"unsupported":15}')).toContain('unsupported fields')
   expect(validateXhttpXmuxRaw('{"maxConcurrency":8,"maxConnections":2}')).toContain(
@@ -150,6 +158,11 @@ it('validateXhttpDownloadSettingsRaw follows resident downloadSettings admission
         port: 443,
         network: 'xhttp',
         security: 'tls',
+        tlsSettings: {
+          serverName: 'download.example.com',
+          alpn: ['h3'],
+          fingerprint: 'chrome',
+        },
         xhttpSettings: {
           path: '/down',
           xPaddingBytes: '1-2',
@@ -172,9 +185,11 @@ it('validateXhttpDownloadSettingsRaw follows resident downloadSettings admission
         realitySettings: {
           serverName: 'download.example.com',
           alpn: ['h2'],
+          fingerprint: 'chrome',
           publicKey: 'public-key',
           shortId: 'abcd',
           spiderX: '/',
+          mldsa65Verify: 'mldsa65-public-key',
         },
         xhttpSettings: {
           path: '/down',

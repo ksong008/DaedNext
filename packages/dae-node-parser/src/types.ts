@@ -40,7 +40,7 @@ export interface V2rayConfig {
   host: string // host (WebSocket/HTTP/2/3/HTTPUpgrade/XHTTP)
   path: string // path (WebSocket/HTTP/2/3/HTTPUpgrade/XHTTP) or serviceName (gRPC) or seed (mKCP)
   // gRPC specific
-  grpcMode: 'gun' | 'multi' | 'guna' // mode
+  grpcMode: 'gun' | 'multi' // mode
   grpcAuthority: string // authority
   // XHTTP specific
   xhttpMode: string // mode
