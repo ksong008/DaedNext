@@ -126,6 +126,7 @@ Prerequisites:
 - [Rust](https://www.rust-lang.org/) stable
 - Rust nightly with `rust-src` for native eBPF builds
 - `clang`, `llvm`, and `bpf-linker`
+- CMake, Perl, `pkg-config`, libelf development headers, and a C/C++ compiler
 
 Recommended checkout layout:
 
@@ -145,7 +146,84 @@ make RUST_WORKSPACE=../DaeNext
 The Makefile auto-detects `./DaeNext`, `../DaeNext`, or `../../DaeNext`. Use
 `RUST_WORKSPACE=/path/to/DaeNext` when your checkout uses a different layout.
 
-For more detail, see [Build from Source](./docs/build.md).
+### Build Parameters
+
+The Makefile keeps the DaeNext Cargo default features enabled. Its default
+`RUST_FEATURES=native-ebpf` is additive, so a normal product build also includes
+the product API, resident runtime, jemalloc, and the production BoringSSL
+TCP-TLS and QUIC providers.
+
+| Make or environment parameter           | Default          | Meaning                                                                                                                 |
+| --------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `RUST_WORKSPACE`                        | auto-detected    | Path to the DaeNext Cargo workspace.                                                                                    |
+| `RUST_TARGET`                           | host target      | Rust target triple. Cross builds also require the matching Rust target, linker, C compiler, C++ compiler, and archiver. |
+| `RUST_TARGET_DIR`                       | `DaeNext/target` | Cargo cache/output directory. Use a different directory for each target or CPU level when builds run concurrently.      |
+| `RUST_FEATURES`                         | `native-ebpf`    | Additional `dae-daemon` Cargo features. This does not disable default features.                                         |
+| `RUSTFLAGS`                             | unset            | Rust compiler flags. Release jobs use it to select the CPU baseline with `-C target-cpu=...`.                           |
+| `CARGO_PROFILE_RELEASE_LTO`             | `false`          | Keeps both thin and fat LTO disabled; set it explicitly in scripted release builds.                                     |
+| `OUTPUT`                                | `daed`           | Destination path of the final stripped product binary.                                                                  |
+| `VERSION`                               | `0.0.0.unknown`  | Product version embedded in `daed --version`.                                                                           |
+| `DAED_SKIP_WEB_BUILD`                   | unset            | Reuses the existing `dist/` directory instead of rebuilding the WebUI. The directory must already exist.                |
+| `DAED_PRODUCT_TARGET`                   | derived          | Overrides only the target text embedded in the product identity; it does not configure Cargo.                           |
+| `DAED_PRODUCT_FEATURES`                 | derived          | Overrides only the feature text embedded in the product identity; it does not enable Cargo features.                    |
+| `DAED_PRODUCT_VERSION`                  | derived          | Overrides the complete embedded product identity string.                                                                |
+| `TARGET_OS`, `TARGET_ARCH`, `CPU_LEVEL` | unset            | Supply release identity labels. They do not select a compiler target or CPU instruction set by themselves.              |
+
+Build an x86_64-v2 product binary without LTO:
+
+```bash
+CARGO_PROFILE_RELEASE_LTO=false \
+RUSTFLAGS="-C target-cpu=x86-64-v2" \
+make RUST_WORKSPACE=../DaeNext \
+  RUST_TARGET_DIR=/tmp/daed-target-x86_64-v2 \
+  TARGET_OS=linux TARGET_ARCH=x86_64 CPU_LEVEL=v2 \
+  OUTPUT=daed-x86_64-v2
+```
+
+Use `-C target-cpu=x86-64` for the widest x86_64 compatibility,
+`x86-64-v2` for the v2 baseline, and `x86-64-v3` only for AVX2-class systems.
+Do not publish a binary built with `target-cpu=native`.
+
+An ARM64 cross build uses the generic ARMv8-A baseline, which includes
+Cortex-A53 compatibility at the ISA level:
+
+```bash
+rustup target add aarch64-unknown-linux-gnu
+
+CARGO_PROFILE_RELEASE_LTO=false \
+RUSTFLAGS="-C target-cpu=generic" \
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
+CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
+AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar \
+make RUST_WORKSPACE=../DaeNext \
+  RUST_TARGET=aarch64-unknown-linux-gnu \
+  RUST_TARGET_DIR=/tmp/daed-target-aarch64-generic \
+  TARGET_OS=linux TARGET_ARCH=aarch64 \
+  OUTPUT=daed-arm64
+```
+
+The ARM64 CPU baseline and an OpenWrt package architecture are separate
+contracts. A generic ARMv8-A ELF can run on several ARM64 CPU families, but an
+OpenWrt package must still use the architecture label accepted by the target,
+such as `aarch64_generic` or `aarch64_cortex-a53`.
+
+The tracked `scripts/package_openwrt_arm64.sh` helper compiles one generic
+ARMv8-A binary and packages it for the official `aarch64_generic`,
+`aarch64_cortex-a53`, `aarch64_cortex-a72`, and `aarch64_cortex-a76` package
+architectures. Set `APK_TOOL` when the OpenWrt `apk` executable is not on
+`PATH`; `OPENWRT_ARM64_PACKAGE_ARCHES` may be overridden for a narrower local
+package set.
+
+`bpf-btf` shown by `daed --version` is a capability label derived from
+`native-ebpf`; it is not a Cargo feature that should be passed through
+`RUST_FEATURES`. For allocator experiments, use DaeNext directly with a full
+`--no-default-features` feature list: adding `allocator-system` through this
+Makefile would otherwise leave the default `allocator-jemalloc` enabled and the
+build correctly fails their mutual-exclusion check.
+
+For installation and runtime steps, see
+[Build from Source](./docs/build.md).
 
 ## Development
 
