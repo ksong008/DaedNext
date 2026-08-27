@@ -120,8 +120,8 @@ export function parseLine(line: string): ParsedLine {
   }
 
   // Check for block markers
-  const isBlockStart = content.includes('{')
-  const isBlockEnd = content.includes('}')
+  const isBlockStart = hasUnquotedCharacter(content, '{')
+  const isBlockEnd = hasUnquotedCharacter(content, '}')
 
   return {
     content,
@@ -166,6 +166,43 @@ export function findCommentStart(line: string): number {
 export function formatLineContent(content: string): string {
   if (!content) return ''
 
+  let formatted = ''
+  let segmentStart = 0
+  let quote: string | null = null
+  let escaped = false
+  for (let index = 0; index < content.length; index++) {
+    const char = content[index]
+    if (quote) {
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === quote) {
+        formatted += content.slice(segmentStart, index)
+        formatted += char
+        segmentStart = index + 1
+        quote = null
+      }
+      continue
+    }
+    if (char === "'" || char === '"') {
+      formatted += formatUnquotedSegment(content.slice(segmentStart, index))
+      formatted += char
+      quote = char
+      segmentStart = index + 1
+    }
+  }
+  if (quote) {
+    formatted += content.slice(segmentStart)
+  } else {
+    formatted += formatUnquotedSegment(content.slice(segmentStart))
+  }
+  return formatted.trim()
+}
+
+function formatUnquotedSegment(content: string): string {
+  if (!content) return ''
+
   // Collapse multiple spaces first so subsequent patterns only need to handle
   // zero-or-one space. This avoids O(n^2) backtracking with \s* quantifiers
   // (polynomial ReDoS — see CodeQL js/polynomial-redos).
@@ -202,8 +239,22 @@ export function formatLineContent(content: string): string {
   formatted = formatted.replace(RE_BRACE_OPEN, '{ ')
   formatted = formatted.replace(RE_BRACE_CLOSE, ' }')
 
-  // Trim any leading/trailing whitespace
-  formatted = formatted.trim()
-
   return formatted
+}
+
+function hasUnquotedCharacter(content: string, target: string): boolean {
+  let quote: string | null = null
+  let escaped = false
+  for (const char of content) {
+    if (quote) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === quote) quote = null
+    } else if (char === "'" || char === '"') {
+      quote = char
+    } else if (char === target) {
+      return true
+    }
+  }
+  return false
 }

@@ -569,6 +569,8 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
     }
     const handleStreamError = () => {
       setIsStreamLive(false)
+      lastDeltaSequence.current = null
+      lastUpdatedAtMs.current = 0
     }
 
     const unsubscribe = subscribeEventStream({

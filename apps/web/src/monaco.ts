@@ -232,9 +232,26 @@ export function syncModelWithLsp(model: monacoEditor.editor.ITextModel): monacoE
   lspClient.didOpen(uri, languageId, model.getVersionId(), model.getValue())
 
   // Listen for changes
-  const changeDisposable = model.onDidChangeContent(() => {
+  const changeDisposable = model.onDidChangeContent((event) => {
     if (!lspClient) return
-    lspClient.didChange(uri, [{ text: model.getValue() }])
+    lspClient.didChange(
+      uri,
+      event.changes.map((change) => ({
+        range: {
+          start: {
+            line: change.range.startLineNumber - 1,
+            character: change.range.startColumn - 1,
+          },
+          end: {
+            line: change.range.endLineNumber - 1,
+            character: change.range.endColumn - 1,
+          },
+        },
+        rangeLength: change.rangeLength,
+        text: change.text,
+      })),
+      model.getVersionId(),
+    )
   })
 
   // Return disposable to clean up

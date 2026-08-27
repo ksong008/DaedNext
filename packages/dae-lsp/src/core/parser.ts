@@ -138,7 +138,6 @@ export function parseDocument(text: string): ParseResult {
 
   const symbolStack: Symbol[] = []
   let currentSection: string | null = null
-  let hasUpstreamSection = false // Track if document has upstream section (DNS config)
 
   for (let lineNum = 0; lineNum < lines.length; lineNum++) {
     const line = lines[lineNum]
@@ -181,11 +180,6 @@ export function parseDocument(text: string): ParseResult {
         currentSection = name
       }
 
-      // Track if document has upstream section (indicates DNS config)
-      if (name === 'upstream') {
-        hasUpstreamSection = true
-      }
-
       if (hasOpenBrace) {
         symbolStack.push(symbol)
       }
@@ -207,8 +201,7 @@ export function parseDocument(text: string): ParseResult {
       const outboundStart = line.lastIndexOf(outbound)
 
       if (!OUTBOUNDS.includes(outbound)) {
-        // If document has upstream section or is in dns section, references are to upstreams
-        const isDnsContext = currentSection === 'dns' || hasUpstreamSection
+        const isDnsContext = currentSection === 'dns'
         const refKind = isDnsContext ? 'upstream' : 'group'
         references.push({
           name: outbound,
@@ -281,8 +274,7 @@ export function parseDocument(text: string): ParseResult {
 
         // Check if outbound is a known constant or a group reference
         if (!OUTBOUNDS.includes(outbound)) {
-          // If document has upstream section or is in dns section, references are to upstreams
-          const isDnsContext = currentSection === 'dns' || hasUpstreamSection
+          const isDnsContext = currentSection === 'dns'
           const refKind = isDnsContext ? 'upstream' : 'group'
           references.push({
             name: outbound,
@@ -661,7 +653,6 @@ export function getPositionContext(text: string, position: Position): PositionCo
   const lines = text.split('\n')
   let currentSection: string | null = null
   let currentSubsection: string | null = null
-  let hasUpstreamSection = false
   let braceDepth = 0
   const symbolPath: string[] = []
 
@@ -686,9 +677,6 @@ export function getPositionContext(text: string, position: Position): PositionCo
       } else if (SUBSECTION_NAMES.includes(name)) {
         currentSubsection = name
         symbolPath.push(name)
-        if (name === 'upstream') {
-          hasUpstreamSection = true
-        }
       } else {
         symbolPath.push(name)
       }
@@ -710,7 +698,7 @@ export function getPositionContext(text: string, position: Position): PositionCo
     }
   }
 
-  const isDnsContext = currentSection === 'dns' || hasUpstreamSection
+  const isDnsContext = currentSection === 'dns'
   const isRoutingContext =
     currentSection === 'routing' ||
     currentSubsection === 'routing' ||

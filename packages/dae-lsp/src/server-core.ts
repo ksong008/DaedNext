@@ -73,6 +73,7 @@ export const semanticTokensLegend = {
 
 // Cache for parsed documents
 const parseCache = new Map<string, { version: number; result: ParseResult }>()
+const MAX_PARSE_CACHE_ENTRIES = 128
 
 /**
  * Get parsed result for a document (with caching)
@@ -84,6 +85,10 @@ function getParsedDocument(document: TextDocument): ParseResult {
   }
 
   const result = parseDocument(document.getText())
+  if (!parseCache.has(document.uri) && parseCache.size >= MAX_PARSE_CACHE_ENTRIES) {
+    const oldest = parseCache.keys().next().value
+    if (oldest) parseCache.delete(oldest)
+  }
   parseCache.set(document.uri, {
     version: document.version,
     result,

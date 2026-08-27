@@ -46,26 +46,76 @@ export type AppState = {
   colsPerRow: number
 } & PersistentSortableKeys
 
+const DEFAULT_APP_STATE: AppState = {
+  themeMode: 'system',
+  colorTheme: DEFAULT_THEME_ID,
+  colsPerRow: COLS_PER_ROW,
+  nodeSortableKeys: [],
+  subscriptionSortableKeys: [],
+  configSortableKeys: [],
+  routingSortableKeys: [],
+  dnsSortableKeys: [],
+  groupSortableKeys: [],
+}
+
+function safeDecode<T>(key: string, value: string, fallback: T): T {
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    try {
+      globalThis.localStorage.removeItem(key)
+    } catch {
+    }
+    return fallback
+  }
+}
+
+type AppStateValue = AppState[keyof AppState]
+
+function isAppStateValue(key: keyof AppState, value: unknown): value is AppStateValue {
+  if (key === 'themeMode') return value === 'system' || value === 'light' || value === 'dark'
+  if (key === 'colorTheme') return typeof value === 'string'
+  if (key === 'colsPerRow') return typeof value === 'number' && Number.isFinite(value)
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function sanitizeAppStateStorage() {
+  try {
+    const storage = globalThis.localStorage
+    for (const key of Object.keys(DEFAULT_APP_STATE) as Array<keyof AppState>) {
+      const storageKey = `APP_STATE${key}`
+      const value = storage.getItem(storageKey)
+      if (value === null) continue
+      try {
+        if (!isAppStateValue(key, JSON.parse(value))) storage.removeItem(storageKey)
+      } catch {
+        storage.removeItem(storageKey)
+      }
+    }
+  } catch {
+  }
+}
+
+function safeDecodeAppStateValue(value: string): AppStateValue {
+  try {
+    return JSON.parse(value) as AppStateValue
+  } catch {
+    return ''
+  }
+}
+
+sanitizeAppStateStorage()
+
 export const modeAtom = persistentAtom<MODE>('mode')
 export const tokenAtom = persistentAtom<string>('token')
 export const endpointURLAtom = persistentAtom<string>('endpointURL', DEFAULT_ENDPOINT_URL)
 export const themeMigrationVersionAtom = persistentAtom<string>('themeMigrationVersion', '')
 export const appStateAtom = persistentMap<AppState>(
   'APP_STATE',
-  {
-    themeMode: 'system',
-    colorTheme: DEFAULT_THEME_ID,
-    colsPerRow: COLS_PER_ROW,
-    nodeSortableKeys: [],
-    subscriptionSortableKeys: [],
-    configSortableKeys: [],
-    routingSortableKeys: [],
-    dnsSortableKeys: [],
-    groupSortableKeys: [],
-  },
+  DEFAULT_APP_STATE,
   {
     encode: JSON.stringify,
-    decode: JSON.parse,
+    decode: safeDecodeAppStateValue,
   },
 )
 
@@ -91,7 +141,7 @@ export const groupSortOrdersAtom = persistentAtom<GroupSortOrders>(
   {},
   {
     encode: JSON.stringify,
-    decode: JSON.parse,
+    decode: (value) => safeDecode('GROUP_SORT_ORDERS', value, {}),
   },
 )
 
@@ -104,6 +154,10 @@ export const profilesAtom = persistentAtom<ProfilesState>(
   },
   {
     encode: JSON.stringify,
-    decode: JSON.parse,
+    decode: (value) =>
+      safeDecode('PROFILES', value, {
+        profiles: [],
+        currentProfileID: null,
+      }),
   },
 )
