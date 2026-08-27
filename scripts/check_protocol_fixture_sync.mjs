@@ -8,7 +8,7 @@ if (!coreRoot) {
 
 const coreFixture = resolve(
   coreRoot,
-  'crates/dae-daemon/tests/fixtures/resident_protocol_exact_shapes.json',
+  'crates/dae-resident-dataplane/tests/fixtures/resident_protocol_exact_shapes.json',
 )
 const productFixture = resolve(
   'apps/web/src/components/ConfigureNodeFormModal/protocols/fixtures/resident_protocol_exact_shapes.json',

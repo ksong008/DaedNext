@@ -404,8 +404,11 @@ export class MonacoLspClient {
   /**
    * Update document content
    */
-  async didChange(uri: string, changes: TextDocumentContentChangeEvent[]): Promise<void> {
-    const version = (this.documentVersions.get(uri) || 0) + 1
+  async didChange(
+    uri: string,
+    changes: TextDocumentContentChangeEvent[],
+    version = (this.documentVersions.get(uri) || 0) + 1,
+  ): Promise<void> {
     this.documentVersions.set(uri, version)
 
     this.sendNotification('textDocument/didChange', {

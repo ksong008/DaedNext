@@ -44,6 +44,8 @@ export function subscribeEventStream(options: SubscribeEventStreamOptions) {
 
 async function runEventStreamSubscription(options: SubscribeEventStreamOptions, signal: AbortSignal) {
   const retryDelayMs = options.retryDelayMs ?? 1500
+  const maxRetryDelayMs = 30_000
+  let retryAttempt = 0
 
   while (!signal.aborted) {
     try {
@@ -58,7 +60,9 @@ async function runEventStreamSubscription(options: SubscribeEventStreamOptions, 
     }
 
     if (!signal.aborted) {
-      await waitForEventStreamRetry(signal, retryDelayMs)
+      const delayMs = Math.min(retryDelayMs * 2 ** retryAttempt, maxRetryDelayMs)
+      retryAttempt = Math.min(retryAttempt + 1, 31)
+      await waitForEventStreamRetry(signal, delayMs)
     }
   }
 }
@@ -78,22 +82,31 @@ async function readEventStream(options: SubscribeEventStreamOptions, signal: Abo
   }
 
   const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  const state = createEventStreamParser(options.onMessage)
+  let completed = false
+  try {
+    const decoder = new TextDecoder()
+    let buffer = ''
+    const state = createEventStreamParser(options.onMessage)
 
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    buffer = drainEventStreamLines(buffer, state)
-  }
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      buffer = drainEventStreamLines(buffer, state)
+    }
 
-  buffer += decoder.decode()
-  if (buffer) {
-    state.line(buffer.replace(TRAILING_CARRIAGE_RETURN_RE, ''))
+    buffer += decoder.decode()
+    if (buffer) {
+      state.line(buffer.replace(TRAILING_CARRIAGE_RETURN_RE, ''))
+    }
+    state.flush()
+    completed = true
+  } finally {
+    if (!completed) {
+      await reader.cancel().catch(() => undefined)
+    }
+    reader.releaseLock()
   }
-  state.flush()
 }
 
 interface EventStreamParser {
