@@ -11,6 +11,9 @@ on:
 permissions:
   contents: read
 
+env:
+  CARGO_PROFILE_RELEASE_LTO: 'false'
+
 concurrency:
   group: test-linux-x86_64-v2-v3-${{ github.ref }}
   cancel-in-progress: true
@@ -108,8 +111,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential \
             clang \
+            cmake \
             libelf-dev \
             llvm \
+            perl \
             pkg-config
 
       - name: Build web
