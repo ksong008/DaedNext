@@ -30,15 +30,17 @@ export async function activate(context: vscode.ExtensionContext) {
     },
   }
 
+  const fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.dae')
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
       { scheme: 'file', language: LANGUAGE_ID },
       { scheme: 'untitled', language: LANGUAGE_ID },
     ],
     synchronize: {
-      fileEvents: vscode.workspace.createFileSystemWatcher('**/*.dae'),
+      fileEvents: fileWatcher,
     },
   }
+  context.subscriptions.push(fileWatcher)
 
   client = new LanguageClient('dae-language-server', 'DAE Language Server', serverOptions, clientOptions)
 
@@ -50,50 +52,6 @@ export async function activate(context: vscode.ExtensionContext) {
   }
 
   context.subscriptions.push(client)
-
-  // Register document formatting provider (required because LSP client doesn't auto-register it)
-  const createFormattingProvider = (scheme: string) =>
-    vscode.languages.registerDocumentFormattingEditProvider(
-      { language: LANGUAGE_ID, scheme },
-      {
-        async provideDocumentFormattingEdits(document, options) {
-          if (!client) return []
-
-          try {
-            const result = await client.sendRequest('textDocument/formatting', {
-              textDocument: { uri: document.uri.toString() },
-              options: {
-                tabSize: options.tabSize,
-                insertSpaces: options.insertSpaces,
-              },
-            })
-
-            if (Array.isArray(result)) {
-              return result.map(
-                (edit: {
-                  range: { start: { line: number; character: number }; end: { line: number; character: number } }
-                  newText: string
-                }) =>
-                  new vscode.TextEdit(
-                    new vscode.Range(
-                      edit.range.start.line,
-                      edit.range.start.character,
-                      edit.range.end.line,
-                      edit.range.end.character,
-                    ),
-                    edit.newText,
-                  ),
-              )
-            }
-          } catch {
-            // Formatting failed silently
-          }
-          return []
-        },
-      },
-    )
-
-  context.subscriptions.push(createFormattingProvider('file'), createFormattingProvider('untitled'))
 }
 
 export async function deactivate(): Promise<void> {
