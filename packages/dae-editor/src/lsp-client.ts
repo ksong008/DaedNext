@@ -29,6 +29,17 @@ interface NotificationMessage {
 }
 
 type Message = RequestMessage | ResponseMessage | NotificationMessage
+const LSP_REQUEST_TIMEOUT_MS = 10_000
+const RE_AFTER_COLON = /:\s*\w*$/
+const RE_COLON_KEY = /(\w+)\s*:\s*\w*$/
+const RE_FUNCTION_CALL = /(\w+)\s*\([^)]*$/
+const RE_AFTER_ARROW = /->\s*\w*$/
+
+interface PendingRequest {
+  resolve: (value: unknown) => void
+  reject: (reason: unknown) => void
+  timer: ReturnType<typeof setTimeout>
+}
 
 // LSP types (subset)
 export interface Position {
@@ -153,13 +164,14 @@ export type ConfigContext = 'routing' | 'dns' | null
 export class MonacoLspClient {
   private worker: Worker
   private messageId = 0
-  private pendingRequests = new Map<number, { resolve: (value: unknown) => void; reject: (reason: unknown) => void }>()
+  private pendingRequests = new Map<number, PendingRequest>()
   private documentVersions = new Map<string, number>()
   private monacoInstance: typeof monaco | null = null
   private disposables: monaco.IDisposable[] = []
   private diagnosticsListeners: Array<(uri: string, diagnostics: Diagnostic[]) => void> = []
   private initialized = false
   private disposed = false
+  private workerFailure: Error | null = null
   private dynamicCompletionItems: CompletionItem[] = []
   private configContext: ConfigContext = null
 
@@ -170,9 +182,8 @@ export class MonacoLspClient {
       this.worker = new Worker(workerOrUrl, { type: 'module' })
     }
     this.worker.onmessage = this.handleMessage.bind(this)
-    this.worker.onerror = (error) => {
-      console.error('LSP Worker error:', error)
-    }
+    this.worker.onerror = () => this.handleWorkerFailure(new Error('LSP worker failed'))
+    this.worker.onmessageerror = () => this.handleWorkerFailure(new Error('LSP worker message failed'))
   }
 
   /**
@@ -596,17 +607,17 @@ export class MonacoLspClient {
     }
 
     // Check if we're after a colon (e.g., "fallback:", "geosite:")
-    const isAfterColon = linePrefix.endsWith(':') || /:\s*\w*$/.test(linePrefix)
-    const colonMatch = linePrefix.match(/(\w+)\s*:\s*\w*$/)
+    const isAfterColon = linePrefix.endsWith(':') || RE_AFTER_COLON.test(linePrefix)
+    const colonMatch = linePrefix.match(RE_COLON_KEY)
     const keyBeforeColon = colonMatch ? colonMatch[1].toLowerCase() : ''
 
     // Check if we're inside a function call (e.g., "qname(" or "domain(")
     // Match pattern like "functionName(" with optional content but no closing paren
-    const funcCallMatch = linePrefix.match(/(\w+)\s*\([^)]*$/)
+    const funcCallMatch = linePrefix.match(RE_FUNCTION_CALL)
     const insideFunctionCall = funcCallMatch ? funcCallMatch[1].toLowerCase() : ''
 
     // Check if we're after "->" (outbound position)
-    const isAfterArrow = /->\s*\w*$/.test(linePrefix)
+    const isAfterArrow = RE_AFTER_ARROW.test(linePrefix)
 
     return items.filter((item) => {
       const label = typeof item.label === 'string' ? item.label : item.label
@@ -728,21 +739,17 @@ export class MonacoLspClient {
     if (this.disposed) return
     this.disposed = true
 
-    this.sendNotification('shutdown', {})
-    this.sendNotification('exit', {})
+    if (!this.workerFailure) {
+      this.sendNotification('shutdown', {})
+      this.sendNotification('exit', {})
+    }
 
     for (const disposable of this.disposables) {
       disposable.dispose()
     }
     this.disposables = []
 
-    // Reject all pending requests with a canceled error
-    for (const [, pending] of this.pendingRequests) {
-      const error = new Error('Canceled')
-      ;(error as any).code = -32800
-      pending.reject(error)
-    }
-    this.pendingRequests.clear()
+    this.rejectPendingRequests(this.cancellationError())
 
     this.worker.terminate()
     this.documentVersions.clear()
@@ -753,15 +760,21 @@ export class MonacoLspClient {
 
   private sendRequest(method: string, params?: unknown): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      if (this.disposed) {
-        const error = new Error('Canceled')
-        ;(error as any).code = -32800
-        reject(error)
+      if (this.disposed || this.workerFailure) {
+        reject(this.workerFailure ?? this.cancellationError())
         return
       }
 
       const id = ++this.messageId
-      this.pendingRequests.set(id, { resolve, reject })
+      const timer = setTimeout(() => {
+        const pending = this.pendingRequests.get(id)
+        if (!pending) return
+        this.pendingRequests.delete(id)
+        const error = new Error(`LSP request timed out: ${method}`)
+        ;(error as any).code = -32001
+        pending.reject(error)
+      }, LSP_REQUEST_TIMEOUT_MS)
+      this.pendingRequests.set(id, { resolve, reject, timer })
 
       const message: RequestMessage = {
         jsonrpc: '2.0',
@@ -773,10 +786,9 @@ export class MonacoLspClient {
       try {
         this.worker.postMessage(JSON.stringify(message))
       } catch {
+        clearTimeout(timer)
         this.pendingRequests.delete(id)
-        const error = new Error('Canceled')
-        ;(error as any).code = -32800
-        reject(error)
+        reject(this.cancellationError())
       }
     })
   }
@@ -788,11 +800,21 @@ export class MonacoLspClient {
       params,
     }
 
-    this.worker.postMessage(JSON.stringify(message))
+    try {
+      this.worker.postMessage(JSON.stringify(message))
+    } catch {
+      this.handleWorkerFailure(new Error('LSP worker notification failed'))
+    }
   }
 
   private handleMessage(event: MessageEvent): void {
-    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+    let data: unknown
+    try {
+      data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+    } catch {
+      this.handleWorkerFailure(new Error('LSP worker returned invalid JSON'))
+      return
+    }
     const message = data as Message
 
     if ('id' in message && message.id !== undefined) {
@@ -800,6 +822,7 @@ export class MonacoLspClient {
       const pending = this.pendingRequests.get(message.id)
       if (pending) {
         this.pendingRequests.delete(message.id)
+        clearTimeout(pending.timer)
         if ('error' in message && message.error) {
           pending.reject(message.error)
         } else {
@@ -810,6 +833,27 @@ export class MonacoLspClient {
       // Notification message
       this.handleNotification(message as NotificationMessage)
     }
+  }
+
+  private cancellationError(): Error {
+    const error = new Error('Canceled')
+    ;(error as any).code = -32800
+    return error
+  }
+
+  private rejectPendingRequests(reason: Error): void {
+    for (const pending of this.pendingRequests.values()) {
+      clearTimeout(pending.timer)
+      pending.reject(reason)
+    }
+    this.pendingRequests.clear()
+  }
+
+  private handleWorkerFailure(error: Error): void {
+    if (this.workerFailure || this.disposed) return
+    this.workerFailure = error
+    console.error(error.message)
+    this.rejectPendingRequests(error)
   }
 
   private handleNotification(message: NotificationMessage): void {
