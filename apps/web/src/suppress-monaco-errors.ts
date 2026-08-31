@@ -9,13 +9,9 @@ if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason
 
-    // Check various ways the "Canceled" error might be represented
-    if (
-      reason?.name === 'Canceled' ||
-      reason?.message === 'Canceled' ||
-      String(reason) === 'Canceled' ||
-      String(reason).includes('Canceled: Canceled')
-    ) {
+    const isLspCancellation = reason?.code === -32800
+    const isMonacoCancellation = reason?.name === 'Canceled' && reason?.message === 'Canceled'
+    if (isLspCancellation || isMonacoCancellation) {
       event.preventDefault()
     }
   })

@@ -50,6 +50,7 @@ let lspInitialized = false
 let lspOwners = 0
 let lspInitialization: Promise<void> | null = null
 let lspGeneration = 0
+const ownedModelUris = new Set<string>()
 
 // Cache for dynamic completion items (set before LSP client is initialized)
 let pendingDynamicCompletionItems: RoutingCompletionItem[] = getDynamicCompletionItems()
@@ -186,9 +187,11 @@ export function disposeMonacoRuntime(): void {
   lspInitialization = null
   lspOwners = 0
   for (const model of monaco.editor.getModels()) {
+    if (!ownedModelUris.has(model.uri.toString())) continue
     monaco.editor.setModelMarkers(model, 'dae', [])
     model.dispose()
   }
+  ownedModelUris.clear()
 }
 
 registerPageRetireHandler(disposeMonacoRuntime)
@@ -228,6 +231,7 @@ export function syncModelWithLsp(model: monacoEditor.editor.ITextModel): monacoE
   // Only sync routingA documents
   if (languageId !== 'routingA') return null
 
+  ownedModelUris.add(uri)
   // Open document
   lspClient.didOpen(uri, languageId, model.getVersionId(), model.getValue())
 
@@ -261,6 +265,7 @@ export function syncModelWithLsp(model: monacoEditor.editor.ITextModel): monacoE
       if (lspClient) {
         lspClient.didClose(uri)
       }
+      ownedModelUris.delete(uri)
     },
   }
 }
