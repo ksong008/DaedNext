@@ -29,6 +29,21 @@ interface RuntimeOverviewAPI {
   }>
 }
 
+export function runtimeOverviewIsFresh(
+  payload: Pick<RuntimeOverviewAPI, 'updatedAt' | 'sequence'>,
+  lastUpdatedAtMs: number,
+  lastSequence: number | null,
+  nowMs = Date.now(),
+): boolean {
+  const updatedAtMs = Date.parse(payload.updatedAt)
+  if (!Number.isFinite(updatedAtMs)) return false
+  const wallAgeMs = nowMs - updatedAtMs
+  if (wallAgeMs > 10_000 || wallAgeMs < -60_000) return false
+  if (Number.isFinite(payload.sequence) && lastSequence !== null && payload.sequence! <= lastSequence) return false
+  if (lastUpdatedAtMs > 0 && updatedAtMs + 1_000 < lastUpdatedAtMs) return false
+  return true
+}
+
 function runtimeSampleTimestampMs(sample: { timestamp: string }) {
   const parsed = Date.parse(sample.timestamp)
   return Number.isFinite(parsed) ? parsed : 0

@@ -2,7 +2,7 @@ import type { TrafficOverviewQueryData } from './types'
 
 import { describe, expect, it, vi } from 'vitest'
 import { deriveTransport, resolveNodeTransport } from './node_transport'
-import { adaptRuntimeOverview, mergeRuntimeOverviewDelta } from './runtime_overview'
+import { adaptRuntimeOverview, mergeRuntimeOverviewDelta, runtimeOverviewIsFresh } from './runtime_overview'
 
 async function loadBuildLogEventsURL() {
   Object.defineProperty(globalThis, 'location', {
@@ -218,6 +218,25 @@ describe('mergeRuntimeOverviewDelta', () => {
       { timestamp: '2026-05-03T13:00:02.000Z', uploadRate: 30, downloadRate: 40 },
       { timestamp: '2026-05-03T13:00:04.000Z', uploadRate: 4, downloadRate: 5 },
     ])
+  })
+})
+
+describe('runtimeOverviewIsFresh', () => {
+  it('rejects responses older than the accepted cache version', () => {
+    expect(
+      runtimeOverviewIsFresh(
+        { updatedAt: '2026-05-03T13:00:00.000Z', sequence: 4 },
+        Date.parse('2026-05-03T13:00:02.000Z'),
+        4,
+        Date.parse('2026-05-03T13:00:02.000Z'),
+      ),
+    ).toBe(false)
+  })
+
+  it('accepts a newer response and rejects an out-of-window timestamp', () => {
+    const now = Date.parse('2026-05-03T13:00:02.000Z')
+    expect(runtimeOverviewIsFresh({ updatedAt: '2026-05-03T13:00:01.500Z', sequence: 5 }, 0, null, now)).toBe(true)
+    expect(runtimeOverviewIsFresh({ updatedAt: '2026-05-03T12:59:40.000Z', sequence: 6 }, 0, null, now)).toBe(false)
   })
 })
 
