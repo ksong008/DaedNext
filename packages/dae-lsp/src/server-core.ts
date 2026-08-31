@@ -74,6 +74,17 @@ export const semanticTokensLegend = {
 // Cache for parsed documents
 const parseCache = new Map<string, { version: number; result: ParseResult }>()
 const MAX_PARSE_CACHE_ENTRIES = 128
+const DIAGNOSTICS_DEBOUNCE_MS = 150
+const RE_FILTER_FUNCTION = /(?:filter\s*:\s*)?\b(name|subtag)\s*\(\s*(['"]?)(\w*)$/
+const RE_PROPERTY_NAME = /^\s*(\w+)\s*:\s*$/
+const RE_PARTIAL_PROPERTY_VALUE = /^\s*(\w+)\s*:\s*(\w+)$/
+const RE_WORD_CHARACTER = /[\w+\-]/
+const RE_PROPERTY_VALUE = /^\s*(\w+)\s*:\s*(\S.*)$/
+const RE_TYPE_PREFIX = /(geosite|geoip|full|contains|keyword|regexp|regex|ext):(\w+)/
+const RE_SECTION_HEADER = /^(\s*)(global|subscription|node|dns|group|routing)\s*\{/
+const RE_NAMED_DEFINITION = /^(\s*)(\w[\w-]*)\s*:/
+const RE_FALLBACK_DEFINITION = /^\s*(fallback)\s*:/
+const RE_OUTBOUND_TARGET = /->\s*(direct|block|must_direct|must_rules|must_group|proxy|\w+)/
 
 /**
  * Get parsed result for a document (with caching)
@@ -193,6 +204,8 @@ function validateDocument(connection: Connection, document: TextDocument): void 
  * Initialize and configure the language server
  */
 export function initializeServer(connection: Connection, documents: TextDocuments<TextDocument>): void {
+  const diagnosticsTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
   // Initialize handler
   connection.onInitialize((_params: InitializeParams): InitializeResult => {
     return {
@@ -246,7 +259,7 @@ export function initializeServer(connection: Connection, documents: TextDocument
 
     // Check if we're inside a filter function like name(), subtag() in group section
     // Use word boundary \b to avoid matching qname() which contains "name"
-    const filterFuncMatch = linePrefix.match(/(?:filter\s*:\s*)?\b(name|subtag)\s*\(\s*(['"]?)(\w*)$/)
+    const filterFuncMatch = linePrefix.match(RE_FILTER_FUNCTION)
     if (filterFuncMatch) {
       const quote = filterFuncMatch[2]
       const partial = filterFuncMatch[3].toLowerCase()
@@ -271,7 +284,7 @@ export function initializeServer(connection: Connection, documents: TextDocument
     }
 
     // Check if we're after a property name followed by colon
-    const propertyMatch = linePrefix.match(/^\s*(\w+)\s*:\s*$/)
+    const propertyMatch = linePrefix.match(RE_PROPERTY_NAME)
     if (propertyMatch) {
       const propertyName = propertyMatch[1]
       const propertyDef = PROPERTY_VALUES[propertyName]
@@ -289,7 +302,7 @@ export function initializeServer(connection: Connection, documents: TextDocument
     }
 
     // Check if we're typing a value after colon
-    const partialValueMatch = linePrefix.match(/^\s*(\w+)\s*:\s*(\w+)$/)
+    const partialValueMatch = linePrefix.match(RE_PARTIAL_PROPERTY_VALUE)
     if (partialValueMatch) {
       const propertyName = partialValueMatch[1]
       const partialValue = partialValueMatch[2].toLowerCase()
@@ -397,8 +410,8 @@ export function initializeServer(connection: Connection, documents: TextDocument
     // Find word boundaries (include + for values like domain+, domain++)
     let start = position.character
     let end = position.character
-    while (start > 0 && /[\w+\-]/.test(line[start - 1])) start--
-    while (end < line.length && /[\w+\-]/.test(line[end])) end++
+    while (start > 0 && RE_WORD_CHARACTER.test(line[start - 1])) start--
+    while (end < line.length && RE_WORD_CHARACTER.test(line[end])) end++
     const word = line.substring(start, end)
 
     if (!word) return null
@@ -406,7 +419,7 @@ export function initializeServer(connection: Connection, documents: TextDocument
     const wordRange = Range.create(position.line, start, position.line, end)
 
     // Check if we're on a property value
-    const propertyValueMatch = line.match(/^\s*(\w+)\s*:\s*(\S.*)$/)
+    const propertyValueMatch = line.match(RE_PROPERTY_VALUE)
     if (propertyValueMatch) {
       const propertyName = propertyValueMatch[1]
       const valueStart = line.indexOf(propertyValueMatch[2])
@@ -508,7 +521,7 @@ export function initializeServer(connection: Connection, documents: TextDocument
     }
 
     // Check prefix docs
-    const prefixMatch = line.match(/(geosite|geoip|full|contains|keyword|regexp|regex|ext):(\w+)/)
+    const prefixMatch = line.match(RE_TYPE_PREFIX)
     if (prefixMatch) {
       const prefix = prefixMatch[1]
       if (word === prefix || word === prefixMatch[2]) {
@@ -734,7 +747,7 @@ export function initializeServer(connection: Connection, documents: TextDocument
       }
 
       // Section headers
-      const sectionMatch = line.match(/^(\s*)(global|subscription|node|dns|group|routing)\s*\{/)
+      const sectionMatch = line.match(RE_SECTION_HEADER)
       if (sectionMatch) {
         tokens.push({
           line: lineNum,
@@ -746,20 +759,8 @@ export function initializeServer(connection: Connection, documents: TextDocument
         continue
       }
 
-      // Named definitions
-      const namedDefMatch = line.match(/^(\s*)(\w[\w-]*)\s*:/)
-      if (namedDefMatch) {
-        tokens.push({
-          line: lineNum,
-          char: namedDefMatch[1].length,
-          length: namedDefMatch[2].length,
-          tokenType: tokenTypes.indexOf('variable'),
-          tokenModifiers: 1, // declaration
-        })
-      }
-
-      // Keywords in routing rules
-      const keywordMatch = line.match(/^\s*(fallback)\s*:/)
+      const namedDefMatch = line.match(RE_NAMED_DEFINITION)
+      const keywordMatch = line.match(RE_FALLBACK_DEFINITION)
       if (keywordMatch) {
         const startIdx = line.indexOf(keywordMatch[1])
         tokens.push({
@@ -769,10 +770,18 @@ export function initializeServer(connection: Connection, documents: TextDocument
           tokenType: tokenTypes.indexOf('keyword'),
           tokenModifiers: 0,
         })
+      } else if (namedDefMatch) {
+        tokens.push({
+          line: lineNum,
+          char: namedDefMatch[1].length,
+          length: namedDefMatch[2].length,
+          tokenType: tokenTypes.indexOf('variable'),
+          tokenModifiers: 1,
+        })
       }
 
       // Outbound targets
-      const outboundMatch = line.match(/->\s*(direct|block|must_direct|must_rules|must_group|proxy|\w+)/)
+      const outboundMatch = line.match(RE_OUTBOUND_TARGET)
       if (outboundMatch) {
         const startIdx = line.lastIndexOf(outboundMatch[1])
         const isBuiltin = OUTBOUNDS.includes(outboundMatch[1])
@@ -795,8 +804,13 @@ export function initializeServer(connection: Connection, documents: TextDocument
       return a.char - b.char
     })
 
+    let previousLine = -1
+    let previousEnd = 0
     for (const token of tokens) {
+      if (token.line === previousLine && token.char < previousEnd) continue
       builder.push(token.line, token.char, token.length, token.tokenType, token.tokenModifiers)
+      previousLine = token.line
+      previousEnd = token.char + token.length
     }
 
     return builder.build()
@@ -804,10 +818,23 @@ export function initializeServer(connection: Connection, documents: TextDocument
 
   // Document change handlers
   documents.onDidChangeContent((change: { document: TextDocument }) => {
-    validateDocument(connection, change.document)
+    const uri = change.document.uri
+    const previousTimer = diagnosticsTimers.get(uri)
+    if (previousTimer !== undefined) clearTimeout(previousTimer)
+    diagnosticsTimers.set(
+      uri,
+      setTimeout(() => {
+        diagnosticsTimers.delete(uri)
+        const document = documents.get(uri)
+        if (document) validateDocument(connection, document)
+      }, DIAGNOSTICS_DEBOUNCE_MS),
+    )
   })
 
   documents.onDidClose((event: { document: TextDocument }) => {
+    const timer = diagnosticsTimers.get(event.document.uri)
+    if (timer !== undefined) clearTimeout(timer)
+    diagnosticsTimers.delete(event.document.uri)
     parseCache.delete(event.document.uri)
     connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] })
   })
