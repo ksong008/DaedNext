@@ -6,6 +6,7 @@ import {
   parseMasqueUrl,
   parseNodeUrl,
   parseSocks5Url,
+  parseSSRUrl,
   parseSSUrl,
   parseTrojanUrl,
   parseV2rayUrl,
@@ -439,6 +440,21 @@ describe('parseV2rayUrl', () => {
     })
   })
 
+  it('should reject malformed VMess legacy input instead of treating it as a URL', () => {
+    expect(parseV2rayUrl('vmess://not-a-vmess-payload')).toBeNull()
+  })
+
+  it('should accept unpadded URL-safe VMess legacy payloads', () => {
+    const standard = btoa(JSON.stringify({ add: 'example.com', port: 443, id: 'uuid-test' }))
+    const urlSafe = standard.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    expect(parseV2rayUrl(`vmess://${urlSafe}`)).toMatchObject({
+      protocol: 'vmess',
+      add: 'example.com',
+      port: 443,
+      id: 'uuid-test',
+    })
+  })
+
   it('should parse VLESS with HTTPUpgrade', () => {
     const result = parseV2rayUrl(
       'vless://uuid@example.com:443?type=httpupgrade&security=tls&host=example.com&path=%2Fupgrade#httpupgrade-vless',
@@ -539,6 +555,19 @@ describe('parseV2rayUrl', () => {
       xhttpMode: 'packet-up',
       grpcMode: 'gun',
       alpn: 'h3',
+    })
+  })
+})
+
+describe('parseSSRUrl', () => {
+  it('keeps an invalid optional remarks field from invalidating the node', () => {
+    const main = ['example.com', '443', 'origin', 'aes-128-cfb', 'http', btoa('secret')].join(':')
+    const encoded = btoa(`${main}/?remarks=not!base64`)
+    expect(parseSSRUrl(`ssr://${encoded}`)).toMatchObject({
+      server: 'example.com',
+      port: 443,
+      password: 'secret',
+      name: 'not!base64',
     })
   })
 })

@@ -15,10 +15,22 @@ import type {
 import { Base64 } from 'js-base64'
 
 const TRAILING_SLASH_PATTERN = /\/$/
-const BASE64_CONTENT_PATTERN = /^[A-Z0-9+/=]+$/i
+const BASE64_CONTENT_PATTERN = /^[-\w+/]+={0,2}$/
+const BASE64_PADDING_PATTERN = /=+$/
 const MASQUE_TARGET_HOST = '{target_host}'
 const MASQUE_TARGET_PORT = '{target_port}'
 const MASQUE_QUERY_KEYS = new Set(['allowInsecure', 'auth', 'sni', 'template', 'transport'])
+
+function decodeBase64Value(value: string): string | null {
+  if (!BASE64_CONTENT_PATTERN.test(value)) return null
+  const unpaddedLength = value.replace(BASE64_PADDING_PATTERN, '').length
+  if (unpaddedLength % 4 === 1) return null
+  try {
+    return Base64.decode(value)
+  } catch {
+    return null
+  }
+}
 
 function parseBoolParam(value: string | null): boolean {
   return value === '1' || value === 'true' || value === 'yes' || value === 'on'
@@ -348,7 +360,8 @@ export function parseSSRUrl(url: string): Partial<SSRConfig> | null {
       return null
     }
 
-    const decoded = Base64.decode(url.slice(6))
+    const decoded = decodeBase64Value(url.slice(6))
+    if (decoded === null) return null
     const mainQuerySplit = decoded.split('/?')
     const mainPart = mainQuerySplit[0]
     const queryPart = mainQuerySplit[1] || ''
@@ -361,7 +374,8 @@ export function parseSSRUrl(url: string): Partial<SSRConfig> | null {
     }
 
     // Server might contain ':' in IPv6
-    const password = Base64.decode(parts.at(-1) || '')
+    const password = decodeBase64Value(parts.at(-1) || '')
+    if (password === null) return null
     const obfs = parts[parts.length - 2]
     const method = parts[parts.length - 3]
     const proto = parts[parts.length - 4]
@@ -370,9 +384,12 @@ export function parseSSRUrl(url: string): Partial<SSRConfig> | null {
 
     // Parse query parameters
     const params = new URLSearchParams(queryPart)
-    const name = params.get('remarks') ? Base64.decode(params.get('remarks')!) : ''
-    const protoParam = params.get('protoparam') ? Base64.decode(params.get('protoparam')!) : ''
-    const obfsParam = params.get('obfsparam') ? Base64.decode(params.get('obfsparam')!) : ''
+    const remarks = params.get('remarks')
+    const protoParamValue = params.get('protoparam')
+    const obfsParamValue = params.get('obfsparam')
+    const name = remarks ? (decodeBase64Value(remarks) ?? remarks) : ''
+    const protoParam = protoParamValue ? (decodeBase64Value(protoParamValue) ?? '') : ''
+    const obfsParam = obfsParamValue ? (decodeBase64Value(obfsParamValue) ?? '') : ''
 
     return {
       server,
@@ -628,17 +645,12 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
     const hashIndex = content.indexOf('#')
     const mainContent = hashIndex !== -1 ? content.slice(0, hashIndex) : content
 
-    // If content contains @ and doesn't look like base64, try URL format first
-    if (mainContent.includes('@') && !BASE64_CONTENT_PATTERN.test(mainContent)) {
-      const result = parseVMessStandardUrl(url)
-
-      if (result) {
-        return result
-      }
+    if (mainContent.includes('@')) {
+      return parseVMessStandardUrl(url)
     }
 
-    // Try legacy base64 JSON format
-    const decoded = Base64.decode(mainContent.includes('@') ? mainContent : content.split('#')[0])
+    const decoded = decodeBase64Value(content.split('#')[0])
+    if (decoded === null) return null
 
     try {
       const config = JSON.parse(decoded)
@@ -699,8 +711,7 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         xmuxRaw: '',
       }
     } catch {
-      // If JSON parse fails, try standard URL format
-      return parseVMessStandardUrl(url)
+      return null
     }
   } catch {
     return null
