@@ -633,10 +633,16 @@ export function buildSupportedXhttpExtra(data: XhttpExtraInput): string {
   const mode = normalizeMode(data.xhttpMode)
 
   const rawExtra = data.xhttpExtra?.trim() || ''
-  if (rawExtra && !validateXhttpExtraRaw(rawExtra)) {
+  if (rawExtra) {
     const parsed = parseJson(rawExtra)
     if (parsed.ok && isJsonObject(parsed.value)) {
-      Object.assign(extra, parsed.value)
+      if (!validateXhttpExtraRaw(rawExtra)) {
+        Object.assign(extra, parsed.value)
+      } else {
+        for (const [key, value] of Object.entries(parsed.value)) {
+          if (!XHTTP_SETTINGS_KEYS.includes(key)) extra[key] = value
+        }
+      }
     }
   }
 

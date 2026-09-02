@@ -7,6 +7,7 @@ const EMPTY_DNS_CONFIG: DNSConfig = {
   requestRules: [],
   responseRules: [],
   others: '',
+  wrappedInDNSBlock: false,
   preserved: {
     upstream: [],
     routing: [],
