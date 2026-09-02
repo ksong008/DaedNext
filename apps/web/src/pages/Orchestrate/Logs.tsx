@@ -413,6 +413,14 @@ export function LogResource() {
                   loading={clearLogsMutation.isPending}
                   onClick={async () => {
                     await clearLogsMutation.mutateAsync()
+                    pendingEntriesRef.current = []
+                    knownEntryIdsRef.current.clear()
+                    setStreamAfterId(null)
+                    followLogTailRef.current = true
+                    if (flushTimerRef.current !== null) {
+                      window.clearTimeout(flushTimerRef.current)
+                      flushTimerRef.current = null
+                    }
                     setEntries([])
                   }}
                 >
