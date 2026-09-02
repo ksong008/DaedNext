@@ -22,5 +22,6 @@ export interface DNSConfig {
   requestRules: RoutingRule[]
   responseRules: RoutingRule[]
   others: string // Stores content that cannot be structured, e.g. global settings or comments
+  wrappedInDNSBlock: boolean
   preserved: DNSPreservedLines
 }

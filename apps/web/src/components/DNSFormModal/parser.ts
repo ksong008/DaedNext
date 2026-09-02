@@ -223,11 +223,13 @@ export function parseDNSConfig(config: string): DNSConfig {
   }
 
   let content = config.trim()
+  let wrappedInDNSBlock = false
   let others = content
   const outerDNSBlock = extractBlock(content, 'dns')
   if (outerDNSBlock?.full.trim() === content) {
     content = outerDNSBlock.inner
     others = content
+    wrappedInDNSBlock = true
   }
 
   const upstreamBlock = extractBlock(content, 'upstream')
@@ -255,7 +257,7 @@ export function parseDNSConfig(config: string): DNSConfig {
     others = others.replace(routingBlock.full, '')
   }
 
-  return { upstreams, requestRules, responseRules, others: others.trim(), preserved }
+  return { upstreams, requestRules, responseRules, others: others.trim(), wrappedInDNSBlock, preserved }
 }
 
 export function generateDNSConfig(config: DNSConfig): string {
@@ -304,5 +306,6 @@ export function generateDNSConfig(config: DNSConfig): string {
     result += '}\n'
   }
 
-  return result.trimEnd()
+  const generated = result.trimEnd()
+  return config.wrappedInDNSBlock ? `dns {\n${generated}\n}` : generated
 }

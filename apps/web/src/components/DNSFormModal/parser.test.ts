@@ -3,6 +3,27 @@ import { describe, expect, it } from 'vitest'
 import { generateDNSConfig, parseDNSConfig } from './parser'
 
 describe('dns form parser', () => {
+  it('preserves an outer dns block when switching through simple mode', () => {
+    const parsed = parseDNSConfig(`
+dns {
+  upstream {
+    local: 'udp://127.0.0.1:53'
+  }
+}
+`)
+
+    expect(parsed.wrappedInDNSBlock).toBe(true)
+    expect(generateDNSConfig(parsed)).toContain('dns {\nupstream {')
+    expect(parseDNSConfig(generateDNSConfig(parsed)).wrappedInDNSBlock).toBe(true)
+  })
+
+  it('keeps a plain config unwrapped', () => {
+    const parsed = parseDNSConfig("upstream { local: 'udp://127.0.0.1:53' }")
+
+    expect(parsed.wrappedInDNSBlock).toBe(false)
+    expect(generateDNSConfig(parsed)).not.toMatch(/^dns\s*\{/)
+  })
+
   it('roundtrips encrypted upstreams and resident response routing matchers', () => {
     const parsed = parseDNSConfig(`
 upstream {

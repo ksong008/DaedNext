@@ -85,7 +85,7 @@ it('buildSupportedXhttpExtra drops downloadSettings for stream-one', () => {
   ).toBe(JSON.stringify({ xmux: { maxConcurrency: 1 } }))
 })
 
-it('buildSupportedXhttpExtra does not emit unsupported raw xhttp json', () => {
+it('preserves unknown raw xhttp fields while structured fields remain authoritative', () => {
   expect(
     buildSupportedXhttpExtra({
       xhttpMode: 'packet-up',
@@ -93,7 +93,7 @@ it('buildSupportedXhttpExtra does not emit unsupported raw xhttp json', () => {
       downloadSettingsRaw: '{"xPaddingBytes":"100-200"}',
       xmuxRaw: '{"unsupported":15}',
     }),
-  ).toBe('')
+  ).toBe(JSON.stringify({ unknown: true }))
 })
 
 it('validateXhttpXmuxRaw accepts official signed ranges and hKeepAlivePeriod', () => {
