@@ -160,7 +160,8 @@ TCP-TLS and QUIC providers.
 | `RUST_TARGET_DIR`                       | `DaeNext/target` | Cargo cache/output directory. Use a different directory for each target or CPU level when builds run concurrently.      |
 | `RUST_FEATURES`                         | `native-ebpf`    | Additional `dae-daemon` Cargo features. This does not disable default features.                                         |
 | `RUSTFLAGS`                             | unset            | Rust compiler flags. Release jobs use it to select the CPU baseline with `-C target-cpu=...`.                           |
-| `CARGO_PROFILE_RELEASE_LTO`             | `false`          | Keeps both thin and fat LTO disabled; set it explicitly in scripted release builds.                                     |
+| `CARGO_PROFILE_RELEASE_LTO`             | `fat`            | Selects the default Fat LTO release profile; override only for a controlled comparison build.                           |
+| `CARGO_PROFILE_RELEASE_CODEGEN_UNITS`   | `1`              | Selects the default release codegen-unit count; override only for a controlled comparison build.                        |
 | `OUTPUT`                                | `daed`           | Destination path of the final stripped product binary.                                                                  |
 | `VERSION`                               | `0.0.0.unknown`  | Product version embedded in `daed --version`.                                                                           |
 | `DAED_SKIP_WEB_BUILD`                   | unset            | Reuses the existing `dist/` directory instead of rebuilding the WebUI. The directory must already exist.                |
@@ -169,10 +170,11 @@ TCP-TLS and QUIC providers.
 | `DAED_PRODUCT_VERSION`                  | derived          | Overrides the complete embedded product identity string.                                                                |
 | `TARGET_OS`, `TARGET_ARCH`, `CPU_LEVEL` | unset            | Supply release identity labels. They do not select a compiler target or CPU instruction set by themselves.              |
 
-Build an x86_64-v2 product binary without LTO:
+Build an x86_64-v2 product binary with the default Fat LTO profile:
 
 ```bash
-CARGO_PROFILE_RELEASE_LTO=false \
+CARGO_PROFILE_RELEASE_LTO=fat \
+CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
 RUSTFLAGS="-C target-cpu=x86-64-v2" \
 make RUST_WORKSPACE=../DaeNext \
   RUST_TARGET_DIR=/tmp/daed-target-x86_64-v2 \
@@ -190,7 +192,8 @@ Cortex-A53 compatibility at the ISA level:
 ```bash
 rustup target add aarch64-unknown-linux-gnu
 
-CARGO_PROFILE_RELEASE_LTO=false \
+CARGO_PROFILE_RELEASE_LTO=fat \
+CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
 RUSTFLAGS="-C target-cpu=generic" \
 CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
 CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
