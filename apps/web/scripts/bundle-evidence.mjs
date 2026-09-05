@@ -36,7 +36,7 @@ const trackedChunks = [
   },
   {
     name: 'browser LSP worker',
-    pattern: /^server\.browser-.*\.js$/,
+    pattern: /^(?:server\.browser|browser-server)-.*\.js$/,
     maxRawBytes: 260 * 1024,
     maxGzipBytes: 80 * 1024,
   },
