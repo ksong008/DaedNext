@@ -17,6 +17,24 @@
       "interruptible": true,
       "persistent": true
     },
+    "daed#test": {
+      "dependsOn": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/dae-*/src/**",
+        "$TURBO_ROOT$/packages/dae-*/package.json",
+        "$TURBO_ROOT$/packages/dae-*/tsconfig*.json"
+      ]
+    },
+    "daed#check-types": {
+      "dependsOn": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/dae-*/src/**",
+        "$TURBO_ROOT$/packages/dae-*/package.json",
+        "$TURBO_ROOT$/packages/dae-*/tsconfig*.json"
+      ]
+    },
     "test": {
       "dependsOn": ["build"]
     }
