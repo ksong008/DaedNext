@@ -1,4 +1,4 @@
-import type { DragUpdate, DropResult } from '@hello-pangea/dnd'
+import type { SummaryGroupEditMode } from './GroupResourceEditor'
 import type { NodeLatencyProbeResult } from '~/apis'
 import type {
   GroupListView,
@@ -9,12 +9,9 @@ import type {
   SubscriptionListView,
   SubscriptionSummaryResource,
 } from '~/apis/types'
-import type { GroupPickerItem } from '~/components/GroupResourcePickerModal'
-import type { DraggingResource } from '~/constants'
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ListPlus, Network } from 'lucide-react'
-import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -22,11 +19,6 @@ import {
   useConfigSummariesQuery,
   useGeneralStateQuery,
   useGeodataQuery,
-  useGroupAddNodesMutation,
-  useGroupAddSubscriptionsMutation,
-  useGroupDelNodesMutation,
-  useGroupDelSubscriptionsMutation,
-  useGroupReplaceNodesMutation,
   useGroupsQuery,
   useGroupsSummaryQuery,
   useInterfacesQuery,
@@ -37,9 +29,6 @@ import {
   useSubscriptionsSummaryQuery,
 } from '~/apis'
 import { webQueryKeys } from '~/apis/query_cache'
-import { Policy } from '~/apis/types'
-import { GroupAddNodesModal, GroupAddSubscriptionsModal } from '~/components/GroupResourcePickerModal'
-import { NodeProtocolBadge } from '~/components/NodeProtocolBadge'
 import { Dialog, DialogTitle } from '~/components/ui/dialog'
 import {
   ScrollableDialogBody,
@@ -54,13 +43,13 @@ import {
   useServerGroupSortState,
 } from '~/hooks/usePersistentSortOrder'
 import { cn } from '~/lib/utils'
-import { appStateAtom, groupSortOrdersAtom } from '~/store'
+import { appStateAtom } from '~/store'
 import { deriveTime } from '~/utils'
-import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 import { reconcileSortOrder } from '~/utils/sort_order'
-import { NODE_DROPPABLE_ID } from './dndConstants'
+import { GroupResourceEditor } from './GroupResourceEditor'
 import { TrafficOverviewIsland } from './TrafficOverviewIsland'
 import { useManualLatencyJob } from './useManualLatencyJob'
+import { useOrchestrateDrag } from './useOrchestrateDrag'
 import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
 
 const ConfigPanel = lazy(() => import('./Config').then((module) => ({ default: module.Config })))
@@ -76,15 +65,6 @@ const LazyDragDropContext = lazy(() =>
   import('./DragDropIsland').then((module) => ({ default: module.OrchestrateDragDropContext })),
 )
 
-function arrayMove<T>(array: T[], from: number, to: number): T[] {
-  const newArray = [...array]
-  const [removed] = newArray.splice(from, 1)
-  newArray.splice(to, 0, removed)
-  return newArray
-}
-
-const GROUP_NODE_ITEM_ID_PATTERN = /^(.+)-node-(.+)$/
-const GROUP_SUBSCRIPTION_ITEM_ID_PATTERN = /^(.+)-sub-(.+)$/
 const EMPTY_CONFIG_SUMMARIES: SectionSummaryResource[] = []
 const EMPTY_GROUP_SUMMARIES: GroupSummaryResource[] = []
 const EMPTY_SUBSCRIPTION_SUMMARIES: SubscriptionSummaryResource[] = []
@@ -92,13 +72,6 @@ const EMPTY_INTERFACES: InterfaceResource[] = []
 
 function PanelLoadingFallback() {
   return <div className="min-h-28 rounded-xl border border-border/70 bg-muted/20" aria-busy="true" />
-}
-
-type SummaryGroupEditMode = 'actions' | 'nodes' | 'subscriptions'
-
-interface NodePickerCandidate {
-  node: NodeListView['nodes']['items'][number]
-  sourceLabel: string
 }
 
 export function OrchestratePage() {
@@ -146,42 +119,15 @@ export function OrchestratePage() {
   const { data: subscriptionSummariesQuery } = useSubscriptionsSummaryQuery()
   const { data: subscriptionsQuery } = useSubscriptionsQuery(fullSubscriptionQueryEnabled)
 
-  const groupAddNodesMutation = useGroupAddNodesMutation()
-  const groupAddSubscriptionsMutation = useGroupAddSubscriptionsMutation()
-  const groupDelNodesMutation = useGroupDelNodesMutation()
-  const groupDelSubscriptionsMutation = useGroupDelSubscriptionsMutation()
-  const groupReplaceNodesMutation = useGroupReplaceNodesMutation()
   const [manualLatencyProbeOverrides, setManualLatencyProbeOverrides] = useState<
     Record<string, NodeLatencyProbeResult>
   >({})
-
-  const [draggingResource, setDraggingResource] = useState<DraggingResource | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragDestinationDroppableId, setDragDestinationDroppableId] = useState<string | null>(null)
-  const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null)
-  const autoScrollFrameRef = useRef<number | null>(null)
-  const draggingActiveRef = useRef(false)
-  const edgeAutoScrollEnabledRef = useRef(false)
-  const dragPointerRef = useRef<{ y: number } | null>(null)
-  const hoveredGroupIdRef = useRef<string | null>(null)
 
   // Use persistent store for sort order
   const appState = useStore(appStateAtom)
   const storedNodeSortOrder = appState.nodeSortableKeys as string[]
   const storedSubscriptionSortOrder = appState.subscriptionSortableKeys as string[]
   const storedGroupSortOrder = appState.groupSortableKeys as string[]
-
-  const setNodeSortOrder = useCallback((order: string[]) => {
-    appStateAtom.setKey('nodeSortableKeys', order)
-  }, [])
-
-  const setSubscriptionSortOrder = useCallback((order: string[]) => {
-    appStateAtom.setKey('subscriptionSortableKeys', order)
-  }, [])
-
-  const setGroupSortOrder = useCallback((order: string[]) => {
-    appStateAtom.setKey('groupSortableKeys', order)
-  }, [])
 
   // Get nodes from query (memoized to avoid dependency issues)
   const nodes = useMemo(() => nodesQuery?.nodes.items ?? [], [nodesQuery?.nodes.items])
@@ -233,40 +179,6 @@ export function OrchestratePage() {
     [groups],
   )
   usePersistentGroupSortOrders(groupSortMemberships, groupSortStateReady && groupsQuery !== undefined)
-  const getGroupById = useCallback(
-    (groupId: string) => groupsQuery?.groups.find((group: GroupListView['groups'][number]) => group.id === groupId),
-    [groupsQuery?.groups],
-  )
-  const assignNodeToGroup = useCallback(
-    (groupId: string, nodeId: string) => {
-      const group = getGroupById(groupId)
-      if (!group || group.nodes.some((node) => node.id === nodeId)) return false
-
-      if (group.policy === Policy.Fixed) {
-        groupReplaceNodesMutation.mutate({
-          id: groupId,
-          nodeIDs: [nodeId],
-          expectedVersion: group.version,
-        })
-      } else {
-        groupAddNodesMutation.mutate({ id: groupId, nodeIDs: [nodeId] })
-      }
-      return true
-    },
-    [getGroupById, groupAddNodesMutation, groupReplaceNodesMutation],
-  )
-  const getGroupSubscriptionBinding = useCallback(
-    (groupId: string, subscriptionId: string) =>
-      getGroupById(groupId)?.subscriptions.find(
-        (binding: GroupListView['groups'][number]['subscriptions'][number]) =>
-          binding.subscription.id === subscriptionId,
-      ),
-    [getGroupById],
-  )
-  const hasGroupSubscription = useCallback(
-    (groupId: string, subscriptionId: string) => !!getGroupSubscriptionBinding(groupId, subscriptionId),
-    [getGroupSubscriptionBinding],
-  )
   const [nodeLatenciesEnabled, setNodeLatenciesEnabled] = useState(false)
   const startupDataReady = !!configSummariesQuery && !!groupSummariesQuery && !!subscriptionSummariesQuery
   const nodeLatencyRefetchIntervalMs = useMemo(() => {
@@ -487,489 +399,13 @@ export function OrchestratePage() {
     return sortedGroupIds.map((id) => groupMap.get(id)).filter(Boolean) as typeof groups
   }, [groups, sortedGroupIds])
 
-  const summaryEditingGroup = useMemo(
-    () => sortedGroups.find((group) => group.id === summaryEditingGroupId) ?? null,
-    [sortedGroups, summaryEditingGroupId],
-  )
-  const summaryEditingGroupSummary = useMemo(
-    () => sortedGroupSummaries.find((group) => group.id === summaryEditingGroupId) ?? null,
-    [sortedGroupSummaries, summaryEditingGroupId],
-  )
-  const summaryEditingGroupName = summaryEditingGroup?.name || summaryEditingGroupSummary?.name || t('group')
-  const summaryEditingGroupAvailable = !!summaryEditingGroup || !!summaryEditingGroupSummary
-  const summaryEditingGroupNodeCount = summaryEditingGroup?.nodes.length ?? summaryEditingGroupSummary?.nodeCount ?? 0
-  const summaryEditingGroupSubscriptionCount =
-    summaryEditingGroup?.subscriptions.length ?? summaryEditingGroupSummary?.subscriptionCount ?? 0
-
-  const summaryNodePickerCandidates = useMemo<NodePickerCandidate[]>(() => {
-    if (summaryGroupEditMode !== 'nodes') return []
-
-    const candidates: NodePickerCandidate[] = []
-    const seenNodeIds = new Set<string>()
-    const subscriptionNameById = new Map(
-      sortedSubscriptions.map((subscription) => [subscription.id, subscription.tag || subscription.link]),
-    )
-    const pushNode = (node: NodeListView['nodes']['items'][number], sourceLabel: string) => {
-      if (seenNodeIds.has(node.id)) return
-      seenNodeIds.add(node.id)
-      candidates.push({ node, sourceLabel })
-    }
-
-    for (const node of sortedNodes) {
-      const subscriptionName = node.subscriptionID ? subscriptionNameById.get(node.subscriptionID) : undefined
-      pushNode(
-        node,
-        node.subscriptionID
-          ? t('groupPicker.fromSubscription', { name: subscriptionName ?? node.subscriptionID })
-          : t('groupPicker.manualNode'),
-      )
-    }
-
-    for (const subscription of sortedSubscriptions) {
-      const subscriptionName = subscription.tag || subscription.link
-      const sourceLabel = t('groupPicker.fromSubscription', { name: subscriptionName })
-      for (const node of subscription.nodes.items) {
-        pushNode(node, sourceLabel)
-      }
-    }
-
-    return candidates
-  }, [sortedNodes, sortedSubscriptions, summaryGroupEditMode, t])
-
-  const toSummaryNodePickerItem = useCallback(
-    ({ node, sourceLabel }: NodePickerCandidate): GroupPickerItem => {
-      const title = node.tag || node.name || node.address || node.id
-      const description = [node.name && node.name !== title ? node.name : '', node.address].filter(Boolean).join(' · ')
-      const latencyResult = nodeLatencies[node.id]
-      const latency = formatNodeLatencyCardLabel(latencyResult, t('latency.unavailable'))
-      const latencyCardTone = getNodeLatencyCardTone(latencyResult)
-      const latencyTone: GroupPickerItem['latencyTone'] =
-        latencyCardTone === 'success' ? 'primary' : latencyCardTone === 'failure' ? 'destructive' : 'default'
-
-      return {
-        id: node.id,
-        title,
-        description: description || undefined,
-        meta: sourceLabel,
-        latency,
-        latencyTone,
-        badge: (
-          <NodeProtocolBadge protocol={node.protocol} transport={node.transport} compact className="max-w-[5rem]" />
-        ),
-        keywords: [node.name, node.tag, node.address, node.protocol, node.transport, sourceLabel, latency].filter(
-          Boolean,
-        ) as string[],
-      }
-    },
-    [nodeLatencies, t],
-  )
-
-  const summaryEditableNodeItems = useMemo<GroupPickerItem[]>(
-    () => summaryNodePickerCandidates.map((candidate) => toSummaryNodePickerItem(candidate)),
-    [summaryNodePickerCandidates, toSummaryNodePickerItem],
-  )
-
-  const summarySelectedNodeItemIds = useMemo(() => {
-    if (summaryGroupEditMode !== 'nodes' || !summaryEditingGroup) return []
-
-    return summaryEditingGroup.nodes
-      .map((node) => findNodePickerId(node, summaryNodePickerCandidates))
-      .filter(Boolean) as string[]
-  }, [summaryEditingGroup, summaryGroupEditMode, summaryNodePickerCandidates])
-
-  const summaryEditableSubscriptionItems = useMemo<GroupPickerItem[]>(() => {
-    if (summaryGroupEditMode !== 'subscriptions') return []
-
-    return sortedSubscriptions.map((subscription) => {
-      const title = subscription.tag || subscription.link
-      const description = subscription.tag && subscription.tag !== subscription.link ? subscription.link : undefined
-
-      return {
-        id: subscription.id,
-        title,
-        description,
-        meta: `${subscription.nodes.items.length} ${t('node')}`,
-        keywords: [subscription.tag, subscription.link, subscription.status, subscription.info].filter(
-          Boolean,
-        ) as string[],
-      }
+  const { draggingResource, dragDestinationDroppableId, hoveredGroupId, onDragStart, onDragUpdate, onDragEnd } =
+    useOrchestrateDrag({
+      groupsQuery,
+      sortedNodeIds,
+      sortedSubscriptionIds,
+      sortedGroupIds,
     })
-  }, [sortedSubscriptions, summaryGroupEditMode, t])
-
-  const summarySelectedSubscriptionItemIds = useMemo(
-    () =>
-      summaryGroupEditMode === 'subscriptions'
-        ? (summaryEditingGroup?.subscriptions.map((binding) => binding.subscription.id) ?? [])
-        : [],
-    [summaryEditingGroup, summaryGroupEditMode],
-  )
-
-  // Helper to parse group item IDs (format: groupId-node-nodeId or groupId-sub-subId)
-  const parseGroupItemId = useCallback(
-    (id: string): { groupId: string; type: 'node' | 'sub'; itemId: string } | null => {
-      const nodeMatch = id.match(GROUP_NODE_ITEM_ID_PATTERN)
-      if (nodeMatch) {
-        return { groupId: nodeMatch[1], type: 'node', itemId: nodeMatch[2] }
-      }
-      const subMatch = id.match(GROUP_SUBSCRIPTION_ITEM_ID_PATTERN)
-      if (subMatch) {
-        return { groupId: subMatch[1], type: 'sub', itemId: subMatch[2] }
-      }
-      return null
-    },
-    [],
-  )
-
-  // Helper to update group sort order
-  const updateGroupSortOrder = useCallback((groupId: string, type: 'nodes' | 'subscriptions', newOrder: string[]) => {
-    const currentOrders = groupSortOrdersAtom.get()
-    groupSortOrdersAtom.set({
-      ...currentOrders,
-      [groupId]: {
-        nodes: type === 'nodes' ? newOrder : currentOrders[groupId]?.nodes || [],
-        subscriptions: type === 'subscriptions' ? newOrder : currentOrders[groupId]?.subscriptions || [],
-      },
-    })
-  }, [])
-
-  // Get sorted IDs for a group
-  const getGroupSortedIds = useCallback((groupId: string, type: 'nodes' | 'subscriptions', currentIds: string[]) => {
-    const groupSortOrders = groupSortOrdersAtom.get()
-    const sortOrder = groupSortOrders[groupId]?.[type] || []
-    return reconcileSortOrder(sortOrder, currentIds)
-  }, [])
-
-  const stopEdgeAutoScroll = useCallback(() => {
-    if (autoScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(autoScrollFrameRef.current)
-      autoScrollFrameRef.current = null
-    }
-  }, [])
-
-  const tickEdgeAutoScroll = useCallback(() => {
-    autoScrollFrameRef.current = null
-
-    if (!draggingActiveRef.current || !edgeAutoScrollEnabledRef.current || !dragPointerRef.current) return
-
-    const viewportHeight = window.innerHeight
-    const threshold = Math.min(320, Math.max(180, Math.round(viewportHeight * 0.3)))
-    const pointerY = dragPointerRef.current.y
-    let delta = 0
-
-    if (pointerY < threshold) {
-      const intensity = Math.min(1, (threshold - pointerY) / threshold)
-      delta = -Math.round(24 + intensity * intensity * 176)
-    } else if (pointerY > viewportHeight - threshold) {
-      const intensity = Math.min(1, (pointerY - (viewportHeight - threshold)) / threshold)
-      delta = Math.round(24 + intensity * intensity * 176)
-    }
-
-    if (delta === 0) return
-
-    window.scrollBy(0, delta)
-    autoScrollFrameRef.current = window.requestAnimationFrame(tickEdgeAutoScroll)
-  }, [])
-
-  const ensureEdgeAutoScroll = useCallback(() => {
-    if (autoScrollFrameRef.current === null) {
-      autoScrollFrameRef.current = window.requestAnimationFrame(tickEdgeAutoScroll)
-    }
-  }, [tickEdgeAutoScroll])
-
-  useEffect(() => {
-    draggingActiveRef.current = isDragging
-
-    if (!isDragging) {
-      edgeAutoScrollEnabledRef.current = false
-      hoveredGroupIdRef.current = null
-      setHoveredGroupId(null)
-      stopEdgeAutoScroll()
-      return
-    }
-
-    edgeAutoScrollEnabledRef.current = true
-
-    const handlePointerMove = (event: MouseEvent | PointerEvent) => {
-      dragPointerRef.current = {
-        y: event.clientY,
-      }
-
-      const hoveredCard = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-group-card-id]')
-      const nextHoveredGroupId = hoveredCard?.getAttribute('data-group-card-id') ?? null
-
-      if (hoveredGroupIdRef.current !== nextHoveredGroupId) {
-        hoveredGroupIdRef.current = nextHoveredGroupId
-        setHoveredGroupId(nextHoveredGroupId)
-      }
-
-      if (edgeAutoScrollEnabledRef.current) {
-        ensureEdgeAutoScroll()
-      }
-    }
-
-    window.addEventListener('mousemove', handlePointerMove, { passive: true })
-    window.addEventListener('pointermove', handlePointerMove, { passive: true })
-
-    return () => {
-      window.removeEventListener('mousemove', handlePointerMove)
-      window.removeEventListener('pointermove', handlePointerMove)
-    }
-  }, [ensureEdgeAutoScroll, isDragging, stopEdgeAutoScroll])
-
-  useEffect(() => () => stopEdgeAutoScroll(), [stopEdgeAutoScroll])
-
-  const onDragStart = (start: { draggableId: string; source: { droppableId: string } }) => {
-    const draggableId = start.draggableId
-    const droppableId = start.source.droppableId
-
-    setIsDragging(true)
-    setDragDestinationDroppableId(null)
-    hoveredGroupIdRef.current = null
-    setHoveredGroupId(null)
-    edgeAutoScrollEnabledRef.current = true
-    ensureEdgeAutoScroll()
-
-    // Determine the type based on droppableId
-    if (droppableId === 'group-list') {
-      setDraggingResource(null)
-      return
-    }
-
-    if (droppableId === 'node-list') {
-      const nodeId = draggableId.replace('node-', '')
-      setDraggingResource({ type: DraggableResourceType.node, nodeID: nodeId })
-    } else if (droppableId === 'subscription-list') {
-      const subId = draggableId.replace('subscription-', '')
-      setDraggingResource({ type: DraggableResourceType.subscription, subscriptionID: subId })
-    } else if (droppableId.startsWith('subscription-') && droppableId.endsWith('-nodes')) {
-      // Subscription node dragged from a subscription's node list
-      const nodeId = draggableId.replace('subscription-node-', '')
-      setDraggingResource({ type: DraggableResourceType.subscription_node, nodeID: nodeId })
-    } else if (droppableId.endsWith('-nodes')) {
-      const groupId = droppableId.replace('-nodes', '')
-      const parsed = parseGroupItemId(draggableId)
-      if (parsed) {
-        setDraggingResource({ type: DraggableResourceType.groupNode, nodeID: parsed.itemId, groupID: groupId })
-      }
-    } else if (droppableId.endsWith('-subscriptions')) {
-      const groupId = droppableId.replace('-subscriptions', '')
-      const parsed = parseGroupItemId(draggableId)
-      if (parsed) {
-        setDraggingResource({
-          type: DraggableResourceType.groupSubscription,
-          subscriptionID: parsed.itemId,
-          groupID: groupId,
-        })
-      }
-    }
-  }
-
-  const onDragUpdate = useCallback(
-    (update: DragUpdate) => {
-      const nextDroppableId = update.destination?.droppableId ?? null
-      setDragDestinationDroppableId((current) => (current === nextDroppableId ? current : nextDroppableId))
-      ensureEdgeAutoScroll()
-    },
-    [ensureEdgeAutoScroll],
-  )
-
-  const onDragEnd = (result: DropResult) => {
-    const { source, destination, draggableId } = result
-    const fallbackGroupId = hoveredGroupIdRef.current
-
-    setIsDragging(false)
-    setDraggingResource(null)
-    setDragDestinationDroppableId(null)
-    setHoveredGroupId(null)
-    hoveredGroupIdRef.current = null
-    edgeAutoScrollEnabledRef.current = false
-    stopEdgeAutoScroll()
-
-    const sourceDroppableId = source.droppableId
-    const destDroppableId = destination?.droppableId
-
-    if (sourceDroppableId === 'group-list' && destDroppableId === 'group-list' && destination) {
-      if (source.index !== destination.index) {
-        setGroupSortOrder(arrayMove(sortedGroupIds, source.index, destination.index))
-      }
-      return
-    }
-
-    if (!destination) {
-      if (fallbackGroupId) {
-        if (sourceDroppableId === 'subscription-list') {
-          const subId = draggableId.replace('subscription-', '')
-          const targetGroup = getGroupById(fallbackGroupId)
-          if (targetGroup && !hasGroupSubscription(fallbackGroupId, subId)) {
-            groupAddSubscriptionsMutation.mutate({ id: fallbackGroupId, subscriptionIDs: [subId] })
-            return
-          }
-        }
-
-        if (sourceDroppableId === 'node-list') {
-          const nodeId = draggableId.replace('node-', '')
-          if (assignNodeToGroup(fallbackGroupId, nodeId)) return
-        }
-
-        if (
-          sourceDroppableId.startsWith('subscription-') &&
-          sourceDroppableId.endsWith('-nodes') &&
-          sourceDroppableId !== 'subscription-list'
-        ) {
-          const nodeId = draggableId.replace('subscription-node-', '')
-          if (assignNodeToGroup(fallbackGroupId, nodeId)) return
-        }
-
-        if (sourceDroppableId.endsWith('-nodes')) {
-          const sourceGroupId = sourceDroppableId.replace('-nodes', '')
-          const parsed = parseGroupItemId(draggableId)
-          if (parsed && sourceGroupId !== fallbackGroupId) {
-            if (assignNodeToGroup(fallbackGroupId, parsed.itemId)) return
-          }
-        }
-
-        if (sourceDroppableId.endsWith('-subscriptions')) {
-          const sourceGroupId = sourceDroppableId.replace('-subscriptions', '')
-          const parsed = parseGroupItemId(draggableId)
-          if (parsed && sourceGroupId !== fallbackGroupId) {
-            const targetGroup = getGroupById(fallbackGroupId)
-            const sourceBinding = getGroupSubscriptionBinding(sourceGroupId, parsed.itemId)
-            if (targetGroup && !hasGroupSubscription(fallbackGroupId, parsed.itemId)) {
-              groupAddSubscriptionsMutation.mutate({
-                id: fallbackGroupId,
-                subscriptionIDs: [parsed.itemId],
-                nameFilterRegex: sourceBinding?.nameFilterRegex ?? null,
-              })
-              return
-            }
-          }
-        }
-      }
-
-      return
-    }
-
-    const confirmedDestDroppableId = destination.droppableId
-
-    // Handle node list sorting
-    if (sourceDroppableId === 'node-list' && confirmedDestDroppableId === 'node-list') {
-      if (source.index !== destination.index) {
-        setNodeSortOrder(arrayMove(sortedNodeIds, source.index, destination.index))
-      }
-      return
-    }
-
-    // Handle subscription list sorting
-    if (sourceDroppableId === 'subscription-list' && confirmedDestDroppableId === 'subscription-list') {
-      if (source.index !== destination.index) {
-        setSubscriptionSortOrder(arrayMove(sortedSubscriptionIds, source.index, destination.index))
-      }
-      return
-    }
-
-    // Check if source is a subscription's node list (format: subscription-{id}-nodes)
-    const isFromSubscriptionNodes =
-      sourceDroppableId.startsWith('subscription-') &&
-      sourceDroppableId.endsWith('-nodes') &&
-      sourceDroppableId !== 'subscription-list'
-
-    // Handle dropping subscription node to group
-    if (isFromSubscriptionNodes && confirmedDestDroppableId.endsWith('-nodes')) {
-      const nodeId = draggableId.replace('subscription-node-', '')
-      const targetGroupId = confirmedDestDroppableId.replace('-nodes', '')
-      assignNodeToGroup(targetGroupId, nodeId)
-      return
-    }
-
-    // Handle group node sorting within same group OR cross-group drag
-    if (sourceDroppableId.endsWith('-nodes') && confirmedDestDroppableId.endsWith('-nodes')) {
-      const sourceGroupId = sourceDroppableId.replace('-nodes', '')
-      const destGroupId = confirmedDestDroppableId.replace('-nodes', '')
-
-      if (sourceGroupId === destGroupId) {
-        // Same group sorting
-        if (source.index !== destination.index) {
-          const group = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === sourceGroupId)
-          if (group) {
-            const currentIds = group.nodes.map((n: GroupListView['groups'][number]['nodes'][number]) => n.id)
-            const sortedIds = getGroupSortedIds(sourceGroupId, 'nodes', currentIds)
-            updateGroupSortOrder(sourceGroupId, 'nodes', arrayMove(sortedIds, source.index, destination.index))
-          }
-        }
-      } else {
-        // Cross-group drag - add node to target group
-        const parsed = parseGroupItemId(draggableId)
-        if (parsed) {
-          assignNodeToGroup(destGroupId, parsed.itemId)
-        }
-      }
-      return
-    }
-
-    // Handle group subscription sorting within same group OR cross-group drag
-    if (sourceDroppableId.endsWith('-subscriptions') && confirmedDestDroppableId.endsWith('-subscriptions')) {
-      const sourceGroupId = sourceDroppableId.replace('-subscriptions', '')
-      const destGroupId = confirmedDestDroppableId.replace('-subscriptions', '')
-
-      if (sourceGroupId === destGroupId) {
-        // Same group sorting
-        if (source.index !== destination.index) {
-          const group = groupsQuery?.groups.find((g: GroupListView['groups'][number]) => g.id === sourceGroupId)
-          if (group) {
-            const currentIds = group.subscriptions.map(
-              (s: GroupListView['groups'][number]['subscriptions'][number]) => s.subscription.id,
-            )
-            const sortedIds = getGroupSortedIds(sourceGroupId, 'subscriptions', currentIds)
-            updateGroupSortOrder(sourceGroupId, 'subscriptions', arrayMove(sortedIds, source.index, destination.index))
-          }
-        }
-      } else {
-        // Cross-group drag - add subscription to target group
-        const parsed = parseGroupItemId(draggableId)
-        if (parsed) {
-          const targetGroup = getGroupById(destGroupId)
-          const sourceBinding = getGroupSubscriptionBinding(sourceGroupId, parsed.itemId)
-          if (targetGroup && !hasGroupSubscription(destGroupId, parsed.itemId)) {
-            groupAddSubscriptionsMutation.mutate({
-              id: destGroupId,
-              subscriptionIDs: [parsed.itemId],
-              nameFilterRegex: sourceBinding?.nameFilterRegex ?? null,
-            })
-          }
-        }
-      }
-      return
-    }
-
-    // Handle dropping node from node-list to group
-    if (sourceDroppableId === 'node-list' && confirmedDestDroppableId.endsWith('-nodes')) {
-      const nodeId = draggableId.replace('node-', '')
-      const targetGroupId = confirmedDestDroppableId.replace('-nodes', '')
-      assignNodeToGroup(targetGroupId, nodeId)
-      return
-    }
-
-    // Handle dropping subscription from subscription-list to group
-    if (sourceDroppableId === 'subscription-list' && confirmedDestDroppableId.endsWith('-subscriptions')) {
-      const subId = draggableId.replace('subscription-', '')
-      const targetGroupId = confirmedDestDroppableId.replace('-subscriptions', '')
-      const targetGroup = getGroupById(targetGroupId)
-
-      if (targetGroup && !hasGroupSubscription(targetGroupId, subId)) {
-        groupAddSubscriptionsMutation.mutate({ id: targetGroupId, subscriptionIDs: [subId] })
-      }
-      return
-    }
-
-    // Handle dropping group node back to node list (remove from group)
-    if (sourceDroppableId.endsWith('-nodes') && confirmedDestDroppableId === NODE_DROPPABLE_ID) {
-      const sourceGroupId = sourceDroppableId.replace('-nodes', '')
-      const parsed = parseGroupItemId(draggableId)
-      if (parsed) {
-        groupDelNodesMutation.mutate({ id: sourceGroupId, nodeIDs: [parsed.itemId] })
-      }
-    }
-  }
 
   const matchSmallScreen = useMediaQuery('(max-width: 640px)')
 
@@ -1048,150 +484,16 @@ export function OrchestratePage() {
         </>
       )}
 
-      <Dialog open={summaryGroupEditMode === 'actions'} onOpenChange={(open) => !open && closeSummaryGroupEdit()}>
-        <ScrollableDialogContent size="md">
-          <ScrollableDialogHeader>
-            <DialogTitle>{t('groupPicker.editGroupResourcesTitle', { name: summaryEditingGroupName })}</DialogTitle>
-          </ScrollableDialogHeader>
-          <ScrollableDialogBody className="grid gap-3 p-4 sm:p-5">
-            <button
-              type="button"
-              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-accent/40 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/55 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
-              disabled={!summaryEditingGroupAvailable}
-              onClick={() => setSummaryGroupEditMode('nodes')}
-            >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                <ListPlus className="h-4.5 w-4.5" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-foreground">
-                  {t('groupPicker.editNodePicker')}
-                </span>
-                <span className="mt-1 block truncate text-xs text-muted-foreground">
-                  {t('groupPicker.nodesCount', { count: summaryEditingGroupNodeCount })}
-                </span>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border bg-accent/40 px-4 py-3 text-left transition-colors hover:border-primary/30 hover:bg-accent/55 focus-visible:border-primary/40 focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
-              disabled={!summaryEditingGroupAvailable}
-              onClick={() => setSummaryGroupEditMode('subscriptions')}
-            >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                <Network className="h-4.5 w-4.5" />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-foreground">
-                  {t('groupPicker.editSubscriptionPicker')}
-                </span>
-                <span className="mt-1 block truncate text-xs text-muted-foreground">
-                  {t('groupPicker.subscriptionGroupsCount', {
-                    count: summaryEditingGroupSubscriptionCount,
-                  })}
-                </span>
-              </span>
-            </button>
-          </ScrollableDialogBody>
-        </ScrollableDialogContent>
-      </Dialog>
-
-      <GroupAddNodesModal
-        opened={summaryGroupEditMode === 'nodes'}
-        onClose={closeSummaryGroupEdit}
-        groupName={summaryEditingGroupName}
-        title={t('groupPicker.editNodesTitle', { name: summaryEditingGroupName })}
-        submitLabel={t('groupPicker.saveNodeSelection')}
-        items={summaryEditableNodeItems}
-        initialSelectedIds={summarySelectedNodeItemIds}
-        allowEmptySubmit
-        loading={
-          groupAddNodesMutation.isPending || groupDelNodesMutation.isPending || groupReplaceNodesMutation.isPending
-        }
-        resetKey={summaryEditingGroupId || ''}
-        selectionMode={summaryEditingGroup?.policy === Policy.Fixed ? 'single' : 'multiple'}
-        onSubmit={async (nodeIDs) => {
-          if (!summaryEditingGroupId || !summaryEditingGroup) return
-
-          const selectedNodeIds = new Set(nodeIDs)
-          const existingNodeItemIds = new Set(summarySelectedNodeItemIds)
-          const nodeIDsToAdd = nodeIDs.filter((nodeID) => !existingNodeItemIds.has(nodeID))
-          const nodeIDsToDelete = summaryEditingGroup.nodes
-            .filter((node) => {
-              const pickerId = findNodePickerId(node, summaryNodePickerCandidates)
-              return pickerId ? !selectedNodeIds.has(pickerId) : false
-            })
-            .map((node) => node.id)
-
-          const deleteNodes = () =>
-            nodeIDsToDelete.length
-              ? groupDelNodesMutation.mutateAsync({
-                  id: summaryEditingGroupId,
-                  nodeIDs: nodeIDsToDelete,
-                })
-              : Promise.resolve()
-          const addNodes = () =>
-            nodeIDsToAdd.length
-              ? groupAddNodesMutation.mutateAsync({
-                  id: summaryEditingGroupId,
-                  nodeIDs: nodeIDsToAdd,
-                })
-              : Promise.resolve()
-
-          if (summaryEditingGroup.policy === Policy.Fixed) {
-            await groupReplaceNodesMutation.mutateAsync({
-              id: summaryEditingGroupId,
-              nodeIDs,
-              expectedVersion: summaryEditingGroup.version,
-            })
-          } else {
-            await Promise.all([deleteNodes(), addNodes()])
-          }
-        }}
-      />
-
-      <GroupAddSubscriptionsModal
-        opened={summaryGroupEditMode === 'subscriptions'}
-        onClose={closeSummaryGroupEdit}
-        groupName={summaryEditingGroupName}
-        title={t('groupPicker.editSubscriptionsTitle', { name: summaryEditingGroupName })}
-        submitLabel={t('groupPicker.saveSubscriptionSelection')}
-        items={summaryEditableSubscriptionItems}
-        initialSelectedIds={summarySelectedSubscriptionItemIds}
-        allowEmptySubmit
-        loading={groupAddSubscriptionsMutation.isPending || groupDelSubscriptionsMutation.isPending}
-        resetKey={summaryEditingGroupId || ''}
-        onSubmit={async ({ ids: subscriptionIDs, nameFilterRegex }) => {
-          if (!summaryEditingGroupId || !summaryEditingGroup) return
-
-          const selectedSubscriptionIds = new Set(subscriptionIDs)
-          const existingSubscriptionIds = new Set(
-            summaryEditingGroup.subscriptions.map((binding) => binding.subscription.id),
-          )
-          const subscriptionIDsToAdd = subscriptionIDs.filter(
-            (subscriptionID) => !existingSubscriptionIds.has(subscriptionID),
-          )
-          const subscriptionIDsToDelete = summaryEditingGroup.subscriptions
-            .filter((binding) => !selectedSubscriptionIds.has(binding.subscription.id))
-            .map((binding) => binding.subscription.id)
-
-          await Promise.all([
-            subscriptionIDsToAdd.length
-              ? groupAddSubscriptionsMutation.mutateAsync({
-                  id: summaryEditingGroupId,
-                  subscriptionIDs: subscriptionIDsToAdd,
-                  nameFilterRegex,
-                })
-              : Promise.resolve(),
-            subscriptionIDsToDelete.length
-              ? groupDelSubscriptionsMutation.mutateAsync({
-                  id: summaryEditingGroupId,
-                  subscriptionIDs: subscriptionIDsToDelete,
-                })
-              : Promise.resolve(),
-          ])
-        }}
+      <GroupResourceEditor
+        summaryEditingGroupId={summaryEditingGroupId}
+        summaryGroupEditMode={summaryGroupEditMode}
+        setSummaryGroupEditMode={setSummaryGroupEditMode}
+        closeSummaryGroupEdit={closeSummaryGroupEdit}
+        sortedGroups={sortedGroups}
+        sortedGroupSummaries={sortedGroupSummaries}
+        sortedNodes={sortedNodes}
+        sortedSubscriptions={sortedSubscriptions}
+        nodeLatencies={nodeLatencies}
       />
 
       <Dialog
@@ -1266,35 +568,4 @@ export function OrchestratePage() {
       </Dialog>
     </div>
   )
-}
-
-function getNodeIdentityKeys(node: {
-  id?: string | null
-  tag?: string | null
-  name?: string | null
-  link?: string | null
-  address?: string | null
-}) {
-  return [
-    node.id ? `id:${node.id}` : null,
-    node.tag ? `tag:${node.tag}` : null,
-    node.name ? `name:${node.name}` : null,
-    node.link ? `link:${node.link}` : null,
-    node.address ? `address:${node.address}` : null,
-  ].filter(Boolean) as string[]
-}
-
-function findNodePickerId(
-  node: {
-    id?: string | null
-    tag?: string | null
-    name?: string | null
-    link?: string | null
-    address?: string | null
-  },
-  candidates: NodePickerCandidate[],
-) {
-  const nodeKeys = new Set(getNodeIdentityKeys(node))
-  return candidates.find(({ node: candidate }) => getNodeIdentityKeys(candidate).some((key) => nodeKeys.has(key)))?.node
-    .id
 }

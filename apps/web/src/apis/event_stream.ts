@@ -22,49 +22,59 @@ export function buildEventStreamURL(endpointURL: string, path: string, query?: R
   return buildAPIURL(normalizeEndpointURL(endpointURL), path, query).toString()
 }
 
-export function subscribeEventStream(options: SubscribeEventStreamOptions) {
+export interface EventStreamSubscription {
+  (): void
+  restart: () => void
+}
+
+export function subscribeEventStream(options: SubscribeEventStreamOptions): EventStreamSubscription {
   const controller = new AbortController()
   const pageSignal = pageLifecycleSignal()
+  let connection: AbortController | null = null
   const abortFromPage = () => controller.abort(pageSignal.reason)
-  if (pageSignal.aborted) {
-    abortFromPage()
-  } else {
-    pageSignal.addEventListener('abort', abortFromPage, { once: true })
+  const abortConnection = () => connection?.abort(controller.signal.reason)
+  controller.signal.addEventListener('abort', abortConnection, { once: true })
+  if (pageSignal.aborted) abortFromPage()
+  else pageSignal.addEventListener('abort', abortFromPage, { once: true })
+
+  // This loop alone owns connection replacement and retry backoff. Restart requests
+  // cancel the active reader; repeated requests cannot create parallel fetches.
+  const run = async () => {
+    let retryAttempt = 0
+    while (!controller.signal.aborted) {
+      connection = new AbortController()
+      try {
+        await readEventStream(
+          {
+            ...options,
+            onMessage(message) {
+              retryAttempt = 0
+              options.onMessage(message)
+            },
+          },
+          connection.signal,
+        )
+      } catch {
+        // EOF, HTTP/read errors and requested restarts share the same retry path.
+      } finally {
+        connection = null
+      }
+      if (controller.signal.aborted) break
+      options.onError?.()
+      const delayMs = Math.min((options.retryDelayMs ?? 1500) * 2 ** retryAttempt, 30_000)
+      retryAttempt = Math.min(retryAttempt + 1, 31)
+      await waitForEventStreamRetry(controller.signal, delayMs)
+    }
   }
-
-  void runEventStreamSubscription(options, controller.signal).finally(() => {
+  void run().finally(() => {
     pageSignal.removeEventListener('abort', abortFromPage)
+    controller.signal.removeEventListener('abort', abortConnection)
   })
-
-  return () => {
+  const stop = () => {
     pageSignal.removeEventListener('abort', abortFromPage)
     controller.abort()
   }
-}
-
-async function runEventStreamSubscription(options: SubscribeEventStreamOptions, signal: AbortSignal) {
-  const retryDelayMs = options.retryDelayMs ?? 1500
-  const maxRetryDelayMs = 30_000
-  let retryAttempt = 0
-
-  while (!signal.aborted) {
-    try {
-      await readEventStream(options, signal)
-      if (!signal.aborted) {
-        options.onError?.()
-      }
-    } catch {
-      if (!signal.aborted) {
-        options.onError?.()
-      }
-    }
-
-    if (!signal.aborted) {
-      const delayMs = Math.min(retryDelayMs * 2 ** retryAttempt, maxRetryDelayMs)
-      retryAttempt = Math.min(retryAttempt + 1, 31)
-      await waitForEventStreamRetry(signal, delayMs)
-    }
-  }
+  return Object.assign(stop, { restart: () => connection?.abort() })
 }
 
 async function readEventStream(options: SubscribeEventStreamOptions, signal: AbortSignal) {
@@ -83,10 +93,17 @@ async function readEventStream(options: SubscribeEventStreamOptions, signal: Abo
 
   const reader = response.body.getReader()
   let completed = false
+  const cancelReader = () => {
+    void reader.cancel().catch(() => undefined)
+  }
+  signal.addEventListener('abort', cancelReader, { once: true })
+  if (signal.aborted) cancelReader()
   try {
     const decoder = new TextDecoder()
     let buffer = ''
-    const state = createEventStreamParser(options.onMessage)
+    const state = createEventStreamParser((message) => {
+      if (!signal.aborted) options.onMessage(message)
+    })
 
     for (;;) {
       const { done, value } = await reader.read()
@@ -102,6 +119,7 @@ async function readEventStream(options: SubscribeEventStreamOptions, signal: Abo
     state.flush()
     completed = true
   } finally {
+    signal.removeEventListener('abort', cancelReader)
     if (!completed) {
       await reader.cancel().catch(() => undefined)
     }
