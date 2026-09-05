@@ -1,6 +1,6 @@
 import type { RuntimeOverviewRuntimeState, RuntimeRevisionReport, TrafficOverviewQueryData } from './types'
 
-interface RuntimeOverviewAPI {
+export interface RuntimeOverviewAPI {
   updatedAt: string
   uploadRate: string
   downloadRate: string
@@ -42,6 +42,50 @@ export function runtimeOverviewIsFresh(
   if (Number.isFinite(payload.sequence) && lastSequence !== null && payload.sequence! <= lastSequence) return false
   if (lastUpdatedAtMs > 0 && updatedAtMs + 1_000 < lastUpdatedAtMs) return false
   return true
+}
+
+// Full/REST reports use sampler sequence; SSE deltas use the feed sequence.
+// Keep those counters separate and reset the feed only after a valid full
+// snapshot establishes the baseline for a replacement connection.
+export function createRuntimeOverviewCursor() {
+  return {
+    updatedAtMs: 0,
+    snapshotSequence: null as number | null,
+    deltaSequence: null as number | null,
+    needsStreamSnapshot: true,
+  }
+}
+
+export function acceptRuntimeOverview(
+  cursor: ReturnType<typeof createRuntimeOverviewCursor>,
+  payload: RuntimeOverviewAPI,
+  source: 'snapshot' | 'delta' | 'rest',
+  nowMs = Date.now(),
+) {
+  if (source === 'delta' && cursor.needsStreamSnapshot) return false
+  const replacementSnapshot = source === 'snapshot' && cursor.needsStreamSnapshot
+  const sequence = replacementSnapshot ? null : source === 'delta' ? cursor.deltaSequence : cursor.snapshotSequence
+  const timestamp = Date.parse(payload.updatedAt)
+  if (timestamp < cursor.updatedAtMs || !runtimeOverviewIsFresh(payload, cursor.updatedAtMs, sequence, nowMs))
+    return false
+  cursor.updatedAtMs = timestamp
+  if (source === 'delta') {
+    if (Number.isFinite(payload.sequence)) cursor.deltaSequence = payload.sequence!
+  } else {
+    if (Number.isFinite(payload.sequence)) cursor.snapshotSequence = payload.sequence!
+    if (source === 'snapshot') {
+      if (replacementSnapshot) cursor.deltaSequence = null
+      cursor.needsStreamSnapshot = false
+    }
+  }
+  return true
+}
+
+export function runtimeOverviewHasDeltaBaseline(
+  previous: TrafficOverviewQueryData | undefined,
+  delta: RuntimeOverviewAPI,
+) {
+  return !!previous && (delta.counterEpoch === undefined || delta.counterEpoch === previous.counterEpoch)
 }
 
 function runtimeSampleTimestampMs(sample: { timestamp: string }) {
