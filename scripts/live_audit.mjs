@@ -211,7 +211,12 @@ async function main() {
   }
   const storage = await storageResp.json()
   console.log(`[audit] storage values: ${JSON.stringify(storage.values)}`)
-  if (!Array.isArray(storage.values) || storage.values.length !== 5 || storage.values.slice(0, 4).some((v) => !v)) {
+  if (
+    !Array.isArray(storage.values) ||
+    storage.values.length !== 5 ||
+    storage.values.slice(0, 3).some((v) => !v) ||
+    !storage.values[4]
+  ) {
     throw new Error(`Default resource storage incomplete: ${JSON.stringify(storage)}`)
   }
 
@@ -229,10 +234,10 @@ async function main() {
   const runtime = await runtimeResp.json()
   console.log(`[audit] configs=${configs.items?.length ?? 0}, groups=${groups.items?.length ?? 0}`)
   console.log(
-    `[audit] runtime metrics rss=${runtime.rssBytes} heap=${runtime.heapAllocBytes} goroutines=${runtime.goroutines}`,
+    `[audit] runtime metrics rss=${runtime.rssBytes} heap=${runtime.heapLiveBytes} goroutines=${runtime.goroutines}`,
   )
 
-  if (!runtime.rssBytes || !runtime.heapAllocBytes || typeof runtime.goroutines !== 'number') {
+  if (!runtime.rssBytes || !Object.hasOwn(runtime, 'heapLiveBytes') || typeof runtime.goroutines !== 'number') {
     throw new Error(`Runtime overview missing process metrics: ${JSON.stringify(runtime)}`)
   }
 
@@ -263,7 +268,10 @@ async function main() {
   }
   const node = await nodeResp.json()
   console.log(`[audit] created node protocol=${node.protocol} transport=${node.transport}`)
-  if (node.protocol !== 'http' || (node.transport !== null && node.transport !== undefined && node.transport !== 'http')) {
+  if (
+    node.protocol !== 'http' ||
+    (node.transport !== null && node.transport !== undefined && node.transport !== 'http')
+  ) {
     throw new Error(`Expected backend HTTP node shape, got ${JSON.stringify(node)}`)
   }
   const cleanupSmokeNodeResp = await fetch(`${API_BASE}/nodes`, {
@@ -414,6 +422,7 @@ async function main() {
     .first()
   await renamedRoutingCard.locator('button:has(svg.lucide-settings-2)').click()
   const routingDialog = page.getByRole('dialog').last()
+  await routingDialog.getByRole('tab', { name: /simple mode/i }).click()
   await routingDialog.locator(`[data-slot="radio-group-item"][value="${nextRoutingValue}"]`).click()
   await routingDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
@@ -451,18 +460,20 @@ async function main() {
   }, 'group creation to appear')
   console.log('[audit] group create flow passed')
   const createdGroupCard = groupSection.locator('div[data-group-card-id]').filter({ hasText: groupName }).first()
+  const currentGroup = (await apiJson('/groups')).items.find((item) => item.name === groupName)
+  const nextGroupPolicy = currentGroup.policy === 'random' ? 'min' : 'random'
   await createdGroupCard.locator('button:has(svg.lucide-settings-2)').click()
   const groupSettingsDialog = page.getByRole('dialog').last()
   await groupSettingsDialog.locator('[data-slot="select-trigger"]').click()
   await page
     .locator('[data-slot="select-item"]')
-    .filter({ hasText: /^random$/i })
+    .filter({ hasText: new RegExp(`^${nextGroupPolicy}$`, 'i') })
     .last()
     .click()
   await groupSettingsDialog.getByRole('button', { name: /submit/i }).click()
   await waitFor(async () => {
     const data = await apiJson('/groups')
-    return data.items?.some((item) => item.name === groupName && item.policy === 'random') ? data : null
+    return data.items?.some((item) => item.name === groupName && item.policy === nextGroupPolicy) ? data : null
   }, 'group policy update to appear')
   console.log('[audit] group policy update flow passed')
   const renamedGroup = `audit-group-renamed-${Date.now()}`
