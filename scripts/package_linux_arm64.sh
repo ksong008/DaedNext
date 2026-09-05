@@ -148,4 +148,6 @@ main() {
   printf 'build_log=%s\n' "$BUILD_LOG"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

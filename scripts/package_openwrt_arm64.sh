@@ -105,8 +105,8 @@ build_rootfs() {
   mkdir -p "$rootfs/usr/bin" "$rootfs/usr/share/daed/web" \
     "$rootfs/etc/init.d" "$rootfs/etc/config" "$rootfs/etc/daed"
   install -m 0755 "$binary" "$rootfs/usr/bin/daed"
-  if command -v aarch64-linux-gnu-strip >/dev/null 2>&1; then
-    aarch64-linux-gnu-strip "$rootfs/usr/bin/daed"
+  if command -v "${STRIP_TOOL:-aarch64-linux-gnu-strip}" >/dev/null 2>&1; then
+    "${STRIP_TOOL:-aarch64-linux-gnu-strip}" "$rootfs/usr/bin/daed"
   elif command -v llvm-strip >/dev/null 2>&1; then
     llvm-strip "$rootfs/usr/bin/daed"
   fi
@@ -141,7 +141,7 @@ EOF
   write_prerm "$control_dir/prerm"
 
   local work
-  work="$(dirname "$package")/ipk-work"
+  work="${control_dir}.work"
   rm -rf "$work"
   mkdir -p "$work"
   printf '2.0\n' >"$work/debian-binary"
