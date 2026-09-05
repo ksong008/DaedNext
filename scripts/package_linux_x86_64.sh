@@ -35,7 +35,7 @@ require_dir() {
 package_flavor() {
   local cpu_level="$1"
   local friendly_name="$2"
-  local binary="$ROOT_DIR/daed-x86_64-$cpu_level"
+  local binary="${BINARY_DIR:-$ROOT_DIR}/daed-x86_64-$cpu_level"
   local package_root="$OUT_DIR/package-root-$cpu_level"
   local package_base="$OUT_DIR/installer-daed-$friendly_name"
 
@@ -111,10 +111,10 @@ package_flavor() {
     .
 }
 
-mkdir -p "$OUT_DIR"
-
-package_flavor v2 linux-x86_64_v2_sse
-package_flavor v3 linux-x86_64_v3_avx2
-
-printf '%s\n' "$OUT_DIR" >"$ROOT_DIR/build/latest-linux-x86_64-package-dir"
-printf 'packages written to %s\n' "$OUT_DIR"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  mkdir -p "$OUT_DIR"
+  package_flavor v2 linux-x86_64_v2_sse
+  package_flavor v3 linux-x86_64_v3_avx2
+  printf '%s\n' "$OUT_DIR" >"$ROOT_DIR/build/latest-linux-x86_64-package-dir"
+  printf 'packages written to %s\n' "$OUT_DIR"
+fi
