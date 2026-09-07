@@ -273,6 +273,13 @@ The daemon core is built from the DaeNext Rust workspace. Release workflows
 checkout `ksong008/DaeNext`, build the Rust-native `daed` binary with native
 eBPF support, then package it with this repository's WebUI and install assets.
 
+CI defaults to the latest DaeNext `work/boringssl` commit, as configured in
+`.github/daenext-core-ref`. Each workflow resolves the ref once and uses that
+commit for every core checkout, including build matrices and source archives.
+The resolved SHA is recorded in the workflow summary. Set the `daenext_ref`
+workflow input to a branch, tag, or commit SHA to override the default; use a
+full SHA to reproduce a previous core version.
+
 ## Contributing
 
 Contributions are welcome. Please read the [Contributing Guide](./CONTRIBUTING.md)

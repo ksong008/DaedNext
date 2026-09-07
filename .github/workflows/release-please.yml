@@ -7,7 +7,7 @@ on:
         description: 'Release tag name (e.g. v1.26.0)'
         required: false
       daenext_ref:
-        description: Optional DaeNext core ref override. Empty uses .github/daenext-core-ref.
+        description: Optional DaeNext core branch, tag or SHA. Empty follows work/boringssl.
         required: false
         type: string
 
@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 5
     outputs:
-      daenext_ref: ${{ steps.resolve.outputs.daenext_ref }}
+      daenext_ref: ${{ steps.core.outputs.commit }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -67,6 +67,18 @@ jobs:
           fi
           test -n "$ref"
           echo "daenext_ref=$ref" >>"$GITHUB_OUTPUT"
+      - name: Resolve core checkout to an immutable commit
+        id: core
+        uses: actions/checkout@v6
+        with:
+          repository: ksong008/DaeNext
+          ref: ${{ steps.resolve.outputs.daenext_ref }}
+          path: DaeNext
+          persist-credentials: false
+      - name: Record core commit
+        env:
+          CORE_SHA: ${{ steps.core.outputs.commit }}
+        run: printf 'DaeNext core commit - `%s`\n' "$CORE_SHA" >>"$GITHUB_STEP_SUMMARY"
 
   # Update screenshots when a new release is created
   update-screenshots:
