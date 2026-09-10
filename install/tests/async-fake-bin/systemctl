@@ -1,0 +1,3 @@
+#!/bin/bash
+printf '%s\n' "$*"
+exit "${DAED_TEST_SYSTEMCTL_EXIT:-0}"
