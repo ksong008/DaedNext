@@ -19,8 +19,14 @@ const trackedChunks = [
   {
     name: 'Orchestrate',
     pattern: /^Orchestrate-.*\.js$/,
-    maxRawBytes: 460 * 1024,
-    maxGzipBytes: 145 * 1024,
+    maxRawBytes: 100 * 1024,
+    maxGzipBytes: 35 * 1024,
+  },
+  {
+    name: 'TrafficOverviewIsland',
+    pattern: /^TrafficOverviewIsland-.*\.js$/,
+    maxRawBytes: 400 * 1024,
+    maxGzipBytes: 125 * 1024,
   },
   {
     name: 'DaeEditorInner',

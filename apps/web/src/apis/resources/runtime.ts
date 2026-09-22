@@ -5,6 +5,7 @@ import { useStore } from '@nanostores/react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAPIClient } from '~/contexts'
+import { usePageVisible } from '~/hooks/usePageVisible'
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
 import { normalizeEndpointURL } from '../client'
@@ -45,14 +46,15 @@ export function trafficOverviewRefetchInterval() {
 }
 
 export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
+  const pageVisible = usePageVisible()
   const apiClient = useAPIClient()
   const queryClient = useQueryClient()
   const endpointURL = useStore(endpointURLAtom)
   const token = useStore(tokenAtom)
   const [isStreamLive, setIsStreamLive] = useState(false)
   const subscriptionRef = useRef<EventStreamSubscription | null>(null)
-  const queryEnabled = isMockMode() || !!token
-  const streamEnabled = !isMockMode() && !!token && typeof fetch !== 'undefined'
+  const queryEnabled = pageVisible && (isMockMode() || !!token)
+  const streamEnabled = pageVisible && !isMockMode() && !!token && typeof fetch !== 'undefined'
   const cacheScope = useMemo(() => trafficCacheScope(endpointURL, token), [endpointURL, token])
   const queryKey = useMemo(
     () => trafficOverviewQueryKey(cacheScope, windowSec, maxPoints),
@@ -160,6 +162,7 @@ export function useTrafficOverviewQuery(windowSec: number, maxPoints: number) {
   }, [markFresh, maxPoints, queryClient, queryKey, cursor, streamURL, token, windowSec])
 
   useEffect(() => {
+    if (!streamEnabled) return
     const watchdog = window.setInterval(() => {
       if (!streamEnabled) return
       const age =
