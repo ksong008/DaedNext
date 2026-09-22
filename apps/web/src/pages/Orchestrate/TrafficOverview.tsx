@@ -2,8 +2,8 @@ import type { CSSProperties } from 'react'
 import type { TrafficOverviewQueryData } from '~/apis/types'
 import type { ChartConfig } from '~/components/ui/chart'
 import dayjs from 'dayjs'
-import { Activity } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Activity, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
@@ -15,17 +15,6 @@ import { computeTrafficChartDomain, filterTrafficChartDataByDomain } from './tra
 
 export const REALTIME_TRAFFIC_WINDOW_SECONDS = 60
 export const REALTIME_TRAFFIC_MAX_POINTS = 240
-
-const runtimeStatusStyle = {
-  background: 'color-mix(in oklab, var(--card) 97%, var(--primary) 3%)',
-  borderColor: 'color-mix(in oklab, var(--border) 90%, var(--primary) 10%)',
-  boxShadow: '0 7px 18px color-mix(in oklab, var(--foreground) 4%, transparent)',
-}
-
-const runtimePanelStyle = {
-  background: 'color-mix(in oklab, var(--accent) 22%, var(--card))',
-  borderColor: 'color-mix(in oklab, var(--border) 92%, var(--primary) 8%)',
-}
 
 function formatBytes(value: number) {
   if (value < 1024) return `${value.toFixed(0)} B`
@@ -78,7 +67,7 @@ function parseChartTimestampMs(value: unknown) {
 
 function formatChartTime(value: unknown, fallback = '--:--') {
   const timestampMs = parseChartTimestampMs(value)
-  return timestampMs === null ? fallback : dayjs(timestampMs).format('HH:mm')
+  return timestampMs === null ? fallback : dayjs(timestampMs).format('HH:mm:ss')
 }
 
 function formatChartTooltipTime(value: unknown) {
@@ -95,17 +84,6 @@ function formatTrafficTooltipLabel(value: unknown, payload: unknown) {
   }
 
   return formatChartTooltipTime(value)
-}
-
-function createMetricTintStyle(highlight?: boolean): CSSProperties {
-  return {
-    backgroundColor: highlight
-      ? 'color-mix(in oklab, var(--primary) 6%, var(--card))'
-      : 'color-mix(in oklab, var(--accent) 30%, var(--card))',
-    borderColor: highlight
-      ? 'color-mix(in oklab, var(--primary) 14%, var(--border))'
-      : 'color-mix(in oklab, var(--primary) 7%, var(--border))',
-  }
 }
 
 function computeDynamicRateDomain(
@@ -146,37 +124,25 @@ function OverviewMetricCard({
   highlight?: boolean
 }) {
   return (
-    <div
-      className="min-h-[56px] rounded-[14px] border px-3 py-2 shadow-none sm:min-h-[60px]"
-      style={createMetricTintStyle(highlight)}
-    >
+    <div className={cn('overview-metric min-w-0 border-b border-border px-2.5 py-2', highlight && 'bg-primary/5')}>
       <p className="truncate text-[11px] font-medium text-muted-foreground">{title}</p>
-      <div className="mt-1.5 flex min-w-0 items-baseline gap-1.5">
-        <span className="truncate text-base font-bold leading-none text-foreground sm:text-[1.05rem]">{amount}</span>
+      <div className="mt-1 flex min-w-0 items-baseline gap-1.5">
+        <span className="truncate font-mono text-base font-medium leading-none tracking-tight text-foreground">
+          {amount}
+        </span>
         {unit ? <span className="text-xs text-muted-foreground">{unit}</span> : null}
       </div>
     </div>
   )
 }
 
-function useCurrentTime() {
-  const [now, setNow] = useState(() => new Date())
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
-
-  return now
-}
-
-function CurrentTimeText({ now, className }: { now: Date; className?: string }) {
+function CurrentTimeText({ now, className }: { now: Date | null; className?: string }) {
   return (
     <time
-      dateTime={now.toISOString()}
-      className={cn('text-sm font-semibold leading-none text-foreground tabular-nums sm:text-base', className)}
+      dateTime={now?.toISOString()}
+      className={cn('text-xs font-semibold leading-none text-foreground tabular-nums', className)}
     >
-      {dayjs(now).format('HH:mm:ss')}
+      {now ? dayjs(now).format('HH:mm:ss') : '—'}
     </time>
   )
 }
@@ -315,7 +281,7 @@ function StatusBadge({
     <span
       title={title}
       className={cn(
-        'inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1 sm:text-sm',
+        'inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
         running && tone === 'comm' && 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
         running && tone === 'enhanced' && 'border-primary/12 bg-primary/8 text-primary',
         !running && 'border-muted-foreground/16 bg-muted/50 text-muted-foreground',
@@ -365,7 +331,9 @@ interface TrafficOverviewProps {
 
 export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, runtimeOverview }: TrafficOverviewProps) {
   const { t } = useTranslation()
-  const now = useCurrentTime()
+  // Derive time from telemetry; a second timer would rerender the whole chart.
+  const sampleTime = parseChartTimestampMs(runtimeOverview?.updatedAt)
+  const now = sampleTime === null ? null : new Date(sampleTime)
 
   const chartConfig = useMemo(
     () =>
@@ -432,7 +400,7 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
   )
   const runtimeStartMs = parseRuntimeStartMs(runtime?.startedAt, runtime?.lastTransitionAt)
   const runtimeDurationLabel =
-    runtime?.running && runtimeStartMs !== null
+    runtime?.running && runtimeStartMs !== null && now !== null
       ? formatRuntimeDuration(now.getTime() - runtimeStartMs, runtimeDurationUnits)
       : '—'
   const runtimeStatusLabel = t(`trafficOverview.runtimeStates.${runtimeStatus.status}` as never) as string
@@ -449,16 +417,14 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
         : t('trafficOverview.trafficActive')
 
   return (
-    <Card withBorder shadow="sm" padding="none" className="overflow-hidden backdrop-blur-sm" style={runtimeStatusStyle}>
-      <CardContent className="border-b border-border/55 px-3 py-2.5 sm:px-5 sm:py-3">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 lg:grid-cols-[auto_minmax(0,1fr)_auto]">
+    <Card withBorder padding="none" className="traffic-panel gap-0 overflow-hidden rounded-xl bg-card shadow-none">
+      <CardContent className="border-b border-border px-4 py-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
           <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <div className="rounded-full border border-primary/12 bg-primary/7 p-1.5 text-primary sm:p-2">
-              <Activity className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+            <div className="rounded-full border border-primary/12 bg-primary/7 p-1.5 text-primary">
+              <Activity className="h-4 w-4" />
             </div>
-            <CardTitle className="truncate text-base text-foreground sm:text-lg">
-              {t('trafficOverview.title')}
-            </CardTitle>
+            <CardTitle className="truncate text-base text-foreground">{t('trafficOverview.title')}</CardTitle>
             <StatusBadge
               running={runtimeStatus.status === 'running'}
               label={runtimeStatusLabel}
@@ -466,8 +432,11 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
               title={runtimeStatusLabel}
             />
           </div>
-          <CurrentTimeText now={now} className="justify-self-end lg:col-start-3 lg:row-start-1" />
-          <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-1.5 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:flex-nowrap lg:overflow-hidden">
+          <div className="text-right">
+            <p className="mb-1 text-[10px] text-muted-foreground">{t('design.lastSample')}</p>
+            <CurrentTimeText now={now} className="font-mono text-xs" />
+          </div>
+          <div className="col-span-2 flex min-w-0 flex-wrap items-center gap-1.5">
             <HeaderChip label={t('trafficOverview.runtimeDuration')} value={runtimeDurationLabel} />
             <HeaderChip
               label={t('trafficOverview.attachBackend')}
@@ -497,22 +466,35 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
         </div>
       </CardContent>
 
-      <CardContent className="grid gap-3 px-3 py-3 sm:px-5 xl:grid-cols-[minmax(0,1fr)_minmax(280px,340px)]">
-        <div className="min-w-0 rounded-[18px] border p-2.5 shadow-none sm:p-3" style={runtimePanelStyle}>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-muted-foreground sm:gap-x-4 sm:text-xs">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[var(--chart-1)]" />
-              <span>{t('trafficOverview.uploadLegend')}</span>
-              <strong className="font-semibold text-foreground">{formatRate(latestSample.uploadRate)}</strong>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[var(--chart-2)]" />
-              <span>{t('trafficOverview.downloadLegend')}</span>
-              <strong className="font-semibold text-foreground">{formatRate(latestSample.downloadRate)}</strong>
+      <CardContent className="grid gap-0 p-0 lg:grid-cols-[minmax(0,1fr)_256px]">
+        <div className="min-w-0 px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-1">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <ArrowDownLeft className="h-3.5 w-3.5 text-[var(--chart-2)]" />
+                  {t('trafficOverview.downloadLegend')}
+                </p>
+                <p className="whitespace-nowrap font-mono text-base font-medium tracking-tight sm:text-lg">
+                  {formatRate(latestSample.downloadRate)}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <ArrowUpRight className="h-3.5 w-3.5 text-[var(--chart-1)]" />
+                  {t('trafficOverview.uploadLegend')}
+                </p>
+                <p className="whitespace-nowrap font-mono text-base font-medium tracking-tight sm:text-lg">
+                  {formatRate(latestSample.uploadRate)}
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              60 s
             </span>
           </div>
 
-          <ChartContainer config={chartConfig} className="mt-2 h-[166px] w-full sm:h-[230px] xl:h-[250px]">
+          <ChartContainer config={chartConfig} className="mt-2 h-[128px] w-full aspect-auto sm:h-[160px]">
             <AreaChart data={visibleChartData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
               <defs>
                 <linearGradient id="traffic-upload-fill" x1="0" y1="0" x2="0" y2="1">
@@ -535,7 +517,8 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
                 dataKey="timestamp"
                 axisLine={false}
                 tickLine={false}
-                minTickGap={24}
+                minTickGap={48}
+                tickCount={5}
                 tickMargin={10}
                 height={28}
                 tick={{ fontSize: 11, fill: 'color-mix(in oklab, var(--muted-foreground) 76%, transparent)' }}
@@ -584,7 +567,7 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
           </ChartContainer>
         </div>
 
-        <div className="grid min-w-0 grid-cols-2 gap-2 xl:grid-cols-2">
+        <div className="grid min-w-0 grid-cols-2 gap-x-2 border-t border-border px-2 py-2 sm:grid-cols-4 lg:grid-cols-2 lg:border-l lg:border-t-0">
           <OverviewMetricCard
             title={t('trafficOverview.totalUpload')}
             amount={formatBytes(latestSample.uploadTotal).split(' ')[0]}
