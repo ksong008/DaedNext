@@ -94,9 +94,8 @@ export function SimpleCard({
         shadow="sm"
         padding="none"
         className={cn(
-          'overflow-hidden rounded-[22px] border-[color:var(--shell-line)] bg-[color:var(--shell-surface)] shadow-[0_10px_24px_color-mix(in_oklab,var(--foreground)_6%,transparent)] transition-[border-color,box-shadow,transform] duration-200 hover:border-primary/18 hover:shadow-[0_16px_32px_color-mix(in_oklab,var(--foreground)_8%,transparent)]',
-          selected &&
-            'border-primary/30 bg-[color-mix(in_oklab,var(--primary)_6%,var(--card))] ring-2 ring-primary/12 ring-offset-2 ring-offset-background',
+          'overflow-hidden rounded-lg border-border bg-card shadow-none transition-colors duration-150 hover:border-primary/40',
+          selected && 'border-primary/50 bg-primary/3',
         )}
       >
         <div className="flex flex-col items-stretch gap-2 border-b border-[color:var(--shell-line)]/80 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3">

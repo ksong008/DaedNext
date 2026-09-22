@@ -29,20 +29,14 @@ import { cn } from '~/lib/utils'
 import { hasDefaultRoutes, interfaceAddresses } from '~/utils/interfaces'
 import { formatNodeLatencyCardLabel, getNodeLatencyCardTone } from '~/utils/node_display'
 
-const summaryShellStyle = {
-  background: 'color-mix(in oklab, var(--card) 97%, var(--primary) 3%)',
-  borderColor: 'color-mix(in oklab, var(--border) 90%, var(--primary) 10%)',
-  boxShadow: '0 7px 18px color-mix(in oklab, var(--foreground) 4%, transparent)',
-}
-
 const summaryActionButtonClassName =
   'max-w-[7.5rem] shrink-0 rounded-full border-primary/14 bg-primary/7 px-2.5 text-primary shadow-none hover:border-primary/24 hover:bg-primary/12 hover:text-primary sm:max-w-[10rem] dark:border-primary/16 dark:bg-primary/8 dark:hover:bg-primary/12'
 
 const summaryInnerCardClassName =
-  'rounded-[14px] border border-border/55 bg-accent/22 shadow-none transition-colors hover:border-border/70'
+  'rounded-lg border border-border/70 bg-muted/30 shadow-none transition-colors hover:border-primary/30'
 
 const summaryResourceCardClassName =
-  'rounded-[16px] border border-border/55 bg-accent/20 shadow-none transition-colors hover:border-border/70'
+  'rounded-lg border border-border/70 bg-muted/30 shadow-none transition-colors hover:border-primary/30'
 
 const summaryStatusPillClassName =
   'rounded-full border border-primary/12 bg-primary/8 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/8'
@@ -166,11 +160,8 @@ function SummaryShell({
   children: React.ReactNode
 }) {
   return (
-    <section
-      className="flex min-h-[430px] max-h-[620px] flex-col overflow-hidden rounded-[18px] border sm:min-h-[460px] lg:h-[500px] lg:min-h-0 lg:max-h-none"
-      style={summaryShellStyle}
-    >
-      <div className="flex min-h-[72px] items-start justify-between gap-2.5 border-b border-border/55 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3">
+    <section className="summary-panel flex min-h-[400px] max-h-[580px] flex-col overflow-hidden rounded-xl border border-border bg-card lg:h-[500px] lg:min-h-0 lg:max-h-none">
+      <div className="flex min-h-[76px] items-start justify-between gap-3 border-b border-border px-4 py-4">
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/14 bg-primary/7 text-primary sm:h-9 sm:w-9">
             {icon}
@@ -190,7 +181,7 @@ function SummaryShell({
           <span className="truncate">{actionLabel}</span>
         </Button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden p-3 sm:gap-3 sm:p-4">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-3 sm:gap-3 sm:p-4">{children}</div>
     </section>
   )
 }

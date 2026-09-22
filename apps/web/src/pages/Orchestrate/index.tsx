@@ -12,7 +12,6 @@ import type {
 import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import {
   useConfigQuery,
@@ -29,30 +28,24 @@ import {
   useSubscriptionsSummaryQuery,
 } from '~/apis'
 import { webQueryKeys } from '~/apis/query_cache'
-import { Dialog, DialogTitle } from '~/components/ui/dialog'
-import {
-  ScrollableDialogBody,
-  ScrollableDialogContent,
-  ScrollableDialogHeader,
-} from '~/components/ui/scrollable-dialog'
 import { DraggableResourceType, ORCHESTRATE_SECTION_IDS, QUERY_KEY_NODE_LATENCY } from '~/constants'
-import { useMediaQuery } from '~/hooks'
 import {
   usePersistentGroupSortOrders,
   usePersistentSortOrder,
   useServerGroupSortState,
 } from '~/hooks/usePersistentSortOrder'
-import { cn } from '~/lib/utils'
 import { appStateAtom } from '~/store'
 import { deriveTime } from '~/utils'
 import { reconcileSortOrder } from '~/utils/sort_order'
 import { GroupResourceEditor } from './GroupResourceEditor'
-import { TrafficOverviewIsland } from './TrafficOverviewIsland'
 import { useManualLatencyJob } from './useManualLatencyJob'
 import { useOrchestrateDrag } from './useOrchestrateDrag'
 import { WorkspaceSummaryCards } from './WorkspaceSummaryCards'
 
 const ConfigPanel = lazy(() => import('./Config').then((module) => ({ default: module.Config })))
+const TrafficOverviewIsland = lazy(() =>
+  import('./TrafficOverviewIsland').then((module) => ({ default: module.TrafficOverviewIsland })),
+)
 const DNSPanel = lazy(() => import('./DNS').then((module) => ({ default: module.DNS })))
 const GroupResourcePanel = lazy(() => import('./Group').then((module) => ({ default: module.GroupResource })))
 const LogResourcePanel = lazy(() => import('./Logs').then((module) => ({ default: module.LogResource })))
@@ -75,7 +68,6 @@ function PanelLoadingFallback() {
 }
 
 export function OrchestratePage() {
-  const { t } = useTranslation()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const groupSortStateReady = useServerGroupSortState()
@@ -214,7 +206,8 @@ export function OrchestratePage() {
     }
   }, [nodeLatenciesEnabled, startupDataReady])
 
-  const nodeLatenciesQuery = useNodeLatenciesQuery(nodeLatencyRefetchIntervalMs, nodeLatenciesEnabled)
+  const latencyVisible = !activeWorkspacePanel || ['node', 'group', 'subscription'].includes(activeWorkspacePanel)
+  const nodeLatenciesQuery = useNodeLatenciesQuery(nodeLatencyRefetchIntervalMs, nodeLatenciesEnabled && latencyVisible)
   const nodeLatencies = useMemo<Record<string, NodeLatencyProbeResult>>(() => {
     const baseResults = Object.fromEntries((nodeLatenciesQuery.data ?? []).map((result) => [result.id, result]))
     return {
@@ -407,13 +400,12 @@ export function OrchestratePage() {
       sortedGroupIds,
     })
 
-  const matchSmallScreen = useMediaQuery('(max-width: 640px)')
-
   const openWorkspacePanel = useCallback(
     (panel: 'config' | 'dns' | 'routing' | 'group' | 'node' | 'subscription') => {
       const nextSearchParams = new URLSearchParams(searchParams)
       nextSearchParams.set('panel', panel)
-      setSearchParams(nextSearchParams, { replace: true })
+      setSearchParams(nextSearchParams)
+      window.scrollTo({ top: 0, behavior: 'instant' })
     },
     [searchParams, setSearchParams],
   )
@@ -428,11 +420,6 @@ export function OrchestratePage() {
     setSummaryEditingGroupId(null)
   }, [])
 
-  const closeWorkspacePanel = useCallback(() => {
-    const nextSearchParams = new URLSearchParams(searchParams)
-    nextSearchParams.delete('panel')
-    setSearchParams(nextSearchParams, { replace: true })
-  }, [searchParams, setSearchParams])
   const openConfigPanel = useCallback(() => openWorkspacePanel('config'), [openWorkspacePanel])
   const openGroupPanel = useCallback(() => openWorkspacePanel('group'), [openWorkspacePanel])
   const openNodePanel = useCallback(() => openWorkspacePanel('node'), [openWorkspacePanel])
@@ -449,14 +436,16 @@ export function OrchestratePage() {
             <LogResourcePanel />
           </Suspense>
         </section>
-      ) : (
+      ) : !activeWorkspacePanel ? (
         <>
           <section id={ORCHESTRATE_SECTION_IDS.overview} className="scroll-mt-28">
-            <TrafficOverviewIsland
-              nodeCount={manualNodeCount}
-              subscriptionCount={generalStateQuery?.general.counts.subscriptions ?? subscriptionSummaries.length}
-              minLatencyMs={minLatencyMs}
-            />
+            <Suspense fallback={<PanelLoadingFallback />}>
+              <TrafficOverviewIsland
+                nodeCount={manualNodeCount}
+                subscriptionCount={generalStateQuery?.general.counts.subscriptions ?? subscriptionSummaries.length}
+                minLatencyMs={minLatencyMs}
+              />
+            </Suspense>
           </section>
 
           <WorkspaceSummaryCards
@@ -482,7 +471,7 @@ export function OrchestratePage() {
             testingLatencyProgress={manualLatencyProbeProgress}
           />
         </>
-      )}
+      ) : null}
 
       <GroupResourceEditor
         summaryEditingGroupId={summaryEditingGroupId}
@@ -496,76 +485,49 @@ export function OrchestratePage() {
         nodeLatencies={nodeLatencies}
       />
 
-      <Dialog
-        open={!!activeWorkspacePanel && activeWorkspacePanel !== 'log'}
-        onOpenChange={(open) => !open && closeWorkspacePanel()}
-      >
-        <ScrollableDialogContent
-          size="full"
-          className={cn(matchSmallScreen ? 'h-[94dvh] w-[calc(100vw-0.75rem)]' : 'h-[92vh] w-[94vw] max-w-[1500px]')}
-        >
-          <ScrollableDialogHeader>
-            <DialogTitle>
-              {activeWorkspacePanel === 'config'
-                ? 'Config'
-                : activeWorkspacePanel === 'log'
-                  ? t('log')
-                  : activeWorkspacePanel === 'dns'
-                    ? 'DNS'
-                    : activeWorkspacePanel === 'routing'
-                      ? 'Routing'
-                      : activeWorkspacePanel === 'group'
-                        ? 'Group'
-                        : activeWorkspacePanel === 'node'
-                          ? 'Node'
-                          : activeWorkspacePanel === 'subscription'
-                            ? 'Subscription'
-                            : ''}
-            </DialogTitle>
-          </ScrollableDialogHeader>
-          <ScrollableDialogBody className="p-4 sm:p-5">
-            <Suspense fallback={<PanelLoadingFallback />}>
-              {activeWorkspacePanel === 'config' && <ConfigPanel />}
-              {activeWorkspacePanel === 'dns' && <DNSPanel />}
-              {activeWorkspacePanel === 'routing' && <RoutingPanel />}
-              {activeWorkspacePanel === 'group' && (
-                <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
-                  <GroupResourcePanel
-                    highlight={!!draggingResource}
-                    draggingResource={draggingResource}
-                    dragDestinationDroppableId={dragDestinationDroppableId}
-                    hoveredGroupId={hoveredGroupId}
-                    nodeLatencies={nodeLatencies}
-                  />
-                </LazyDragDropContext>
-              )}
-              {activeWorkspacePanel === 'node' && (
-                <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
-                  <NodeResourcePanel
-                    sortedNodes={sortedNodes}
-                    highlight={draggingResource?.type === DraggableResourceType.groupNode}
-                    nodeLatencies={nodeLatencies}
-                  />
-                </LazyDragDropContext>
-              )}
-              {activeWorkspacePanel === 'subscription' && (
-                <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
-                  <SubscriptionResourcePanel
-                    sortedSubscriptions={sortedSubscriptions}
-                    nodeLatencies={nodeLatencies}
-                    testingLatencies={manualLatencyProbeProgress !== null}
-                    cancellingLatencies={cancellingManualLatencyProbe}
-                    testingLatencyProgress={manualLatencyProbeProgress}
-                    lastLatencyProbeAt={lastLatencyProbeAt}
-                    onTestAllNodeLatencies={testAllNodeLatencies}
-                    onCancelNodeLatencies={cancelManualLatencyProbe}
-                  />
-                </LazyDragDropContext>
-              )}
-            </Suspense>
-          </ScrollableDialogBody>
-        </ScrollableDialogContent>
-      </Dialog>
+      {activeWorkspacePanel && activeWorkspacePanel !== 'log' && (
+        <section key={activeWorkspacePanel} className="workspace-panel min-w-0" aria-label={activeWorkspacePanel}>
+          <Suspense fallback={<PanelLoadingFallback />}>
+            {activeWorkspacePanel === 'config' && <ConfigPanel />}
+            {activeWorkspacePanel === 'dns' && <DNSPanel />}
+            {activeWorkspacePanel === 'routing' && <RoutingPanel />}
+            {activeWorkspacePanel === 'group' && (
+              <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                <GroupResourcePanel
+                  highlight={!!draggingResource}
+                  draggingResource={draggingResource}
+                  dragDestinationDroppableId={dragDestinationDroppableId}
+                  hoveredGroupId={hoveredGroupId}
+                  nodeLatencies={nodeLatencies}
+                />
+              </LazyDragDropContext>
+            )}
+            {activeWorkspacePanel === 'node' && (
+              <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                <NodeResourcePanel
+                  sortedNodes={sortedNodes}
+                  highlight={draggingResource?.type === DraggableResourceType.groupNode}
+                  nodeLatencies={nodeLatencies}
+                />
+              </LazyDragDropContext>
+            )}
+            {activeWorkspacePanel === 'subscription' && (
+              <LazyDragDropContext onDragStart={onDragStart} onDragUpdate={onDragUpdate} onDragEnd={onDragEnd}>
+                <SubscriptionResourcePanel
+                  sortedSubscriptions={sortedSubscriptions}
+                  nodeLatencies={nodeLatencies}
+                  testingLatencies={manualLatencyProbeProgress !== null}
+                  cancellingLatencies={cancellingManualLatencyProbe}
+                  testingLatencyProgress={manualLatencyProbeProgress}
+                  lastLatencyProbeAt={lastLatencyProbeAt}
+                  onTestAllNodeLatencies={testAllNodeLatencies}
+                  onCancelNodeLatencies={cancelManualLatencyProbe}
+                />
+              </LazyDragDropContext>
+            )}
+          </Suspense>
+        </section>
+      )}
     </div>
   )
 }

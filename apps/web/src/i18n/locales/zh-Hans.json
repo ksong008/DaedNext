@@ -1,4 +1,22 @@
 {
+  "design": {
+    "workspace": "网络工作区",
+    "skipToContent": "跳转到主要内容",
+    "openNavigation": "打开导航",
+    "viewRouting": "查看路由",
+    "lastSample": "最近采样",
+    "setupTitle": "每条连接，都有清晰的方向。",
+    "setupDescription": "汇集节点、路由与 DNS，在一处掌握网络的运行与走向。",
+    "descriptions": {
+      "log": "追踪运行事件，定位需要关注的问题。",
+      "config": "配置网络的运行参数与全局行为。",
+      "dns": "管理域名解析，明确每次查询的去向。",
+      "routing": "通过有序规则，为连接选择合适的出口。",
+      "group": "组织节点与订阅，设定出口选择策略。",
+      "node": "管理独立节点的协议、传输与连接参数。",
+      "subscription": "整理订阅来源，让节点列表保持更新。"
+    }
+  },
   "a11y": {
     "addItem": "添加项目",
     "removeItem": "删除项目",

@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { APIClient, normalizeEndpointURL } from '~/apis/client'
+import { BrandMark } from '~/components/BrandMark'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { DEFAULT_ENDPOINT_URL } from '~/constants'
@@ -180,9 +181,32 @@ export function SetupPage() {
   ]
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-4">
-      <div className="flex w-full max-w-2xl flex-col gap-4">
-        <h1 className="text-center text-3xl font-bold">{t('welcome to', { name: 'daed' })}</h1>
+    <div className="setup-console">
+      <aside className="setup-story">
+        <div className="flex items-center gap-3">
+          <BrandMark className="text-sidebar-primary" />
+          <span className="text-xl font-semibold tracking-tight">
+            Daed<span className="font-normal text-sidebar-primary">Next</span>
+          </span>
+        </div>
+        <div className="setup-intro">
+          <p className="font-mono text-xs tracking-[0.2em] text-sidebar-primary">NETWORK / YOUR WAY</p>
+          <h2 className="mt-6 max-w-sm text-4xl font-medium leading-tight tracking-tight">{t('design.setupTitle')}</h2>
+          <p className="mt-5 max-w-sm text-sm leading-7 text-sidebar-foreground/65">{t('design.setupDescription')}</p>
+          <div className="setup-route" aria-hidden="true">
+            <span>DNS</span>
+            <i />
+            <span>ROUTE</span>
+            <i />
+            <span>NODE</span>
+          </div>
+        </div>
+        <p className="hidden font-mono text-[10px] tracking-widest text-sidebar-foreground/50 md:block">
+          DAE / NEXT · {import.meta.env.APP_VERSION}
+        </p>
+      </aside>
+      <div className="mx-auto flex w-full max-w-2xl flex-col justify-center gap-4 px-5 py-12 sm:px-12">
+        <h1 className="text-center text-3xl font-semibold tracking-tight">{t('welcome to', { name: 'DaedNext' })}</h1>
         <p className="text-center text-muted-foreground">
           {t('what for')}{' '}
           <a

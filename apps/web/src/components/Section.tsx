@@ -32,9 +32,8 @@ export function Section({
     <div
       data-testid="section"
       className={cn(
-        'flex flex-col gap-4 rounded-[20px] border border-[color:var(--shell-line)] bg-[color:var(--shell-surface)] p-4 shadow-[0_10px_24px_color-mix(in_oklab,var(--foreground)_6%,transparent)] backdrop-blur-sm transition-[border-color,box-shadow,background-color] sm:p-5',
-        bordered &&
-          'hover:border-primary/18 hover:shadow-[0_14px_30px_color-mix(in_oklab,var(--foreground)_8%,transparent)]',
+        'resource-section flex flex-col gap-5 rounded-xl border border-border bg-card p-4 sm:p-6',
+        bordered && 'hover:border-primary/30',
         highlight && 'border-primary/30 bg-[color-mix(in_oklab,var(--primary)_7%,var(--card))]',
         className,
       )}
@@ -57,7 +56,8 @@ export function Section({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="rounded-xl border border-transparent bg-[color:var(--shell-control)] hover:border-primary/25 hover:bg-[color:var(--shell-control-hover)]"
+              aria-label={t('actions.add')}
+              className="rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               onClick={onCreate}
             >
               {iconPlus || <Plus className="h-4 w-4" />}
