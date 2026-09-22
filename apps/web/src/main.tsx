@@ -6,6 +6,7 @@ import { App } from '~/App'
 import { i18nInit } from '~/i18n'
 
 import '~/index.css'
+import '~/console.css'
 
 dayjs.extend(duration)
 

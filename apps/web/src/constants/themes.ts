@@ -711,13 +711,80 @@ export const themes: ThemeDefinition[] = [
   tealTheme,
 ]
 
+export const signalTheme: ThemeDefinition = {
+  id: 'signal',
+  name: 'Signal',
+  light: {
+    ...iosTheme.light,
+    background: '#f4f5f1',
+    foreground: '#20332f',
+    card: '#ffffff',
+    cardForeground: '#20332f',
+    popover: '#ffffff',
+    popoverForeground: '#20332f',
+    primary: '#227565',
+    primaryForeground: '#ffffff',
+    secondary: '#edf1eb',
+    secondaryForeground: '#30483f',
+    muted: '#edf1eb',
+    mutedForeground: '#60716a',
+    accent: '#e8f0e9',
+    accentForeground: '#203c32',
+    border: '#dce3dc',
+    input: '#ccd6ce',
+    ring: '#227565',
+    chart1: '#b7733e',
+    chart2: '#227565',
+    sidebar: '#192e29',
+    sidebarForeground: '#e6eee7',
+    sidebarPrimary: '#b7dd9e',
+    sidebarPrimaryForeground: '#192e29',
+    sidebarAccent: '#294038',
+    sidebarAccentForeground: '#f1f5ee',
+    sidebarBorder: '#354b42',
+    sidebarRing: '#b7dd9e',
+  },
+  dark: {
+    ...iosTheme.dark,
+    background: '#131d1a',
+    foreground: '#e2ebe4',
+    card: '#1b2823',
+    cardForeground: '#e2ebe4',
+    popover: '#21312a',
+    popoverForeground: '#e2ebe4',
+    primary: '#a5d594',
+    primaryForeground: '#14251b',
+    secondary: '#26372e',
+    secondaryForeground: '#dce7dd',
+    muted: '#25352d',
+    mutedForeground: '#a0b2a6',
+    accent: '#2b4034',
+    accentForeground: '#e2ebe4',
+    border: '#35473c',
+    input: '#415448',
+    ring: '#a5d594',
+    chart1: '#dda578',
+    chart2: '#a5d594',
+    sidebar: '#111e19',
+    sidebarForeground: '#e2ebe4',
+    sidebarPrimary: '#b7dd9e',
+    sidebarPrimaryForeground: '#14251b',
+    sidebarAccent: '#263c30',
+    sidebarAccentForeground: '#e2ebe4',
+    sidebarBorder: '#304538',
+    sidebarRing: '#a5d594',
+  },
+}
+
+themes.unshift(signalTheme)
+
 export const themeIds = themes.map((t) => t.id) as [string, ...string[]]
 
 export type ThemeId = (typeof themes)[number]['id']
 
 export const LEGACY_DEFAULT_THEME_ID: ThemeId = 'amber'
-export const DEFAULT_THEME_ID: ThemeId = 'ios'
-export const THEME_STATE_MIGRATION_VERSION = 'ios-default-v1'
+export const DEFAULT_THEME_ID: ThemeId = 'signal'
+export const THEME_STATE_MIGRATION_VERSION = 'signal-default-v1'
 
 // Helper function to get theme by ID
 export function getThemeById(id: string): ThemeDefinition | undefined {
