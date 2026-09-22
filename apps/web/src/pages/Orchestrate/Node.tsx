@@ -50,7 +50,12 @@ export function NodeResource({
       onCreate={() => setOpenedImportNodeFormModal(true)}
       actions={
         <SimpleTooltip label={t('actions.configureNode')}>
-          <Button variant="ghost" size="icon" onClick={() => setOpenedConfigureNodeFormModal(true)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t('actions.configureNode')}
+            onClick={() => setOpenedConfigureNodeFormModal(true)}
+          >
             <FileInput className="h-4 w-4" />
           </Button>
         </SimpleTooltip>
@@ -64,7 +69,7 @@ export function NodeResource({
             ref={provided.innerRef}
             {...provided.droppableProps}
             className={cn(
-              'flex max-h-[min(760px,calc(100vh-16rem))] min-h-[100px] flex-col gap-3 overflow-y-auto overscroll-contain pr-1',
+              'flex max-h-[min(760px,calc(100vh-16rem))] min-h-[100px] flex-col gap-2 overflow-y-auto overscroll-contain pr-1',
               snapshot.isDraggingOver && 'bg-primary/5 rounded-lg',
             )}
           >
@@ -84,6 +89,7 @@ export function NodeResource({
                     <Fragment>
                       <SimpleTooltip label={t('actions.edit')}>
                         <Button
+                          aria-label={t('actions.edit')}
                           variant="ghost"
                           size="xs"
                           className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
@@ -102,6 +108,7 @@ export function NodeResource({
                       </SimpleTooltip>
                       <SimpleTooltip label={t('actions.viewQRCode')}>
                         <Button
+                          aria-label={t('actions.viewQRCode')}
                           variant="ghost"
                           size="xs"
                           className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
@@ -130,7 +137,7 @@ export function NodeResource({
                       {formatNodeLatencyCardLabel(latencyResult, t('latency.unavailable'))}
                     </p>
                   )}
-                  {name && name !== tag && <p className="text-xs opacity-70">{name}</p>}
+                  {name && tag && name !== tag && <p className="text-xs opacity-70">{name}</p>}
                   <Spoiler label={link} showLabel={t('actions.show sensitive')} hideLabel={t('actions.hide')} />
                 </SortableNodeCard>
               )

@@ -1,4 +1,22 @@
 {
+  "design": {
+    "workspace": "Workspace",
+    "skipToContent": "Skip to content",
+    "openNavigation": "Open navigation",
+    "viewRouting": "View routing",
+    "lastSample": "Last sample",
+    "setupTitle": "Every connection. A clear direction.",
+    "setupDescription": "Bring your nodes, routing and DNS together. One quiet place to manage your network.",
+    "descriptions": {
+      "log": "Follow runtime events and find what needs your attention.",
+      "config": "Set the operating parameters for your network.",
+      "dns": "Choose how domain names are resolved and where queries go.",
+      "routing": "Give each connection a destination with ordered routing rules.",
+      "group": "Bring nodes together and choose how traffic moves between them.",
+      "node": "Manage individual endpoints, transports and connection settings.",
+      "subscription": "Keep your node collections organized and up to date."
+    }
+  },
   "a11y": {
     "addItem": "Add item",
     "removeItem": "Remove item",

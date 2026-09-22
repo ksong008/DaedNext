@@ -46,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
+import { SidebarTrigger } from '~/components/ui/sidebar'
 import { Switch } from '~/components/ui/switch'
 import { SimpleTooltip } from '~/components/ui/tooltip'
 import { useColorScheme } from '~/contexts'
@@ -598,6 +599,7 @@ export function HeaderWithActions() {
         )}
       >
         <Switch
+          aria-label={t('actions.switchRunning')}
           size={matchSmallScreen ? 'xs' : 'md'}
           onLabel={<Power className="h-3 w-3" />}
           offLabel={<PowerOff className="h-3 w-3" />}
@@ -612,22 +614,26 @@ export function HeaderWithActions() {
   )
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[color:var(--shell-line)] bg-[color:var(--shell-page)]/82 backdrop-blur-[24px] supports-[backdrop-filter]:bg-[color:var(--shell-page)]/78">
+    <header className="console-header sticky top-0 z-40 border-b border-border bg-background">
       <div
         className={cn(
-          'mx-auto w-full max-w-[1480px]',
+          'mx-auto w-full max-w-[1600px]',
           matchSmallScreen
             ? 'flex min-h-[60px] items-center gap-2 px-3 py-2'
-            : 'grid min-h-[74px] grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-5 lg:px-7',
+            : 'flex min-h-[64px] items-center justify-between gap-4 px-4 py-3 sm:px-7 lg:px-9',
         )}
       >
         {matchSmallScreen && (
           <div className="flex h-full shrink-0 items-center justify-center">
-            <img
-              src="/logo.webp"
-              alt="DAED"
-              className="h-11 w-11 shrink-0 rounded-[14px] object-cover shadow-[0_6px_16px_color-mix(in_oklab,var(--foreground)_10%,transparent)]"
-            />
+            <SidebarTrigger className="h-10 w-10 text-primary" aria-label={t('design.openNavigation')} />
+          </div>
+        )}
+
+        {!matchSmallScreen && (
+          <div className="console-eyebrow min-w-0 truncate">
+            <span className="text-foreground normal-case">DaedNext</span>
+            <span>/</span>
+            <span>{t('design.workspace')}</span>
           </div>
         )}
 
@@ -749,6 +755,7 @@ export function HeaderWithActions() {
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
+                aria-label={userQuery?.user?.name || userQuery?.user?.username || 'unknown'}
                 className={cn(
                   'flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-left transition-colors',
                   matchSmallScreen
@@ -763,7 +770,7 @@ export function HeaderWithActions() {
                   size={matchSmallScreen ? 22 : 24}
                 />
                 {!matchSmallScreen && (
-                  <span className="max-w-[7rem] truncate text-sm font-semibold leading-none">
+                  <span className="hidden max-w-[7rem] truncate text-sm font-semibold leading-none lg:inline">
                     {userQuery?.user?.name || userQuery?.user?.username || 'unknown'}
                   </span>
                 )}
