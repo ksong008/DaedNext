@@ -25,7 +25,7 @@ describe('parseHTTPUrl', () => {
       password: '',
       name: 'my-proxy',
       sni: '',
-      allowInsecure: false,
+      allowInsecure: null,
       transport: false,
       transportHost: '',
       transportPath: '',
@@ -207,6 +207,22 @@ describe('parseTrojanUrl', () => {
 })
 
 describe('parseHysteria2Url', () => {
+  it.each([
+    ['', null],
+    ['insecure=', null],
+    ...['0', 'false', 'False', 'FALSE', 'f', 'F'].map((value) => [`insecure=${value}`, false]),
+    ...['1', 'true', 'True', 'TRUE', 't', 'T'].map((value) => [`insecure=${value}`, true]),
+  ])('preserves the insecure override in %s', (query, expected) => {
+    expect(parseHysteria2Url(`hysteria2://auth@example.com:443?${query}`)?.allowInsecure).toBe(expected)
+  })
+
+  it.each(['insecure=invalid', 'insecure=yes', 'insecure=0&insecure=1'])(
+    'rejects invalid or ambiguous insecure settings: %s',
+    (query) => {
+      expect(parseHysteria2Url(`hy2://auth@example.com:443?${query}`)).toBeNull()
+    },
+  )
+
   it('should parse Hysteria2 URL', () => {
     const result = parseHysteria2Url('hysteria2://auth@example.com:443/?sni=example.com#my-hy2')
     expect(result).toMatchObject({

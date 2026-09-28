@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest'
 
-import { generateMasqueURL } from '../src/generator'
-import { parseMasqueUrl } from '../src/parser'
+import { generateHysteria2URL, generateMasqueURL } from '../src/generator'
+import { parseHysteria2Url, parseMasqueUrl } from '../src/parser'
+
+describe('generateHysteria2URL', () => {
+  it.each([false, 0, '0'])('preserves the explicit secure override %s', (insecure) => {
+    const link = generateHysteria2URL({
+      protocol: 'hysteria2',
+      auth: 'secret',
+      host: 'example.com',
+      port: 443,
+      params: { insecure },
+    })
+    expect(new URL(link).searchParams.has('insecure')).toBe(true)
+    expect(parseHysteria2Url(link)?.allowInsecure).toBe(false)
+  })
+})
 
 const common = {
   name: 'edge node',

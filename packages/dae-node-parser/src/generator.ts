@@ -81,7 +81,13 @@ export function generateHysteria2URL({ protocol, auth, host, port, params, hash 
   const searchParams = new URLSearchParams()
 
   Object.entries(queryParams).forEach(([key, value]) => {
-    if (value !== null && value !== undefined && value !== '' && value !== false && value !== 0) {
+    const explicitInsecure = key === 'insecure'
+    if (
+      value !== null &&
+      value !== undefined &&
+      value !== '' &&
+      (explicitInsecure || (value !== false && value !== 0))
+    ) {
       searchParams.append(key, String(value))
     }
   })
