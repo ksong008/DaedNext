@@ -79,7 +79,7 @@ export interface V2rayConfig {
   spx: string // REALITY spiderX
   pqv: string // REALITY ML-DSA-65 public key (mldsa65Verify)
   // Other
-  allowInsecure: boolean
+  allowInsecure: boolean | null
   mux: boolean // VLESS TCP TLS mux
   v: string // version (legacy)
 }
@@ -135,7 +135,7 @@ export interface TrojanConfig {
   alpn: string
   host: string
   path: string
-  allowInsecure: boolean
+  allowInsecure: boolean | null
   port: number
   password: string
   method: 'origin' | 'shadowsocks'
@@ -153,7 +153,7 @@ export interface TuicConfig {
   port: number
   uuid: string
   password: string
-  allowInsecure: boolean
+  allowInsecure: boolean | null
   disable_sni: boolean
   sni: string
   congestion_control: string
@@ -170,7 +170,7 @@ export interface JuicityConfig {
   port: number
   uuid: string
   password: string
-  allowInsecure: boolean
+  allowInsecure: boolean | null
   pinned_certchain_sha256: string
   sni: string
   congestion_control: string
@@ -188,7 +188,8 @@ export interface Hysteria2Config {
   ports?: string
   obfs: '' | 'salamander'
   obfsPassword: string
-  allowInsecure: boolean
+  /** null inherits the global TLS verification policy. */
+  allowInsecure: boolean | null
   pinSHA256: string
   maxTx: string
   maxRx: string
@@ -203,7 +204,7 @@ export interface AnytlsConfig {
   port: number
   auth: string
   sni: string
-  allowInsecure: boolean
+  allowInsecure: boolean | null
 }
 
 /**
@@ -217,7 +218,7 @@ export interface HTTPConfig {
   port: number
   name: string
   sni: string
-  allowInsecure: boolean
+  allowInsecure: boolean | null
   transport: boolean
   transportHost: string
   transportPath: string

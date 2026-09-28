@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { NodeFormProps } from './types'
-import type {VlessEncryptionMode, VlessEncryptionRtt} from '~/utils/vless_encryption';
+import type { VlessEncryptionMode, VlessEncryptionRtt } from '~/utils/vless_encryption'
 import { parseV2rayUrl } from '@daeuniverse/dae-node-parser'
 
 import { createPortal } from 'react-dom'
@@ -17,9 +17,7 @@ import {
   hasVlessEncryptionAccountPrefix,
   parseVlessEncryptionAccount,
   supportsVlessEncryptionNetwork,
-  VLESS_ENCRYPTION_SUITE
-  
-  
+  VLESS_ENCRYPTION_SUITE,
 } from '~/utils/vless_encryption'
 import { generateV2rayLink } from './protocols/generators'
 
@@ -352,7 +350,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
       {formValues.tls !== 'none' && (
         <Checkbox
           label="AllowInsecure"
-          checked={formValues.allowInsecure}
+          checked={formValues.allowInsecure ?? false}
           onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
         />
       )}

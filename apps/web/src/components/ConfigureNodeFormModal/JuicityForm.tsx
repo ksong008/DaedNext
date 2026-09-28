@@ -96,7 +96,7 @@ export function JuicityForm({ onLinkGeneration, initialValues, actionsPortal }: 
 
       <Checkbox
         label={t('allowInsecure')}
-        checked={formValues.allowInsecure}
+        checked={formValues.allowInsecure ?? false}
         onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
       />
 

@@ -109,7 +109,7 @@ export function TuicForm({ onLinkGeneration, initialValues, actionsPortal }: Nod
 
       <Checkbox
         label={t('allowInsecure')}
-        checked={formValues.allowInsecure}
+        checked={formValues.allowInsecure ?? false}
         onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
       />
 

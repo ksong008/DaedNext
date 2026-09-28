@@ -146,7 +146,7 @@ export function TrojanForm({ onLinkGeneration, initialValues, actionsPortal }: N
 
       <Checkbox
         label={t('allowInsecure')}
-        checked={formValues.allowInsecure}
+        checked={formValues.allowInsecure ?? false}
         onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
       />
 

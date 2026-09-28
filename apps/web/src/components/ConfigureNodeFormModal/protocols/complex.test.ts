@@ -62,6 +62,40 @@ describe('manual node protocol registry', () => {
     expect(parsed.searchParams.get('obfs-password')).toBe('obfs-secret')
   })
 
+  it('allows manual Hysteria2 creation without a pin and explicitly verifies certificates by default', async () => {
+    vi.stubGlobal('location', { hostname: '127.0.0.1', origin: 'http://127.0.0.1', protocol: 'http:' })
+    const { hysteria2Protocol } = await import('./complex')
+    const form = {
+      ...hysteria2Protocol.defaultValues,
+      server: 'example.com',
+      auth: 'secret',
+    }
+    const data = hysteria2Protocol.schema.parse(form)
+    const link = new URL(hysteria2Protocol.generateLink(data))
+    expect(link.searchParams.get('insecure')).toBe('0')
+    expect(link.searchParams.has('pinSHA256')).toBe(false)
+    expect(hysteria2Protocol.schema.safeParse({ ...form, pinSHA256: 'invalid' }).success).toBe(false)
+    expect(hysteria2Protocol.schema.safeParse({ ...form, pinSHA256: `${'AB:'.repeat(31)}AB` }).success).toBe(true)
+  })
+
+  it.each([
+    ['', null, null],
+    ['insecure=', null, null],
+    ['insecure=0', false, '0'],
+    ['insecure=false', false, '0'],
+    ['insecure=1', true, '1'],
+    ['insecure=true', true, '1'],
+  ])('preserves Hysteria2 certificate verification when editing %s', async (query, expected, exported) => {
+    vi.stubGlobal('location', { hostname: '127.0.0.1', origin: 'http://127.0.0.1', protocol: 'http:' })
+    const { hysteria2Protocol } = await import('./complex')
+    const parsed = hysteria2Protocol.parseLink!(`hysteria2://auth@example.com:443?${query}`)
+    expect(parsed?.allowInsecure).toBe(expected)
+    const data = hysteria2Protocol.schema.parse({ ...hysteria2Protocol.defaultValues, ...parsed, name: 'edited' })
+    const link = new URL(hysteria2Protocol.generateLink(data))
+    expect(link.searchParams.get('insecure')).toBe(exported)
+    expect(hysteria2Protocol.parseLink!(link.toString())?.allowInsecure).toBe(expected)
+  })
+
   it('generates resident Trojan-Go grpc settings', async () => {
     vi.stubGlobal('location', {
       hostname: '127.0.0.1',

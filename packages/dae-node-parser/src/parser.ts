@@ -42,6 +42,34 @@ function parseStrictBoolParam(value: string | null): boolean | null {
   return null
 }
 
+const ALLOW_INSECURE_KEYS = ['allowInsecure', 'allow_insecure', 'allowinsecure', 'insecure', 'skipVerify']
+
+function parseInsecureValue(value: unknown): boolean | null {
+  if (value == null || value === '') return null
+  if (typeof value === 'boolean') return value
+  if (value === 0 || value === 1) return value === 1
+  if (value === 't' || value === 'T') return true
+  if (value === 'f' || value === 'F') return false
+  const parsed = typeof value === 'string' ? parseStrictBoolParam(value) : null
+  if (parsed === null) throw new Error('Invalid certificate verification boolean')
+  return parsed
+}
+
+function mergeInsecureValues(values: unknown[]): boolean | null {
+  let configured: boolean | null = null
+  for (const raw of values) {
+    const value = parseInsecureValue(raw)
+    if (value === null) continue
+    if (configured !== null && configured !== value) throw new Error('Conflicting certificate verification parameters')
+    configured = value
+  }
+  return configured
+}
+
+function parseAllowInsecure(params: URLSearchParams, keys = ALLOW_INSECURE_KEYS): boolean | null {
+  return mergeInsecureValues(keys.flatMap((key) => params.getAll(key)))
+}
+
 function parseGrpcMode(value: unknown): V2rayConfig['grpcMode'] | null {
   if (value === undefined || value === null || value === '') return 'gun'
   return value === 'gun' || value === 'multi' ? value : null
@@ -155,10 +183,7 @@ export function parseHTTPUrl(url: string): (Partial<HTTPConfig> & { protocol: 'h
       password: decodeURIComponent(parsed.password || ''),
       name: decodeURIComponent(parsed.hash.slice(1) || ''),
       sni: parsed.searchParams.get('sni') || '',
-      allowInsecure:
-        parseBoolParam(parsed.searchParams.get('allowInsecure')) ||
-        parseBoolParam(parsed.searchParams.get('allow_insecure')) ||
-        parseBoolParam(parsed.searchParams.get('skipVerify')),
+      allowInsecure: parseAllowInsecure(parsed.searchParams),
       transport: parseBoolParam(parsed.searchParams.get('transport')),
       transportHost: parsed.searchParams.get('host') || '',
       transportPath: parsed.pathname && parsed.pathname !== '/' ? parsed.pathname : '',
@@ -430,7 +455,7 @@ export function parseTrojanUrl(url: string): Partial<TrojanConfig> | null {
       name: decodeURIComponent(parsed.hash.slice(1) || ''),
       peer: params.get('sni') || params.get('peer') || '',
       alpn: params.get('alpn') || '',
-      allowInsecure: params.get('allowInsecure') === '1' || params.get('allowInsecure') === 'true',
+      allowInsecure: parseAllowInsecure(params),
     }
 
     // Trojan-Go specific fields
@@ -491,7 +516,7 @@ export function parseTuicUrl(url: string): Partial<TuicConfig> | null {
       congestion_control: params.get('congestion_control') || '',
       alpn: params.get('alpn') || '',
       sni: params.get('sni') || '',
-      allowInsecure: params.get('allow_insecure') === '1' || params.get('allow_insecure') === 'true',
+      allowInsecure: parseAllowInsecure(params),
       disable_sni: params.get('disable_sni') === '1' || params.get('disable_sni') === 'true',
       udp_relay_mode: params.get('udp_relay_mode') || '',
     }
@@ -522,7 +547,7 @@ export function parseJuicityUrl(url: string): Partial<JuicityConfig> | null {
       congestion_control: params.get('congestion_control') || '',
       pinned_certchain_sha256: params.get('pinned_certchain_sha256') || '',
       sni: params.get('sni') || '',
-      allowInsecure: params.get('allow_insecure') === '1' || params.get('allow_insecure') === 'true',
+      allowInsecure: parseAllowInsecure(params),
     }
   } catch {
     return null
@@ -548,6 +573,8 @@ export function parseHysteria2Url(url: string): Partial<Hysteria2Config> | null 
     const rawServer = lastAtIndex === -1 ? authority : authority.slice(lastAtIndex + 1)
     const { server, port, ports } = parseHysteria2Authority(rawServer)
     const params = new URLSearchParams(rawQuery)
+    if (params.getAll('insecure').length > 1) return null
+    const allowInsecure = parseAllowInsecure(params, ['insecure'])
 
     return {
       auth: decodeURIComponent(rawAuth),
@@ -558,7 +585,7 @@ export function parseHysteria2Url(url: string): Partial<Hysteria2Config> | null 
       ports: ports || params.get('ports') || params.get('mport') || '',
       obfs: (params.get('obfs') || '') as Hysteria2Config['obfs'],
       obfsPassword: params.get('obfs-password') || params.get('obfsPassword') || '',
-      allowInsecure: parseBoolParam(params.get('insecure')),
+      allowInsecure,
       pinSHA256: params.get('pinSHA256') || '',
       maxTx: params.get('maxTx') || '',
       maxRx: params.get('maxRx') || '',
@@ -618,7 +645,7 @@ export function parseAnytlsUrl(url: string): Partial<AnytlsConfig> | null {
       port: parsed.port ? Number.parseInt(parsed.port, 10) : 443,
       name: decodeURIComponent(parsed.hash.slice(1) || ''),
       sni: params.get('sni') || params.get('peer') || '',
-      allowInsecure: params.get('insecure') === '1' || params.get('insecure') === 'true',
+      allowInsecure: parseAllowInsecure(params),
     }
   } catch {
     return null
@@ -675,7 +702,7 @@ export function parseVMessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
         alpn: config.alpn || '',
         fp: config.fp || '',
         scy: config.scy || 'auto',
-        allowInsecure: config.allowInsecure === true || config.allowInsecure === 1 || config.allowInsecure === '1',
+        allowInsecure: mergeInsecureValues(ALLOW_INSECURE_KEYS.map((key) => config[key])),
         mux: false,
         flow: config.flow || 'none',
         v: config.v || '',
@@ -767,11 +794,7 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
       spx: params.get('spx') || '',
       pqv: params.get('pqv') || '',
       // Other
-      allowInsecure:
-        params.get('allowInsecure') === '1' ||
-        params.get('allowInsecure') === 'true' ||
-        params.get('allow_insecure') === '1' ||
-        params.get('allow_insecure') === 'true',
+      allowInsecure: parseAllowInsecure(params),
       mux: false,
       v: '',
     }
@@ -953,11 +976,7 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       spx: params.get('spx') || '',
       pqv: params.get('pqv') || '',
       // Other
-      allowInsecure:
-        params.get('allowInsecure') === '1' ||
-        params.get('allowInsecure') === 'true' ||
-        params.get('allow_insecure') === '1' ||
-        params.get('allow_insecure') === 'true',
+      allowInsecure: parseAllowInsecure(params),
       mux: parseBoolParam(params.get('mux')) || parseBoolParam(params.get('muxEnabled')),
       v: '',
     }

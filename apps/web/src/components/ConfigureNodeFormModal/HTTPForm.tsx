@@ -120,7 +120,7 @@ export function HTTPForm({ onLinkGeneration, initialValues, actionsPortal }: Nod
           <Input label="ALPN" value={formValues.alpn} onChange={(e) => setValue('alpn', e.target.value)} />
           <Checkbox
             label="AllowInsecure"
-            checked={formValues.allowInsecure}
+            checked={formValues.allowInsecure ?? false}
             onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
           />
         </>

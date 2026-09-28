@@ -3,6 +3,8 @@ import { validateEchConfigListBase64 } from '~/utils/ech'
 import { validateXhttpFormFields } from '~/utils/xhttp'
 
 const UNSIGNED_INTEGER_PATTERN = /^\d+$/
+const SHA256_HEX_PATTERN = /^[a-f\d]{64}$/i
+const SHA256_SEPARATOR_PATTERN = /[:-]/g
 
 const VLESS_ENCRYPTION_KEY_LENGTHS = new Set([43, 1579])
 const VLESS_ENCRYPTION_KEY_PATTERN = /^[\w-]+$/
@@ -102,7 +104,7 @@ export const v2raySchema = z
     /** VLESS Encryption account string; VMess always keeps this at none. */
     vlessEncryption: z.string(),
     v: z.string(),
-    allowInsecure: z.boolean(),
+    allowInsecure: z.boolean().nullable(),
     mux: z.boolean(),
     sni: z.string(),
     // Reality-specific fields
@@ -414,7 +416,7 @@ export const trojanSchema = z
     alpn: z.string(),
     host: z.string(),
     path: z.string(),
-    allowInsecure: z.boolean(),
+    allowInsecure: z.boolean().nullable(),
     port: z.number().min(0).max(65535),
     password: z.string().nonempty(),
     method: z.enum(['origin', 'shadowsocks']),
@@ -445,7 +447,7 @@ export const tuicSchema = z.object({
   port: z.number().min(0).max(65535),
   uuid: z.string().nonempty(),
   password: z.string().nonempty(),
-  allowInsecure: z.boolean(),
+  allowInsecure: z.boolean().nullable(),
   disable_sni: z.boolean(),
   sni: z.string(),
   congestion_control: z.string(),
@@ -459,7 +461,7 @@ export const juicitySchema = z.object({
   port: z.number().min(0).max(65535),
   uuid: z.string().nonempty(),
   password: z.string().nonempty(),
-  allowInsecure: z.boolean(),
+  allowInsecure: z.boolean().nullable(),
   pinned_certchain_sha256: z.string(),
   sni: z.string(),
   congestion_control: z.string(),
@@ -475,19 +477,18 @@ export const hysteria2Schema = z
     ports: z.string().optional(),
     obfs: z.enum(['', 'salamander']),
     obfsPassword: z.string(),
-    allowInsecure: z.boolean(),
-    pinSHA256: z.string().nonempty(),
+    allowInsecure: z.boolean().nullable(),
+    pinSHA256: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value === '' || SHA256_HEX_PATTERN.test(value.replace(SHA256_SEPARATOR_PATTERN, '')),
+        'Pin SHA256 must contain 64 hexadecimal digits',
+      ),
     maxTx: z.string(),
     maxRx: z.string(),
   })
   .superRefine((data, ctx) => {
-    if (data.allowInsecure) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['allowInsecure'],
-        message: 'Resident Hysteria2 does not admit insecure mode',
-      })
-    }
     if ((data.maxTx === '') !== (data.maxRx === '')) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -519,7 +520,7 @@ export const anytlsSchema = z.object({
   port: z.number().min(0).max(65535),
   auth: z.string(),
   sni: z.string(),
-  allowInsecure: z.boolean(),
+  allowInsecure: z.boolean().nullable(),
 })
 
 export const httpSchema = z.object({
@@ -529,7 +530,7 @@ export const httpSchema = z.object({
   port: z.number().min(0).max(65535),
   name: z.string(),
   sni: z.string(),
-  allowInsecure: z.boolean(),
+  allowInsecure: z.boolean().nullable(),
   transport: z.boolean(),
   transportHost: z.string(),
   transportPath: z.string(),

@@ -101,7 +101,7 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
       alpn,
       ech,
       fp,
-      allowInsecure,
+      allowInsecure: allowInsecure ?? undefined,
       grpcMode: net === 'grpc' ? grpcMode : 'gun',
       grpcAuthority: net === 'grpc' ? grpcAuthority : '',
     }
@@ -122,6 +122,7 @@ export function generateHysteria2Link(data: Hysteria2GeneratorValues): string {
       ports: data.ports || '',
       obfs: data.obfs,
       'obfs-password': data.obfs === 'salamander' ? data.obfsPassword : '',
+      insecure: data.allowInsecure == null ? '' : data.allowInsecure ? '1' : '0',
       pinSHA256: data.pinSHA256,
       maxTx: data.maxTx,
       maxRx: data.maxRx,
@@ -138,7 +139,7 @@ export function generateHTTPLink(data: HTTPGeneratorValues): string {
   }
   if (data.protocol === 'https') {
     query.sni = data.sni
-    if (data.allowInsecure) query.allowInsecure = true
+    if (data.allowInsecure != null) query.allowInsecure = data.allowInsecure
     query.tlsImplementation = data.tlsImplementation
     query.alpn = data.alpn
     query.utlsImitate = data.utlsImitate

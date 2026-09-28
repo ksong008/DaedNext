@@ -310,7 +310,7 @@ type AnytlsFormValues = z.infer<typeof anytlsSchema>
 export function generateAnytlsLink(data: AnytlsFormValues): string {
   const query = {
     sni: data.sni,
-    insecure: data.allowInsecure ? 1 : 0,
+    insecure: data.allowInsecure == null ? '' : data.allowInsecure ? '1' : '0',
   }
 
   return generateAnytlsURL({

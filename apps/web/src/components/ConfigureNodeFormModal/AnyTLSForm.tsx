@@ -48,7 +48,7 @@ export function AnyTLSForm({ onLinkGeneration, initialValues, actionsPortal }: N
       <Input label="SNI" value={formValues.sni} onChange={(e) => setValue('sni', e.target.value)} />
       <Checkbox
         label={t('allowInsecure')}
-        checked={formValues.allowInsecure}
+        checked={formValues.allowInsecure ?? false}
         onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
       />
       {actionsPortal ? (
