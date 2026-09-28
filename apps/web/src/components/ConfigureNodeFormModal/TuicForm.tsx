@@ -107,12 +107,6 @@ export function TuicForm({ onLinkGeneration, initialValues, actionsPortal }: Nod
         onChange={(val) => setValue('udp_relay_mode', val || '')}
       />
 
-      <Checkbox
-        label={t('allowInsecure')}
-        checked={formValues.allowInsecure ?? false}
-        onCheckedChange={(checked) => setValue('allowInsecure', !!checked)}
-      />
-
       {actionsPortal ? (
         createPortal(
           <FormActions
