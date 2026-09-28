@@ -404,6 +404,7 @@ export interface InterfaceResource {
   name: string
   index: number
   up: boolean
+  recommendedLan?: boolean
   addresses: string[]
   addressDetails?: InterfaceAddressDetail[]
   defaultRoutes?: Array<{

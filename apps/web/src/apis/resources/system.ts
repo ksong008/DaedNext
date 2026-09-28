@@ -28,6 +28,7 @@ export interface InterfaceAPI {
   name: string
   index: number
   up: boolean
+  recommendedLan?: boolean
   addresses: string[]
   addressDetails?: InterfaceAddressDetailAPI[]
   defaultRoutes?: Array<{
@@ -154,6 +155,7 @@ export function adaptInterface(iface: InterfaceAPI): InterfaceResource {
     name: iface.name,
     index: iface.index,
     up: iface.up,
+    recommendedLan: iface.recommendedLan === true,
     addresses: Array.isArray(iface.addresses) ? iface.addresses : [],
     addressDetails: Array.isArray(iface.addressDetails)
       ? iface.addressDetails
