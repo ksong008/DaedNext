@@ -13,7 +13,7 @@ import {
 import { useAPIClient } from '~/contexts'
 import { isMockMode, MOCK_DEFAULT_IDS } from '~/mocks'
 import { defaultResourcesAtom, modeAtom } from '~/store'
-import { hasDefaultRoutes } from '~/utils/interfaces'
+import { recommendedLanInterfaces } from '~/utils/interfaces'
 
 export function useInitialize() {
   const ensureDefaultResourcesMutation = useEnsureDefaultResourcesMutation()
@@ -28,7 +28,7 @@ export function useInitialize() {
       return
     }
 
-    const lanInterfaces = (await getInterfaces()).general.interfaces.filter(hasDefaultRoutes).map(({ name }) => name)
+    const lanInterfaces = recommendedLanInterfaces((await getInterfaces()).general.interfaces)
 
     const { defaultConfigID, defaultDNSID, defaultGroupID, defaultRoutingID, mode } =
       await ensureDefaultResourcesMutation.mutateAsync({
