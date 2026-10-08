@@ -6,6 +6,37 @@ import {
   validateXhttpXmuxRaw,
 } from './xhttp'
 
+it('accepts default POST zero forms and rejects invalid positive ranges', () => {
+  for (const value of [0, '0', '0-0', { from: 0, to: 0 }, 1024]) {
+    expect(validateXhttpExtraRaw(JSON.stringify({ scMaxEachPostBytes: value }))).toBeNull()
+  }
+  for (const value of [-1, '0-1024', 4194305]) {
+    expect(validateXhttpExtraRaw(JSON.stringify({ scMaxEachPostBytes: value }))).toContain('scMaxEachPostBytes')
+  }
+})
+
+it('accepts and preserves download REALITY password without requiring publicKey', () => {
+  const settings = {
+    address: 'download.example.com',
+    port: 443,
+    network: 'xhttp',
+    security: 'reality',
+    realitySettings: {
+      serverName: 'download.example.com',
+      fingerprint: 'chrome',
+      password: 'BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc',
+    },
+    xhttpSettings: { path: '/download' },
+  }
+  const raw = JSON.stringify(settings)
+  expect(validateXhttpDownloadSettingsRaw(raw)).toBeNull()
+  const generated = JSON.parse(buildSupportedXhttpExtra({ xhttpMode: 'packet-up', downloadSettingsRaw: raw }))
+  expect(generated.downloadSettings).toEqual(settings)
+  expect(
+    validateXhttpDownloadSettingsRaw(JSON.stringify({ ...settings, realitySettings: { password: 123 } })),
+  ).toContain('password must be a string')
+})
+
 const DOWNLOAD_SETTINGS = JSON.stringify({
   address: 'download.example.com',
   port: 443,
@@ -221,4 +252,29 @@ it('validateXhttpFormFields blocks unsupported xhttp alpn combinations', () => {
       alpn: 'h3',
     }),
   ).toEqual([{ path: 'alpn', message: 'ALPN does not support h3 with Reality' }])
+})
+
+it('accepts custom HTTP methods and rejects invalid tokens and GET stream uploads', () => {
+  expect(validateXhttpExtraRaw('{"uplinkHTTPMethod":"PUT"}')).toBeNull()
+  expect(validateXhttpExtraRaw('{"uplinkHTTPMethod":"X-CUSTOM"}')).toBeNull()
+  expect(validateXhttpExtraRaw('{"uplinkHTTPMethod":"BAD METHOD"}')).toContain('valid HTTP method')
+  expect(validateXhttpExtraRaw('{"mode":"stream-up","uplinkHTTPMethod":"GET"}')).toContain('packet-up')
+})
+
+it('rejects excessive client allocations but preserves server-only parameters', () => {
+  for (const [key, value] of Object.entries({
+    xPaddingBytes: 16385,
+    sessionIDLength: 257,
+    scMaxEachPostBytes: 4194305,
+    uplinkChunkSize: 16385,
+  })) {
+    expect(validateXhttpExtraRaw(JSON.stringify({ [key]: value }))).toContain('must be in')
+  }
+  expect(validateXhttpExtraRaw('{"scMaxBufferedPosts":1000000,"noSSEHeader":true}')).toBeNull()
+})
+
+it('validates GET against the mode selected in the form', () => {
+  expect(validateXhttpFormFields({ xhttpMode: 'stream-up', xhttpExtra: '{"uplinkHTTPMethod":"GET"}' })).toEqual(
+    expect.arrayContaining([expect.objectContaining({ path: 'xhttpExtra' })]),
+  )
 })

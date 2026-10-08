@@ -154,6 +154,7 @@
     "switchToStructuredError": "当前原始 global 配置段仍无法解析，请先修复后再切回结构化模式。"
   },
   "configureNode": {
+    "xhttpServerSettingsHint": "noSSEHeader、scMaxBufferedPosts、scStreamUpServerSecs 和 serverMaxHeaderBytes 是服务端参数，在此填写不会修改远端服务或客户端并发。",
     "congestionControl": "拥堵控制算法",
     "disableSNI": "关闭 SNI",
     "dtlsObfuscation": "伪装为 DTLS1.2 数据包",
