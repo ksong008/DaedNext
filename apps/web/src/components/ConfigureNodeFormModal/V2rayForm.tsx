@@ -496,6 +496,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
                 aria-invalid={!!errors.xhttpExtra}
                 onChange={(e) => setValue('xhttpExtra', e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">{t('configureNode.xhttpServerSettingsHint')}</p>
               {errors.xhttpExtra?.message && <p className="text-xs text-destructive">{errors.xhttpExtra.message}</p>}
             </div>
 

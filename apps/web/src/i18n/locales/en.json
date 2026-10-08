@@ -154,6 +154,7 @@
     "switchToStructuredError": "The raw global section still cannot be parsed. Fix it first before switching back to Structured Mode."
   },
   "configureNode": {
+    "xhttpServerSettingsHint": "noSSEHeader, scMaxBufferedPosts, scStreamUpServerSecs and serverMaxHeaderBytes apply to the server; setting them here does not change the remote server or client concurrency.",
     "congestionControl": "Congestion Control",
     "disableSNI": "Disable SNI",
     "dtlsObfuscation": "Obfuscated as DTLS1.2 Packets",
