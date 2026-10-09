@@ -54,17 +54,20 @@ endif
 endif
 DAED_PRODUCT_TARGET ?= $(if $(TARGET_OS),$(TARGET_OS)-$(TARGET_ARCH)$(if $(CPU_LEVEL),-$(CPU_LEVEL),),$(if $(RUST_TARGET),$(RUST_TARGET),host))
 DAED_PRODUCT_VERSION ?= daed rust-native product version=$(VERSION) ui=$(DAED_UI_COMMIT)$(DAED_UI_DIRTY) core=$(RUST_WORKSPACE_COMMIT)$(RUST_WORKSPACE_DIRTY) target=$(DAED_PRODUCT_TARGET) features=$(DAED_PRODUCT_FEATURES)
-RUST_BUILD_ARGS = --manifest-path $(RUST_MANIFEST) --locked -p dae-daemon --bin daed --release
+# Keep the checked feature/target selection identical to the product build.
+# Customize RUST_FEATURES/RUST_TARGET instead of bypassing the gate with raw args.
+override RUST_BUILD_ARGS = --manifest-path $(RUST_MANIFEST) --locked -p dae-daemon --bin daed --release
 ifneq ($(strip $(RUST_TARGET)),)
-RUST_BUILD_ARGS += --target $(RUST_TARGET)
+override RUST_BUILD_ARGS += --target $(RUST_TARGET)
 endif
 ifneq ($(strip $(RUST_FEATURES)),)
-RUST_BUILD_ARGS += --features $(RUST_FEATURES)
+override RUST_BUILD_ARGS += --features $(RUST_FEATURES)
 endif
 
 daed: daed-rust-native
 
 daed-rust-native: dist
+	cd "$(RUST_WORKSPACE)" && python3 scripts/architecture/check_release_features.py --product-only $(if $(RUST_TARGET),--target "$(RUST_TARGET)",) $(if $(RUST_FEATURES),--features "$(RUST_FEATURES)",)
 	cd "$(RUST_WORKSPACE)" && DAE_DAEMON_VERSION="$(DAED_PRODUCT_VERSION)" CARGO_PROFILE_RELEASE_LTO="$(CARGO_PROFILE_RELEASE_LTO)" CARGO_PROFILE_RELEASE_CODEGEN_UNITS="$(CARGO_PROFILE_RELEASE_CODEGEN_UNITS)" CARGO_TARGET_DIR="$(RUST_TARGET_DIR)" cargo build $(RUST_BUILD_ARGS)
 	cp "$(RUST_BIN)" "$(OUTPUT)"
 	strip "$(OUTPUT)" 2>/dev/null || true

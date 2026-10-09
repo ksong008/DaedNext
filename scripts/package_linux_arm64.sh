@@ -36,6 +36,7 @@ build_daed() {
   mkdir -p "$OUT_DIR"
   (
     cd "$DAENEXT_ROOT"
+    python3 scripts/architecture/check_release_features.py --product-only --target "$RUST_TARGET"
     CARGO_TARGET_DIR="$TARGET_DIR" \
     CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="${CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER:-aarch64-linux-gnu-gcc}" \
     CC_aarch64_unknown_linux_gnu="${CC_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-gcc}" \
