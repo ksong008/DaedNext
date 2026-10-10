@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react'
 
+const macPlatformRE = /Mac|iPod|iPhone|iPad/
+const specialShortcutKeyRE = /^[?!@#$%^&*()_+{}|:"<>~]$/
+
 export interface KeyboardShortcut {
   key: string
   ctrl?: boolean
@@ -34,7 +37,7 @@ function isMacPlatform(): boolean {
   if ('userAgentData' in navigator && navigator.userAgentData) {
     return (navigator.userAgentData as { platform: string }).platform === 'macOS'
   }
-  return /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
+  return macPlatformRE.test(navigator.userAgent)
 }
 
 export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardShortcutsOptions) {
@@ -63,7 +66,7 @@ export function useKeyboardShortcuts({ shortcuts, enabled = true }: UseKeyboardS
         // If shortcut.shift is not set, we need to be smarter:
         // - For special characters like '?', '!', '@', etc., shift is naturally required
         // - For regular letters/numbers, shift should NOT be pressed
-        const isSpecialCharKey = /^[?!@#$%^&*()_+{}|:"<>~]$/.test(shortcut.key)
+        const isSpecialCharKey = specialShortcutKeyRE.test(shortcut.key)
         const shiftMatch = shortcut.shift ? event.shiftKey : isSpecialCharKey ? true : !event.shiftKey
 
         // For shortcuts that need Ctrl/Cmd, accept either modifier (cross-platform support)

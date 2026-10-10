@@ -1,8 +1,8 @@
 import type { ConfigListView } from '~/apis/types'
 import {
+  AlertTriangle,
   ArrowDownToLine,
   ArrowUpFromLine,
-  AlertTriangle,
   Check,
   Clock,
   Globe,

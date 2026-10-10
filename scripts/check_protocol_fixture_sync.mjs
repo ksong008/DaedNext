@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import process from 'node:process'
 
 const coreRoot = process.env.RUST_WORKSPACE || process.env.DAENEXT_ROOT
 if (!coreRoot) {

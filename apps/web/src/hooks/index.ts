@@ -30,7 +30,7 @@ export function useMediaQuery(query: string): boolean {
     const handler = (e: MediaQueryListEvent) => setMatches(e.matches)
 
     // Sync state when query changes - this is intentional since the query prop may change
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react/set-state-in-effect
     setMatches((prev) => {
       const current = mediaQuery.matches
 

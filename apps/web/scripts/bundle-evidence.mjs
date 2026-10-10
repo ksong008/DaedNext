@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
 import { gzipSync } from 'node:zlib'
 import { bundledLanguagesInfo, bundledThemesInfo } from 'shiki'
 
@@ -65,7 +66,7 @@ const bundleBudgets = {
 }
 
 const allowedRootFiles = new Set(['index.html', 'logo.webp'])
-const allowedMonacoWorkers = [/^editor\.worker-[A-Za-z0-9_-]+\.js$/]
+const allowedMonacoWorkers = [/^editor\.worker-[\w-]+\.js$/]
 const allowedShikiLanguages = new Set([
   'css',
   'html',
@@ -110,8 +111,10 @@ async function loadDirectory(directory, prefix = '') {
   return files.flat()
 }
 
+const chunkStemRE = /^(.*)-[\w-]{8}\.js$/
+
 function chunkStem(name) {
-  return name.match(/^(.*)-[A-Za-z0-9_-]{8}\.js$/)?.[1] ?? null
+  return name.match(chunkStemRE)?.[1] ?? null
 }
 
 function registrationNames(info) {
