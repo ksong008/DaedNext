@@ -16,6 +16,7 @@ import type {
   InitializeResult,
   ReferenceParams,
   RenameParams,
+  SemanticTokens,
   SemanticTokensParams,
   TextDocumentPositionParams,
   TextDocuments,
@@ -92,10 +93,13 @@ const RE_OUTBOUND_TARGET = /->\s*(direct|block|must_direct|must_rules|must_group
 function getParsedDocument(document: TextDocument): ParseResult {
   const cached = parseCache.get(document.uri)
   if (cached && cached.version === document.version) {
+    parseCache.delete(document.uri)
+    parseCache.set(document.uri, cached)
     return cached.result
   }
 
   const result = parseDocument(document.getText())
+  parseCache.delete(document.uri)
   if (!parseCache.has(document.uri) && parseCache.size >= MAX_PARSE_CACHE_ENTRIES) {
     const oldest = parseCache.keys().next().value
     if (oldest) parseCache.delete(oldest)
@@ -205,6 +209,7 @@ function validateDocument(connection: Connection, document: TextDocument): void 
  */
 export function initializeServer(connection: Connection, documents: TextDocuments<TextDocument>): void {
   const diagnosticsTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  const semanticTokensCache = new Map<string, { version: number; result: SemanticTokens }>()
 
   // Initialize handler
   connection.onInitialize((_params: InitializeParams): InitializeResult => {
@@ -710,6 +715,13 @@ export function initializeServer(connection: Connection, documents: TextDocument
       return { data: [] }
     }
 
+    const cached = semanticTokensCache.get(document.uri)
+    if (cached && cached.version === document.version) {
+      semanticTokensCache.delete(document.uri)
+      semanticTokensCache.set(document.uri, cached)
+      return cached.result
+    }
+
     // TODO: Use parseResult for symbol-based semantic tokens in future
     // getParsedDocument(document) - available for enhanced semantic tokens
     const builder = new SemanticTokensBuilder()
@@ -813,7 +825,14 @@ export function initializeServer(connection: Connection, documents: TextDocument
       previousEnd = token.char + token.length
     }
 
-    return builder.build()
+    const result = builder.build()
+    semanticTokensCache.delete(document.uri)
+    if (semanticTokensCache.size >= MAX_PARSE_CACHE_ENTRIES) {
+      const oldest = semanticTokensCache.keys().next().value
+      if (oldest) semanticTokensCache.delete(oldest)
+    }
+    semanticTokensCache.set(document.uri, { version: document.version, result })
+    return result
   })
 
   // Document change handlers
@@ -836,6 +855,7 @@ export function initializeServer(connection: Connection, documents: TextDocument
     if (timer !== undefined) clearTimeout(timer)
     diagnosticsTimers.delete(event.document.uri)
     parseCache.delete(event.document.uri)
+    semanticTokensCache.delete(event.document.uri)
     connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] })
   })
 
