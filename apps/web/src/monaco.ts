@@ -120,9 +120,7 @@ async function initLspClient(monacoInstance: Monaco): Promise<void> {
 
       // Set up diagnostics handling
       client.onDiagnostics((uri, diagnostics) => {
-        const model = monacoInstance.editor
-          .getModels()
-          .find((m: monacoEditor.editor.ITextModel) => m.uri.toString() === uri)
+        const model = monacoInstance.editor.getModel(monacoInstance.Uri.parse(uri))
         if (model) {
           const markers = diagnostics.map((d) => ({
             severity:
