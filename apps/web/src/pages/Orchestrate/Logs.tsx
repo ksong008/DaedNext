@@ -14,6 +14,7 @@ import {
   useUpdateLogSettingsMutation,
 } from '~/apis'
 import { subscribeEventStream } from '~/apis/event_stream'
+import { isLogSnapshotUnstable } from '~/apis/resources/logs_query'
 import { Button } from '~/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
@@ -170,14 +171,16 @@ export function LogResource() {
 
   useEffect(() => {
     const queriedEntries = logsQuery.data?.items
-    if (!queriedEntries) {
-      setStreamAfterId(null)
-      return
-    }
     pendingEntriesRef.current = []
     if (flushTimerRef.current !== null) {
       window.clearTimeout(flushTimerRef.current)
       flushTimerRef.current = null
+    }
+    if (!queriedEntries) {
+      knownEntryIdsRef.current.clear()
+      setEntries([])
+      setStreamAfterId(null)
+      return
     }
     knownEntryIdsRef.current = new Set(queriedEntries.map((entry) => entry.id))
     setEntries(queriedEntries)
@@ -198,9 +201,9 @@ export function LogResource() {
   }, [searchDraft])
 
   const streamURL = useMemo(() => {
-    if (isMockMode() || !token || typeof fetch === 'undefined' || streamAfterId === null) return null
+    if (isMockMode() || !token || typeof fetch === 'undefined' || streamAfterId === null || !logsQuery.data) return null
     return buildLogEventsURL(endpointURL, levelFilter, appliedSearch, streamAfterId)
-  }, [appliedSearch, endpointURL, levelFilter, streamAfterId, token])
+  }, [appliedSearch, endpointURL, levelFilter, logsQuery.data, streamAfterId, token])
 
   useEffect(() => {
     if (!streamURL) return
@@ -437,9 +440,25 @@ export function LogResource() {
         onScroll={handleLogViewportScroll}
         className="min-h-0 flex-1 overflow-y-auto bg-[color-mix(in_oklab,var(--background)_72%,var(--card))] p-2 font-mono text-[11px] leading-relaxed sm:p-4 sm:text-xs"
       >
-        {entries.length === 0 ? (
+        {logsQuery.isError && (
+          <div
+            role="alert"
+            className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 p-3 text-sm"
+          >
+            <span>{t(isLogSnapshotUnstable(logsQuery.error) ? 'logs.snapshotUnstable' : 'logs.queryFailed')}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={logsQuery.isFetching}
+              onClick={() => void logsQuery.refetch()}
+            >
+              {t('logs.retry')}
+            </Button>
+          </div>
+        )}
+        {entries.length === 0 && !logsQuery.isError ? (
           <div className="grid h-full min-h-[16rem] place-items-center text-sm text-muted-foreground">
-            {logsQuery.isLoading ? t('logs.loading') : t('logs.empty')}
+            {logsQuery.isLoading ? t(logsQuery.failureCount > 0 ? 'logs.retrying' : 'logs.loading') : t('logs.empty')}
           </div>
         ) : (
           <div className="space-y-1.5">
