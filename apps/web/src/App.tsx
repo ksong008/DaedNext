@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { Toaster } from '~/components/ui/sonner'
 import { TooltipProvider } from '~/components/ui/tooltip'
-import { resolveStoredThemeId, THEME_STATE_MIGRATION_VERSION, getThemeById, themeColorsToCSSVars } from '~/constants'
+import { getThemeById, resolveStoredThemeId, THEME_STATE_MIGRATION_VERSION, themeColorsToCSSVars } from '~/constants'
 import { QueryProvider } from '~/contexts'
 import { Router } from '~/Router'
 import { appStateAtom, colorSchemeAtom, themeMigrationVersionAtom } from '~/store'
