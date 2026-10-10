@@ -1,8 +1,9 @@
-import type { LogEntry, LogSettings } from '../types'
+import type { LogSettings } from '../types'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAPIClient } from '~/contexts'
 import { buildEventStreamURL } from '../event_stream'
 import { invalidateQueryKeys, webQueryKeys } from '../query_cache'
+import { logQueryOptions } from './logs_query'
 import { useAuthenticatedQueryEnabled } from './shared'
 
 export function buildLogEventsURL(endpointURL: string, level: string, query: string, afterId?: number | null) {
@@ -18,10 +19,7 @@ export function useLogsQuery({ level, query, limit = 500 }: { level: string; que
   const enabled = useAuthenticatedQueryEnabled()
 
   return useQuery({
-    queryKey: [...webQueryKeys.log.items(), level, query, limit],
-    queryFn: async ({ signal }): Promise<{ items: LogEntry[] }> => {
-      return apiClient.get<{ items: LogEntry[] }>('/logs', { level, q: query, limit }, { signal })
-    },
+    ...logQueryOptions(apiClient, { level, query, limit }),
     enabled,
   })
 }
