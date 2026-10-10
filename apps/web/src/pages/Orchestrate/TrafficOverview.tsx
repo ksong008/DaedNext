@@ -3,7 +3,7 @@ import type { TrafficOverviewQueryData } from '~/apis/types'
 import type { ChartConfig } from '~/components/ui/chart'
 import dayjs from 'dayjs'
 import { Activity, ArrowDownLeft, ArrowUpRight } from 'lucide-react'
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
@@ -15,6 +15,39 @@ import { computeTrafficChartDomain, filterTrafficChartDataByDomain } from './tra
 
 export const REALTIME_TRAFFIC_WINDOW_SECONDS = 60
 export const REALTIME_TRAFFIC_MAX_POINTS = 240
+
+interface ChartSample {
+  timestamp: number
+  uploadRate: number
+  downloadRate: number
+}
+const chartSamples = new WeakMap<object, { source: string; value: ChartSample }>()
+
+function chartData(samples: TrafficOverviewQueryData['samples']): ChartSample[] {
+  const data: ChartSample[] = []
+  let ordered = true
+  for (const sample of samples) {
+    let cached = chartSamples.get(sample)
+    if (
+      !cached ||
+      cached.source !== sample.timestamp ||
+      cached.value.uploadRate !== sample.uploadRate ||
+      cached.value.downloadRate !== sample.downloadRate
+    ) {
+      const timestamp = parseChartTimestampMs(sample.timestamp)
+      if (timestamp === null) continue
+      cached = {
+        source: sample.timestamp,
+        value: { timestamp, uploadRate: sample.uploadRate, downloadRate: sample.downloadRate },
+      }
+      chartSamples.set(sample, cached)
+    }
+    const previous = data.at(-1)
+    if (previous && previous.timestamp > cached.value.timestamp) ordered = false
+    data.push(cached.value)
+  }
+  return ordered ? data : data.sort((left, right) => left.timestamp - right.timestamp)
+}
 
 function formatBytes(value: number) {
   if (value < 1024) return `${value.toFixed(0)} B`
@@ -92,16 +125,16 @@ function computeDynamicRateDomain(
     downloadRate: number
   }>,
 ): [number, number] {
-  const values = data
-    .flatMap((sample) => [sample.uploadRate, sample.downloadRate])
-    .filter((value) => Number.isFinite(value))
-
-  if (values.length === 0) {
-    return [0, 1]
+  let minValue = Number.POSITIVE_INFINITY
+  let maxValue = Number.NEGATIVE_INFINITY
+  for (const sample of data) {
+    for (const value of [sample.uploadRate, sample.downloadRate]) {
+      if (!Number.isFinite(value)) continue
+      minValue = Math.min(minValue, value)
+      maxValue = Math.max(maxValue, value)
+    }
   }
-
-  const minValue = Math.min(...values)
-  const maxValue = Math.max(...values)
+  if (!Number.isFinite(minValue)) return [0, 1]
 
   if (minValue === maxValue) {
     const padding = Math.max(minValue * 0.18, 1)
@@ -329,6 +362,95 @@ interface TrafficOverviewProps {
   runtimeOverview?: TrafficOverviewQueryData
 }
 
+const TrafficChart = memo(
+  ({
+    data,
+    windowDomain,
+    rateDomain,
+    config,
+  }: {
+    data: ChartSample[]
+    windowDomain: [number, number]
+    rateDomain: [number, number]
+    config: ChartConfig
+  }) => {
+    const { t } = useTranslation()
+    return (
+      <ChartContainer config={config} className="mt-2 h-[128px] w-full aspect-auto sm:h-[160px]">
+        <AreaChart data={data} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
+          <defs>
+            <linearGradient id="traffic-upload-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-upload)" stopOpacity={0.12} />
+              <stop offset="100%" stopColor="var(--color-upload)" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="traffic-download-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-download)" stopOpacity={0.1} />
+              <stop offset="100%" stopColor="var(--color-download)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid
+            vertical={false}
+            stroke="color-mix(in oklab, var(--border) 42%, transparent)"
+            strokeDasharray="3 3"
+          />
+          <XAxis
+            type="number"
+            scale="time"
+            dataKey="timestamp"
+            axisLine={false}
+            tickLine={false}
+            minTickGap={48}
+            tickCount={5}
+            tickMargin={10}
+            height={28}
+            tick={{ fontSize: 11, fill: 'color-mix(in oklab, var(--muted-foreground) 76%, transparent)' }}
+            domain={windowDomain}
+            allowDataOverflow
+            tickFormatter={(value) => formatChartTime(value)}
+          />
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tickMargin={8}
+            width={44}
+            tickCount={4}
+            tick={{ fontSize: 11, fill: 'color-mix(in oklab, var(--muted-foreground) 72%, transparent)' }}
+            tickFormatter={(value) => formatAxisRate(Number(value))}
+            domain={rateDomain}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                labelFormatter={(value, payload) => formatTrafficTooltipLabel(value, payload)}
+                formatter={(value, name) =>
+                  `${name === 'uploadRate' ? t('trafficOverview.uploadLegend') : t('trafficOverview.downloadLegend')}: ${formatRate(Number(value))}`
+                }
+                indicator="line"
+              />
+            }
+          />
+          <Area
+            dataKey="uploadRate"
+            type="monotone"
+            stroke="var(--color-upload)"
+            strokeWidth={2.1}
+            fill="url(#traffic-upload-fill)"
+            isAnimationActive={false}
+          />
+          <Area
+            dataKey="downloadRate"
+            type="monotone"
+            stroke="var(--color-download)"
+            strokeWidth={2.1}
+            fill="url(#traffic-download-fill)"
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ChartContainer>
+    )
+  },
+)
+
 export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, runtimeOverview }: TrafficOverviewProps) {
   const { t } = useTranslation()
   // Derive time from telemetry; a second timer would rerender the whole chart.
@@ -364,20 +486,7 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
     [runtimeOverview],
   )
 
-  const combinedChartData = useMemo(
-    () =>
-      (runtimeOverview?.samples ?? [])
-        .map((sample) => ({
-          timestamp: parseChartTimestampMs(sample.timestamp),
-          uploadRate: sample.uploadRate,
-          downloadRate: sample.downloadRate,
-        }))
-        .filter((sample): sample is { timestamp: number; uploadRate: number; downloadRate: number } =>
-          Number.isFinite(sample.timestamp),
-        )
-        .sort((left, right) => left.timestamp - right.timestamp),
-    [runtimeOverview?.samples],
-  )
+  const combinedChartData = useMemo(() => chartData(runtimeOverview?.samples ?? []), [runtimeOverview?.samples])
   const chartWindowDomain = useMemo(
     () => computeTrafficChartDomain(combinedChartData, chartWindowEnd, REALTIME_TRAFFIC_WINDOW_SECONDS),
     [chartWindowEnd, combinedChartData],
@@ -494,77 +603,12 @@ export function TrafficOverview({ nodeCount, subscriptionCount, minLatencyMs, ru
             </span>
           </div>
 
-          <ChartContainer config={chartConfig} className="mt-2 h-[128px] w-full aspect-auto sm:h-[160px]">
-            <AreaChart data={visibleChartData} margin={{ left: 0, right: 4, top: 4, bottom: 0 }}>
-              <defs>
-                <linearGradient id="traffic-upload-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-upload)" stopOpacity={0.12} />
-                  <stop offset="100%" stopColor="var(--color-upload)" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="traffic-download-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--color-download)" stopOpacity={0.1} />
-                  <stop offset="100%" stopColor="var(--color-download)" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                vertical={false}
-                stroke="color-mix(in oklab, var(--border) 42%, transparent)"
-                strokeDasharray="3 3"
-              />
-              <XAxis
-                type="number"
-                scale="time"
-                dataKey="timestamp"
-                axisLine={false}
-                tickLine={false}
-                minTickGap={48}
-                tickCount={5}
-                tickMargin={10}
-                height={28}
-                tick={{ fontSize: 11, fill: 'color-mix(in oklab, var(--muted-foreground) 76%, transparent)' }}
-                domain={chartWindowDomain}
-                allowDataOverflow
-                tickFormatter={(value) => formatChartTime(value)}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tickMargin={8}
-                width={44}
-                tickCount={4}
-                tick={{ fontSize: 11, fill: 'color-mix(in oklab, var(--muted-foreground) 72%, transparent)' }}
-                tickFormatter={(value) => formatAxisRate(Number(value))}
-                domain={chartRateDomain}
-              />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    labelFormatter={(value, payload) => formatTrafficTooltipLabel(value, payload)}
-                    formatter={(value, name) =>
-                      `${name === 'uploadRate' ? t('trafficOverview.uploadLegend') : t('trafficOverview.downloadLegend')}: ${formatRate(Number(value))}`
-                    }
-                    indicator="line"
-                  />
-                }
-              />
-              <Area
-                dataKey="uploadRate"
-                type="monotone"
-                stroke="var(--color-upload)"
-                strokeWidth={2.1}
-                fill="url(#traffic-upload-fill)"
-                isAnimationActive={false}
-              />
-              <Area
-                dataKey="downloadRate"
-                type="monotone"
-                stroke="var(--color-download)"
-                strokeWidth={2.1}
-                fill="url(#traffic-download-fill)"
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ChartContainer>
+          <TrafficChart
+            data={visibleChartData}
+            windowDomain={chartWindowDomain}
+            rateDomain={chartRateDomain}
+            config={chartConfig}
+          />
         </div>
 
         <div className="grid min-w-0 grid-cols-2 gap-x-2 border-t border-border px-2 py-2 sm:grid-cols-4 lg:grid-cols-2 lg:border-l lg:border-t-0">

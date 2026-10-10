@@ -88,9 +88,15 @@ export function runtimeOverviewHasDeltaBaseline(
   return !!previous && (delta.counterEpoch === undefined || delta.counterEpoch === previous.counterEpoch)
 }
 
+const sampleTimestamps = new WeakMap<object, { timestamp: string; ms: number }>()
+
 function runtimeSampleTimestampMs(sample: { timestamp: string }) {
+  const cached = sampleTimestamps.get(sample)
+  if (cached?.timestamp === sample.timestamp) return cached.ms
   const parsed = Date.parse(sample.timestamp)
-  return Number.isFinite(parsed) ? parsed : 0
+  const ms = Number.isFinite(parsed) ? parsed : 0
+  sampleTimestamps.set(sample, { timestamp: sample.timestamp, ms })
+  return ms
 }
 
 function trimRuntimeOverviewSamples(
@@ -101,6 +107,26 @@ function trimRuntimeOverviewSamples(
 ) {
   const windowEnd = Date.parse(updatedAt)
   const windowStart = Number.isFinite(windowEnd) ? windowEnd - windowSec * 1000 : Number.NEGATIVE_INFINITY
+  const ordered: typeof samples = []
+  let lastMs = Number.NEGATIVE_INFINITY
+  let monotonic = true
+  for (const sample of samples) {
+    const ms = runtimeSampleTimestampMs(sample)
+    if (ms < windowStart) continue
+    if (ms < lastMs || (ms === lastMs && ordered.at(-1)?.timestamp !== sample.timestamp)) {
+      monotonic = false
+      break
+    }
+    if (ordered.at(-1)?.timestamp === sample.timestamp) ordered[ordered.length - 1] = sample
+    else ordered.push(sample)
+    lastMs = ms
+  }
+  if (monotonic) {
+    const result = maxPoints > 0 && ordered.length > maxPoints ? ordered.slice(-maxPoints) : ordered
+    return result.length === samples.length && result.every((sample, index) => sample === samples[index])
+      ? samples
+      : result
+  }
   const dedupedByTimestamp = new Map<string, TrafficOverviewQueryData['samples'][number]>()
 
   for (const sample of samples) {
@@ -204,7 +230,7 @@ export function mergeRuntimeOverviewDelta(
       delta.lastTrafficSampleAt === undefined ? previousData.lastTrafficSampleAt : (delta.lastTrafficSampleAt ?? null),
     sequence: Number.isFinite(delta.sequence) ? delta.sequence : previousData.sequence,
     samples: trimRuntimeOverviewSamples(
-      [...previousData.samples, ...deltaSamples],
+      deltaSamples.length ? [...previousData.samples, ...deltaSamples] : previousData.samples,
       delta.updatedAt,
       windowSec,
       maxPoints,
