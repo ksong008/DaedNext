@@ -3,6 +3,7 @@ import {
   acceptRuntimeOverview,
   adaptRuntimeOverview,
   createRuntimeOverviewCursor,
+  mergeRuntimeOverviewDelta,
   runtimeOverviewHasDeltaBaseline,
 } from './runtime_overview'
 
@@ -42,5 +43,40 @@ describe('runtime overview cursor', () => {
     expect(runtimeOverviewHasDeltaBaseline(undefined, payload(2))).toBe(false)
     expect(runtimeOverviewHasDeltaBaseline(adaptRuntimeOverview(payload(1)), payload(2, 0, 2))).toBe(false)
     expect(runtimeOverviewHasDeltaBaseline(adaptRuntimeOverview(payload(1)), payload(2))).toBe(true)
+  })
+})
+
+describe('runtime overview sample merge', () => {
+  it('keeps sorted deltas, replaces duplicate samples and trims the time window', () => {
+    const samples = [0, 1000, 2000].map((offset) => ({
+      timestamp: new Date(now + offset).toISOString(),
+      uploadRate: '1',
+      downloadRate: '2',
+    }))
+    const baseline = adaptRuntimeOverview({ ...payload(1, 2000), samples })
+    const replacement = { ...samples[1], uploadRate: '9' }
+    const delta = {
+      ...payload(2, 3000),
+      samples: [replacement, { ...samples[0], timestamp: new Date(now + 3000).toISOString() }],
+    }
+    const merged = mergeRuntimeOverviewDelta(baseline, delta, 2, 2)
+    expect(merged.samples.map((sample) => sample.timestamp)).toEqual(
+      samples
+        .slice(2)
+        .map((sample) => sample.timestamp)
+        .concat(new Date(now + 3000).toISOString()),
+    )
+    expect(baseline.samples[1].uploadRate).toBe(1)
+    expect(
+      mergeRuntimeOverviewDelta(baseline, { ...payload(2, 2000), samples: [replacement] }, 60, 240).samples[1]
+        .uploadRate,
+    ).toBe(9)
+  })
+  it('reuses samples when a delta only changes metrics', () => {
+    const baseline = adaptRuntimeOverview({
+      ...payload(1),
+      samples: [{ timestamp: new Date(now).toISOString(), uploadRate: '1', downloadRate: '2' }],
+    })
+    expect(mergeRuntimeOverviewDelta(baseline, payload(2, 1000), 60, 240).samples).toBe(baseline.samples)
   })
 })
