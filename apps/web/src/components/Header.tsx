@@ -623,19 +623,9 @@ export function HeaderWithActions() {
             : 'flex min-h-[64px] items-center justify-between gap-4 px-4 py-3 sm:px-7 lg:px-9',
         )}
       >
-        {matchSmallScreen && (
-          <div className="flex h-full shrink-0 items-center justify-center">
-            <SidebarTrigger className="h-10 w-10 text-primary" aria-label={t('design.openNavigation')} />
-          </div>
-        )}
-
-        {!matchSmallScreen && (
-          <div className="console-eyebrow min-w-0 truncate">
-            <span className="text-foreground normal-case">DaedNext</span>
-            <span>/</span>
-            <span>{t('design.workspace')}</span>
-          </div>
-        )}
+        <div className="flex h-full shrink-0 items-center justify-center md:hidden">
+          <SidebarTrigger className="h-10 w-10 text-primary" aria-label={t('design.openNavigation')} />
+        </div>
 
         {!matchSmallScreen && showHeaderRuntimeStatus && (
           <div className="flex min-w-0 items-center">
@@ -648,7 +638,7 @@ export function HeaderWithActions() {
             'flex items-center',
             matchSmallScreen
               ? 'min-w-0 flex-1 justify-end gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-              : 'justify-end gap-2',
+              : 'ml-auto justify-end gap-2',
           )}
         >
           <input

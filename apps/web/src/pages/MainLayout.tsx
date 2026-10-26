@@ -197,16 +197,7 @@ export function MainLayout() {
             <div className="mx-auto w-full max-w-[1600px] px-4 pb-24 pt-6 sm:px-7 lg:px-9 lg:pb-10 lg:pt-8">
               <div className="workspace-heading">
                 <div>
-                  <p className="console-eyebrow">
-                    <span className="text-primary">
-                      {String(SHELL_NAV_ITEMS.indexOf(activeItem) + 1).padStart(2, '0')}
-                    </span>
-                    <span>/</span>
-                    {t('design.workspace')}
-                  </p>
-                  <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-[30px]">
-                    {t(activeItem.labelKey)}
-                  </h1>
+                  <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">{t(activeItem.labelKey)}</h1>
                   {activeSection !== 'overview' && (
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                       {t(`design.descriptions.${activeSection}`)}
