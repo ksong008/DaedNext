@@ -15,6 +15,7 @@ fi
 for flavor in linux-x86_64-v2 linux-x86_64-v3 linux-arm64; do
   test -s "$RELEASE_DIR/binaries/daed-$flavor"
 done
+python3 "$REPO_DIR/scripts/check_prebuilt_release.py" --release-dir "$RELEASE_DIR"
 PACKAGE_WORK="$(mktemp -d "$RELEASE_DIR/../package-work.XXXXXX")"
 trap 'rm -rf -- "$PACKAGE_WORK"' EXIT
 

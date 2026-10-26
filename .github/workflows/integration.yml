@@ -77,6 +77,8 @@ jobs:
           "$(go env GOPATH)/bin/actionlint"
       - name: Check OpenWrt ARM64 packaging contract
         run: bash ./scripts/check_openwrt_arm64_packaging.sh
+      - name: Check release source identity contract
+        run: python3 -m unittest discover -s scripts/tests
 
   web-surface-lint:
     needs: workflow-lint
