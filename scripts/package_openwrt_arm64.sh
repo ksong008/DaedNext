@@ -79,17 +79,16 @@ build_daed() {
   require_dir "$DAENEXT_ROOT"
   mkdir -p "$OUT_DIR"
   (
-    cd "$DAENEXT_ROOT"
-    python3 scripts/architecture/check_release_features.py --product-only --target "$RUST_TARGET"
-    CARGO_TARGET_DIR="$TARGET_DIR" \
+    cd "$ROOT_DIR"
     CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="${CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER:-aarch64-linux-gnu-gcc}" \
     CC_aarch64_unknown_linux_gnu="${CC_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-gcc}" \
     CXX_aarch64_unknown_linux_gnu="${CXX_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-g++}" \
     AR_aarch64_unknown_linux_gnu="${AR_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-ar}" \
-    CARGO_PROFILE_RELEASE_LTO="${CARGO_PROFILE_RELEASE_LTO:-fat}" \
-    CARGO_PROFILE_RELEASE_CODEGEN_UNITS="${CARGO_PROFILE_RELEASE_CODEGEN_UNITS:-1}" \
     RUSTFLAGS="${RUSTFLAGS:--C target-feature=+crt-static -C target-cpu=$CPU_TARGET}" \
-      cargo build --locked -p dae-daemon --bin daed --release --target "$RUST_TARGET"
+      make daed-rust-native DAED_SKIP_WEB_BUILD=1 \
+        RUST_WORKSPACE="$DAENEXT_ROOT" RUST_TARGET_DIR="$TARGET_DIR" RUST_TARGET="$RUST_TARGET" \
+        OUTPUT="$OUT_DIR/daed" VERSION="${DAED_VERSION:-$PACKAGE_VERSION-rb$PACKAGE_RELEASE}" \
+        DAED_PRODUCT_TARGET=linux-arm64
   ) >"$BUILD_LOG" 2>&1
 }
 
@@ -192,7 +191,7 @@ main() {
 
   build_daed
   local rootfs="$OUT_DIR/rootfs"
-  build_rootfs "$TARGET_DIR/$RUST_TARGET/release/daed" "$rootfs"
+  build_rootfs "$OUT_DIR/daed" "$rootfs"
 
   local package_arch
   for package_arch in $OPENWRT_ARM64_PACKAGE_ARCHES; do

@@ -2,7 +2,14 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DAENEXT_ROOT="${DAENEXT_ROOT:-/root/project/DaeNext}"
+DAENEXT_ROOT="${DAENEXT_ROOT:-$(
+  for directory in "$ROOT_DIR/DaeNext" "$ROOT_DIR/../DaeNext" "$ROOT_DIR/../../DaeNext"; do
+    if [ -f "$directory/Cargo.toml" ]; then
+      cd "$directory" && pwd
+      break
+    fi
+  done
+)}"
 RUST_TARGET="${RUST_TARGET:-aarch64-unknown-linux-gnu}"
 DEB_ARCH="${DEB_ARCH:-arm64}"
 RPM_ARCH="${RPM_ARCH:-aarch64}"
@@ -35,16 +42,16 @@ version_from_workspace() {
 build_daed() {
   mkdir -p "$OUT_DIR"
   (
-    cd "$DAENEXT_ROOT"
-    python3 scripts/architecture/check_release_features.py --product-only --target "$RUST_TARGET"
-    CARGO_TARGET_DIR="$TARGET_DIR" \
+    cd "$ROOT_DIR"
     CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER="${CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER:-aarch64-linux-gnu-gcc}" \
     CC_aarch64_unknown_linux_gnu="${CC_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-gcc}" \
     CXX_aarch64_unknown_linux_gnu="${CXX_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-g++}" \
     AR_aarch64_unknown_linux_gnu="${AR_aarch64_unknown_linux_gnu:-aarch64-linux-gnu-ar}" \
-    CARGO_PROFILE_RELEASE_LTO="${CARGO_PROFILE_RELEASE_LTO:-fat}" \
-    CARGO_PROFILE_RELEASE_CODEGEN_UNITS="${CARGO_PROFILE_RELEASE_CODEGEN_UNITS:-1}" \
-      cargo build --locked -p dae-daemon --bin daed --release --target "$RUST_TARGET"
+    RUSTFLAGS="${RUSTFLAGS:--C target-feature=+crt-static -C target-cpu=generic}" \
+      make daed-rust-native DAED_SKIP_WEB_BUILD=1 \
+        RUST_WORKSPACE="$DAENEXT_ROOT" RUST_TARGET_DIR="$TARGET_DIR" RUST_TARGET="$RUST_TARGET" \
+        OUTPUT="$OUT_DIR/daed" VERSION="${DAED_VERSION:-$PACKAGE_VERSION-rb$PACKAGE_RELEASE}" \
+        DAED_PRODUCT_TARGET=linux-arm64
   ) >"$BUILD_LOG" 2>&1
 }
 
@@ -139,7 +146,7 @@ main() {
 
   build_daed
 
-  local binary="$TARGET_DIR/$RUST_TARGET/release/daed"
+  local binary="$OUT_DIR/daed"
   package_linux "$binary"
 
   printf '%s\n' "$OUT_DIR" >"$ROOT_DIR/build/latest-linux-arm64-package-dir"
