@@ -28,6 +28,7 @@ import { useInitialize } from '~/initialize'
 import { cn } from '~/lib/utils'
 import { isMockMode } from '~/mocks'
 import { endpointURLAtom, tokenAtom } from '~/store'
+import { formatDaemonVersion } from '~/utils/version'
 
 function NavigationButton(props: ComponentProps<typeof SidebarMenuButton>) {
   const { setOpenMobile } = useSidebar()
@@ -57,6 +58,7 @@ export function MainLayout() {
   const activeSection = activeItem.key
   const counts = generalStateQuery?.general.counts
   const running = generalStateQuery?.general.dae.running
+  const daemonVersion = generalStateQuery?.general.dae.version
   const navCounts: Partial<Record<OrchestrateSectionKey, number>> = {
     config: counts?.configs,
     dns: counts?.dns,
@@ -177,10 +179,16 @@ export function MainLayout() {
               />
               {running === undefined ? '—' : t(running ? 'shell.running' : 'shell.stopped')}
             </div>
-            <div className="flex items-center justify-between font-mono text-[10px] text-sidebar-foreground/50">
-              <span>{import.meta.env.APP_VERSION}</span>
-              <span>DAE / NEXT</span>
-            </div>
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-[11px] text-sidebar-foreground/60">
+              <dt>DaedNext</dt>
+              <dd className="truncate text-right font-mono" title={import.meta.env.APP_VERSION}>
+                {import.meta.env.APP_VERSION}
+              </dd>
+              <dt>DaeNext</dt>
+              <dd className="truncate text-right font-mono" title={daemonVersion}>
+                {formatDaemonVersion(daemonVersion)}
+              </dd>
+            </dl>
           </SidebarFooter>
         </Sidebar>
         <SidebarInset className="min-h-screen min-w-0 bg-transparent">
