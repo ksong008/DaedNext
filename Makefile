@@ -46,12 +46,7 @@ DAED_UI_COMMIT = $(shell git rev-parse --short=12 HEAD 2>/dev/null || echo unkno
 RUST_WORKSPACE_COMMIT = $(shell git -C "$(RUST_WORKSPACE)" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
 DAED_UI_DIRTY = $(shell test -n "$$(git status --porcelain --untracked-files=no 2>/dev/null)" && echo +dirty)
 RUST_WORKSPACE_DIRTY = $(shell test -n "$$(git -C "$(RUST_WORKSPACE)" status --porcelain --untracked-files=no 2>/dev/null)" && echo +dirty)
-DAED_PRODUCT_FEATURES ?= $(RUST_FEATURES)
-ifneq ($(findstring native-ebpf,$(RUST_FEATURES)),)
-ifeq ($(findstring bpf-btf,$(DAED_PRODUCT_FEATURES)),)
-DAED_PRODUCT_FEATURES := $(DAED_PRODUCT_FEATURES),bpf-btf
-endif
-endif
+DAED_PRODUCT_FEATURES ?= $(shell python3 scripts/product_build_identity.py "$(RUST_WORKSPACE)" --features "$(RUST_FEATURES)")
 DAED_PRODUCT_TARGET ?= $(if $(TARGET_OS),$(TARGET_OS)-$(TARGET_ARCH)$(if $(CPU_LEVEL),-$(CPU_LEVEL),),$(if $(RUST_TARGET),$(RUST_TARGET),host))
 DAED_PRODUCT_VERSION ?= daed rust-native product version=$(VERSION) ui=$(DAED_UI_COMMIT)$(DAED_UI_DIRTY) core=$(RUST_WORKSPACE_COMMIT)$(RUST_WORKSPACE_DIRTY) target=$(DAED_PRODUCT_TARGET) features=$(DAED_PRODUCT_FEATURES)
 # Keep the checked feature/target selection identical to the product build.
@@ -67,6 +62,7 @@ endif
 daed: daed-rust-native
 
 daed-rust-native: dist
+	test -n "$(DAED_PRODUCT_FEATURES)"
 	cd "$(RUST_WORKSPACE)" && python3 scripts/architecture/check_release_features.py --product-only $(if $(RUST_TARGET),--target "$(RUST_TARGET)",) $(if $(RUST_FEATURES),--features "$(RUST_FEATURES)",)
 	cd "$(RUST_WORKSPACE)" && DAE_DAEMON_VERSION="$(DAED_PRODUCT_VERSION)" CARGO_PROFILE_RELEASE_LTO="$(CARGO_PROFILE_RELEASE_LTO)" CARGO_PROFILE_RELEASE_CODEGEN_UNITS="$(CARGO_PROFILE_RELEASE_CODEGEN_UNITS)" CARGO_TARGET_DIR="$(RUST_TARGET_DIR)" cargo build $(RUST_BUILD_ARGS)
 	cp "$(RUST_BIN)" "$(OUTPUT)"
