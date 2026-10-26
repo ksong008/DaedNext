@@ -39,6 +39,17 @@ The Rust workspace path is auto-detected from `./DaeNext`, `../DaeNext`, or
 make RUST_WORKSPACE=/path/to/DaeNext
 ```
 
+The version identity records both checkout commits and the product features
+enabled by the core's defaults plus `RUST_FEATURES`. Local builds use the core
+checkout as it stands; they do not fetch newer commits automatically. CI follows
+`.github/daenext-core-ref` (currently `work/boringssl`) and resolves it once to an
+immutable commit shared by all architecture jobs. Push core changes before
+starting a remote release build.
+
+The ARM64 Linux and OpenWrt build scripts use the same Makefile build and identity
+as native builds. Set `PACKAGE_VERSION` and `PACKAGE_RELEASE` to record the
+release version, and `DAENEXT_ROOT` to select the core checkout.
+
 ## Package Prebuilt Binaries
 
 `scripts/package_prebuilt_release.sh` packages an already verified set of static
@@ -49,11 +60,19 @@ The package output directory must be empty. Build the current web assets into
 `build/package-sources/geodata/` before running:
 
 ```bash
-RELEASE_DIR="$PWD/build/rb72/release-final" \
-PACKAGE_VERSION=3.1.0 PACKAGE_RELEASE=72 \
+RELEASE_DIR="$PWD/build/rb83/release-final" \
+PACKAGE_VERSION=3.2.0 PACKAGE_RELEASE=83 \
+RUST_WORKSPACE=/path/to/DaeNext \
 APK_TOOL=/path/to/apk \
 bash scripts/package_prebuilt_release.sh
 ```
+
+Before packaging, the script checks all three binary identities against the
+clean core and UI checkouts, package version, architecture and selected product
+features. Old or mixed binaries are rejected. ARM64 verification uses
+`qemu-aarch64` (override with `QEMU_AARCH64`). The release directory receives
+`source-provenance.json` with source commits and hashes of binaries, web assets
+and geodata.
 
 This requires `fpm`, RPM and DEB packaging tools, `ar`, native and ARM64 `strip`,
 and apk-tools 3 with `mkpkg`. It creates six Linux DEB/RPM packages and twelve
