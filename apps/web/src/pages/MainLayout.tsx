@@ -58,7 +58,7 @@ export function MainLayout() {
   const activeSection = activeItem.key
   const counts = generalStateQuery?.general.counts
   const running = generalStateQuery?.general.dae.running
-  const daemonVersion = generalStateQuery?.general.dae.version
+  const daemonVersion = formatDaemonVersion(generalStateQuery?.general.dae.version)
   const navCounts: Partial<Record<OrchestrateSectionKey, number>> = {
     config: counts?.configs,
     dns: counts?.dns,
@@ -186,7 +186,7 @@ export function MainLayout() {
               </dd>
               <dt>DaeNext</dt>
               <dd className="truncate text-right font-mono" title={daemonVersion}>
-                {formatDaemonVersion(daemonVersion)}
+                {daemonVersion}
               </dd>
             </dl>
           </SidebarFooter>
