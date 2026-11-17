@@ -156,7 +156,7 @@ jobs:
         run: |
           set -euo pipefail
           rustup show active-toolchain
-          rustup toolchain install nightly-2026-05-29 --profile minimal --component rust-src
+          rustup component add rust-src
           cargo install bpf-linker --version 0.10.3 --locked
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2

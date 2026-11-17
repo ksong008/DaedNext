@@ -357,7 +357,7 @@ jobs:
         run: |
           set -euo pipefail
           rustup show active-toolchain
-          rustup toolchain install nightly-2026-05-29 --profile minimal --component rust-src
+          rustup component add rust-src
           if [ -n "${{ matrix.rust_target }}" ]; then
             rustup target add "${{ matrix.rust_target }}"
           fi
