@@ -93,11 +93,12 @@ jobs:
           node-version: '22.12.0'
           cache: pnpm
 
-      - name: Setup Rust
+      - name: Setup Rust from the checked-out core
+        working-directory: DaeNext
         run: |
-          rustup toolchain install stable --profile minimal
-          rustup toolchain install nightly --profile minimal --component rust-src
-          rustup default stable
+          set -euo pipefail
+          rustup show active-toolchain
+          rustup toolchain install nightly-2026-05-29 --profile minimal --component rust-src
           cargo install bpf-linker --version 0.10.3 --locked
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
