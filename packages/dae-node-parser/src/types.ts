@@ -80,7 +80,7 @@ export interface V2rayConfig {
   pqv: string // REALITY ML-DSA-65 public key (mldsa65Verify)
   // Other
   allowInsecure: boolean | null
-  mux: boolean // VLESS TCP TLS mux
+  mux: boolean // VLESS mux and XUDP
   v: string // version (legacy)
 }
 

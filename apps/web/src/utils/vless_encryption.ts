@@ -29,6 +29,11 @@ export function supportsVlessEncryptionNetwork(network: string): boolean {
   return ['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp'].includes(network)
 }
 
+export function supportsVlessMux(network: string, security: string, flow: string, encrypted: boolean): boolean {
+  if (network === 'tcp') return security !== 'none' || encrypted
+  return encrypted && (network === 'xhttp' || (flow !== 'none' && supportsVlessEncryptionNetwork(network)))
+}
+
 export function hasVlessEncryptionAccountPrefix(value: string): boolean {
   const parts = value.trim().split('.')
   return parts[0] === VLESS_ENCRYPTION_SUITE && isMode(parts[1]) && isRtt(parts[2]) && parts.length >= 4

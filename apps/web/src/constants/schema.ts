@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { validateEchConfigListBase64 } from '~/utils/ech'
+import { supportsVlessMux } from '~/utils/vless_encryption'
 import { validateXhttpFormFields } from '~/utils/xhttp'
 
 const UNSIGNED_INTEGER_PATTERN = /^\d+$/
@@ -196,13 +197,6 @@ export const v2rayProtocolSchema = v2raySchema
     const encryption = data.vlessEncryption.trim()
     const encrypted = encryption !== '' && encryption !== 'none'
     if (encrypted) {
-      if (data.mux && data.flow !== 'none') {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['mux'],
-          message: 'VLESS Encryption cannot be combined with Vision mux/XUDP',
-        })
-      }
       if (data.net === 'h2' || data.net === 'meek') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -252,11 +246,11 @@ export const v2rayProtocolSchema = v2raySchema
         message: 'Resident VLESS TCP admits headerType=none only',
       })
     }
-    if (data.mux && (data.net !== 'tcp' || data.flow !== 'none')) {
+    if (data.mux && !supportsVlessMux(data.net, data.tls, data.flow, encrypted)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['mux'],
-        message: 'Resident VLESS mux requires TCP and empty flow',
+        message: 'VLESS mux requires secured TCP, or Encryption with XHTTP or a Vision transport',
       })
     }
     if (data.tls === 'reality' && data.pbk === '') {

@@ -208,6 +208,23 @@ describe('manual node protocol registry', () => {
     expect(v2rayProtocol.schema.safeParse({ ...rawVision, vlessEncryption: 'none' }).success).toBe(false)
     expect(new URL(v2rayProtocol.generateLink(rawVision)).searchParams.get('flow')).toBe('xtls-rprx-vision')
 
+    for (const config of [
+      rawVision,
+      { ...rawVision, net: 'xhttp', path: '/vision' },
+      { ...grpcH2c, net: 'xhttp' },
+    ] as const) {
+      const muxConfig = { ...config, mux: true }
+      expect(v2rayProtocol.schema.safeParse(muxConfig).success).toBe(true)
+      const link = v2rayProtocol.generateLink(muxConfig)
+      expect(new URL(link).searchParams.get('mux')).toBe('1')
+      expect(v2rayProtocol.parseLink(link)).toMatchObject({ net: config.net, flow: config.flow, mux: true })
+    }
+    expect(v2rayProtocol.schema.safeParse({ ...grpcH2c, mux: true }).success).toBe(false)
+    expect(
+      v2rayProtocol.schema.safeParse({ ...grpcH2c, net: 'xhttp', tls: 'tls', mux: true, vlessEncryption: 'none' })
+        .success,
+    ).toBe(false)
+
     const noEncryptionLink = v2rayProtocol.generateLink({
       ...v2rayProtocol.defaultValues,
       protocol: 'vless',
