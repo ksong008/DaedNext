@@ -50,7 +50,7 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
       allowInsecure,
     }
 
-    if (net === 'tcp' && flow !== 'none') params.flow = flow
+    if (flow !== 'none') params.flow = flow
     if (net === 'grpc') {
       params.serviceName = path
       if (grpcMode !== 'gun') params.mode = grpcMode

@@ -199,6 +199,12 @@ describe('manual node protocol registry', () => {
 
     const rawVision = { ...grpcH2c, net: 'tcp', path: '', flow: 'xtls-rprx-vision' } as const
     expect(v2rayProtocol.schema.safeParse(rawVision).success).toBe(true)
+    for (const net of ['grpc', 'xhttp', 'ws', 'httpupgrade'] as const) {
+      const wrapped = { ...rawVision, net, path: 'probe' }
+      expect(v2rayProtocol.schema.safeParse(wrapped).success).toBe(true)
+      expect(v2rayProtocol.schema.safeParse({ ...wrapped, tls: 'tls', vlessEncryption: 'none' }).success).toBe(false)
+      expect(new URL(v2rayProtocol.generateLink(wrapped)).searchParams.get('flow')).toBe('xtls-rprx-vision')
+    }
     expect(v2rayProtocol.schema.safeParse({ ...rawVision, vlessEncryption: 'none' }).success).toBe(false)
     expect(new URL(v2rayProtocol.generateLink(rawVision)).searchParams.get('flow')).toBe('xtls-rprx-vision')
 

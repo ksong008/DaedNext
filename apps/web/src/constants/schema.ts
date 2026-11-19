@@ -220,23 +220,22 @@ export const v2rayProtocolSchema = v2raySchema
       })
     }
     const encryptedCleartextWrapper = encrypted && ['grpc', 'ws', 'httpupgrade', 'xhttp'].includes(data.net)
-    const encryptedRawVision = encrypted && data.net === 'tcp'
     if (
       data.tls === 'none' &&
-      ((!encryptedCleartextWrapper && data.net !== 'tcp') || data.mux || (data.flow !== 'none' && !encryptedRawVision))
+      ((!encryptedCleartextWrapper && data.net !== 'tcp') || data.mux || (data.flow !== 'none' && !encrypted))
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['tls'],
         message:
-          'Resident VLESS security=none requires TCP or encrypted WS, HTTPUpgrade, gRPC, or XHTTP without mux, and Vision requires encrypted TCP',
+          'Resident VLESS security=none requires TCP or encrypted WS, HTTPUpgrade, gRPC, or XHTTP without mux, and Vision requires Encryption',
       })
     }
-    if (data.net !== 'tcp' && data.flow !== 'none') {
+    if (data.net !== 'tcp' && data.flow !== 'none' && !encryptedCleartextWrapper) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['flow'],
-        message: 'Resident VLESS wrapped transports require empty flow',
+        message: 'Resident VLESS Vision over WS, HTTPUpgrade, gRPC, or XHTTP requires Encryption',
       })
     }
     if (data.net === 'h2' && data.tls !== 'tls') {

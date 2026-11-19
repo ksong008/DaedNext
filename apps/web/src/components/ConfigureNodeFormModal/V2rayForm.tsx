@@ -101,7 +101,9 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
     formValues.protocol === 'vless' &&
     !vlessEncryption.enabled &&
     !supportsVlessEncryptionNetwork(formValues.net || 'tcp')
-  const supportsFlow = formValues.protocol === 'vless' && formValues.net === 'tcp'
+  const supportsFlow =
+    formValues.protocol === 'vless' &&
+    (formValues.net === 'tcp' || (vlessEncryption.enabled && supportsVlessEncryptionNetwork(formValues.net)))
   const supportsMux =
     formValues.protocol === 'vless' &&
     formValues.net === 'tcp' &&
@@ -130,7 +132,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
   const setNetwork = (net: V2rayFormValues['net']) => {
     setValue('net', net)
     if (net !== 'tcp') {
-      setValue('flow', 'none')
+      if (!vlessEncryption.enabled || !supportsVlessEncryptionNetwork(net)) setValue('flow', 'none')
       setValue('mux', false)
       setValue('type', 'none')
     }
@@ -149,6 +151,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
 
   const setVlessEncryption = (changes: Partial<typeof vlessEncryption>) => {
     setValue('vlessEncryption', buildVlessEncryptionAccount({ ...vlessEncryption, ...changes }))
+    if (changes.enabled === false && (formValues.net !== 'tcp' || formValues.tls === 'none')) setValue('flow', 'none')
   }
 
   return (
