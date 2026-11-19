@@ -222,13 +222,13 @@ export const v2rayProtocolSchema = v2raySchema
     const encryptedCleartextWrapper = encrypted && ['grpc', 'ws', 'httpupgrade', 'xhttp'].includes(data.net)
     if (
       data.tls === 'none' &&
-      ((!encryptedCleartextWrapper && data.net !== 'tcp') || data.mux || (data.flow !== 'none' && !encrypted))
+      ((!encryptedCleartextWrapper && data.net !== 'tcp') || ((data.mux || data.flow !== 'none') && !encrypted))
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['tls'],
         message:
-          'Resident VLESS security=none requires TCP or encrypted WS, HTTPUpgrade, gRPC, or XHTTP without mux, and Vision requires Encryption',
+          'Resident VLESS security=none requires TCP or encrypted WS, HTTPUpgrade, gRPC, or XHTTP, and Vision and mux require Encryption',
       })
     }
     if (data.net !== 'tcp' && data.flow !== 'none' && !encryptedCleartextWrapper) {
@@ -252,11 +252,11 @@ export const v2rayProtocolSchema = v2raySchema
         message: 'Resident VLESS TCP admits headerType=none only',
       })
     }
-    if (data.mux && (data.net !== 'tcp' || data.tls !== 'tls' || data.flow !== 'none')) {
+    if (data.mux && (data.net !== 'tcp' || data.flow !== 'none')) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['mux'],
-        message: 'Resident VLESS mux admits tcp + tls + empty flow only',
+        message: 'Resident VLESS mux requires TCP and empty flow',
       })
     }
     if (data.tls === 'reality' && data.pbk === '') {

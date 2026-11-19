@@ -107,7 +107,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
   const supportsMux =
     formValues.protocol === 'vless' &&
     formValues.net === 'tcp' &&
-    formValues.tls === 'tls' &&
+    (formValues.tls !== 'none' || vlessEncryption.enabled) &&
     formValues.flow === 'none'
   const pathLabel =
     formValues.net === 'meek' ? 'Meek URL' : formValues.net === 'grpc' ? 'ServiceName' : t('configureNode.path')
@@ -152,6 +152,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
   const setVlessEncryption = (changes: Partial<typeof vlessEncryption>) => {
     setValue('vlessEncryption', buildVlessEncryptionAccount({ ...vlessEncryption, ...changes }))
     if (changes.enabled === false && (formValues.net !== 'tcp' || formValues.tls === 'none')) setValue('flow', 'none')
+    if (changes.enabled === false && formValues.tls === 'none') setValue('mux', false)
   }
 
   return (
@@ -284,8 +285,10 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
           onChange={(val) => {
             const tls = (val || 'none') as V2rayFormValues['tls']
             setValue('tls', tls)
-            if (tls !== 'tls') setValue('mux', false)
-            if (tls === 'none' && !vlessEncryption.enabled) setValue('flow', 'none')
+            if (tls === 'none' && !vlessEncryption.enabled) {
+              setValue('mux', false)
+              setValue('flow', 'none')
+            }
           }}
         />
       )}
