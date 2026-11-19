@@ -17,6 +17,7 @@ import { Base64 } from 'js-base64'
 const TRAILING_SLASH_PATTERN = /\/$/
 const BASE64_CONTENT_PATTERN = /^[-\w+/]+={0,2}$/
 const BASE64_PADDING_PATTERN = /=+$/
+const VLESS_MUX_CONCURRENCY_PATTERN = /^[+-]?\d+$/
 const MASQUE_TARGET_HOST = '{target_host}'
 const MASQUE_TARGET_PORT = '{target_port}'
 const MASQUE_QUERY_KEYS = new Set(['allowInsecure', 'auth', 'sni', 'template', 'transport'])
@@ -1000,12 +1001,30 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       pqv: params.get('pqv') || '',
       // Other
       allowInsecure: parseAllowInsecure(params),
-      mux: parseBoolParam(params.get('mux')) || parseBoolParam(params.get('muxEnabled')),
+      mux: parseBoolParam(params.get('mux') ?? params.get('muxEnabled')),
+      concurrency: parseVlessMuxConcurrency(params.get('concurrency')),
+      xudpConcurrency: parseVlessMuxConcurrency(params.get('xudpConcurrency')),
+      xudpProxyUDP443: parseVlessMuxUdp443(params.get('xudpProxyUDP443')),
       v: '',
     }
   } catch {
     return null
   }
+}
+
+function parseVlessMuxConcurrency(value: string | null): number | undefined {
+  if (value === null) return undefined
+  const parsed = Number(value)
+  if (!VLESS_MUX_CONCURRENCY_PATTERN.test(value) || parsed < -32768 || parsed > 32767) {
+    throw new Error('Invalid VLESS mux concurrency')
+  }
+  return parsed
+}
+
+function parseVlessMuxUdp443(value: string | null): V2rayConfig['xudpProxyUDP443'] {
+  if (value === null) return undefined
+  if (value === 'reject' || value === 'allow' || value === 'skip') return value
+  throw new Error('Invalid VLESS mux UDP/443 policy')
 }
 
 /**

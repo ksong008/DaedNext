@@ -362,6 +362,48 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
           onCheckedChange={(checked) => setValue('mux', !!checked)}
         />
       )}
+      {supportsMux && formValues.mux && (
+        <>
+          {formValues.net === 'tcp' && formValues.flow === 'none' && (
+            <Input
+              label="TCP mux concurrency"
+              type="number"
+              min={-32768}
+              max={32767}
+              value={formValues.concurrency ?? ''}
+              onChange={(event) =>
+                setValue('concurrency', event.target.value === '' ? undefined : Number(event.target.value))
+              }
+            />
+          )}
+          <Input
+            label="XUDP concurrency"
+            type="number"
+            min={-32768}
+            max={32767}
+            value={formValues.xudpConcurrency ?? ''}
+            onChange={(event) =>
+              setValue('xudpConcurrency', event.target.value === '' ? undefined : Number(event.target.value))
+            }
+          />
+          <Select
+            label="Mux UDP/443"
+            data={[
+              { label: 'Default', value: 'default' },
+              { label: 'Reject', value: 'reject' },
+              { label: 'Allow', value: 'allow' },
+              { label: 'Skip mux', value: 'skip' },
+            ]}
+            value={formValues.xudpProxyUDP443 ?? 'default'}
+            onChange={(value) =>
+              setValue(
+                'xudpProxyUDP443',
+                value === 'default' ? undefined : (value as V2rayFormValues['xudpProxyUDP443']),
+              )
+            }
+          />
+        </>
+      )}
 
       {formValues.tls !== 'none' && (
         <Checkbox

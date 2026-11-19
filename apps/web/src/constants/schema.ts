@@ -107,6 +107,9 @@ export const v2raySchema = z
     v: z.string(),
     allowInsecure: z.boolean().nullable(),
     mux: z.boolean(),
+    concurrency: z.number().int().min(-32768).max(32767).optional(),
+    xudpConcurrency: z.number().int().min(-32768).max(32767).optional(),
+    xudpProxyUDP443: z.enum(['reject', 'allow', 'skip']).optional(),
     sni: z.string(),
     // Reality-specific fields
     pbk: z.string(), // public key

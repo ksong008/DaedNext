@@ -81,6 +81,9 @@ export interface V2rayConfig {
   // Other
   allowInsecure: boolean | null
   mux: boolean // VLESS mux and XUDP
+  concurrency?: number
+  xudpConcurrency?: number
+  xudpProxyUDP443?: 'reject' | 'allow' | 'skip'
   v: string // version (legacy)
 }
 

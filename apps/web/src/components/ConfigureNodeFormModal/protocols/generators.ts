@@ -66,6 +66,9 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
       params.path = path
     }
     if (mux) params.mux = 1
+    if (data.concurrency !== undefined) params.concurrency = data.concurrency
+    if (data.xudpConcurrency !== undefined) params.xudpConcurrency = data.xudpConcurrency
+    if (data.xudpProxyUDP443 !== undefined) params.xudpProxyUDP443 = data.xudpProxyUDP443
 
     if (alpn !== '') params.alpn = alpn
     if (ech !== '') params.ech = ech

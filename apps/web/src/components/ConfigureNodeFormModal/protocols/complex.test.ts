@@ -156,6 +156,15 @@ describe('manual node protocol registry', () => {
 
     expect(new URL(meekLink).searchParams.get('url')).toBe('https://front.example/meek')
     expect(new URL(muxLink).searchParams.get('mux')).toBe('1')
+    const explicit = `${muxLink.split('#')[0]}&concurrency=-1&xudpConcurrency=0&xudpProxyUDP443=skip`
+    const parsed = v2rayProtocol.parseLink(explicit)
+    expect(parsed).toMatchObject({ mux: true, concurrency: -1, xudpConcurrency: 0, xudpProxyUDP443: 'skip' })
+    const values = v2rayProtocol.schema.parse({ ...v2rayProtocol.defaultValues, ...parsed })
+    const reexported = new URL(v2rayProtocol.generateLink(values)).searchParams
+    expect(reexported.get('concurrency')).toBe('-1')
+    expect(reexported.get('xudpConcurrency')).toBe('0')
+    expect(reexported.get('xudpProxyUDP443')).toBe('skip')
+    expect(v2rayProtocol.parseLink(explicit.replace('concurrency=-1', 'concurrency=32768'))).toBeNull()
   })
 
   it('generates and validates a VLESS Encryption account without leaking it to VMess', async () => {
