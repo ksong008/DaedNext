@@ -807,19 +807,41 @@ function parseVMessStandardUrl(url: string): (Partial<V2rayConfig> & { protocol:
  * Normalize network type to internal representation
  * Handles 'http' -> 'h2' mapping per proposal
  */
-function normalizeNetworkType(type: string): V2rayConfig['net'] {
-  const typeMap: Record<string, V2rayConfig['net']> = {
-    tcp: 'tcp',
-    kcp: 'kcp',
-    ws: 'ws',
-    http: 'h2', // HTTP/2/3 uses 'http' in share link but 'h2' internally
-    h2: 'h2',
-    grpc: 'grpc',
-    httpupgrade: 'httpupgrade',
-    xhttp: 'xhttp',
-    meek: 'meek',
+function knownNetworkType(type: string): V2rayConfig['net'] | undefined {
+  const network = type.toLowerCase()
+  switch (network) {
+    case 'tcp':
+    case 'kcp':
+    case 'ws':
+    case 'h2':
+    case 'grpc':
+    case 'httpupgrade':
+    case 'xhttp':
+    case 'meek':
+      return network
+    case 'http':
+      return 'h2'
   }
-  return typeMap[type.toLowerCase()] || 'tcp'
+}
+
+function normalizeNetworkType(type: string): V2rayConfig['net'] {
+  return knownNetworkType(type) ?? 'tcp'
+}
+
+function normalizeVlessNetworkType(type: string): V2rayConfig['net'] | undefined {
+  switch (type.toLowerCase()) {
+    case '':
+    case 'raw':
+      return 'tcp'
+    case 'websocket':
+      return 'ws'
+    case 'splithttp':
+      return 'xhttp'
+    case 'mkcp':
+      return 'kcp'
+    default:
+      return knownNetworkType(type)
+  }
 }
 
 /**
@@ -934,7 +956,8 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
     const params = parsed.searchParams
 
     // Get network type
-    const netType = params.get('type') || 'tcp'
+    const netType = normalizeVlessNetworkType(params.get('type') ?? '')
+    if (!netType) return null
     const grpcMode = netType === 'grpc' ? parseGrpcMode(params.get('mode')) : 'gun'
     if (grpcMode === null) return null
 
@@ -950,7 +973,7 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       vlessEncryption: params.get('encryption') || 'none',
       aid: 0,
       // Transport fields (4.3)
-      net: normalizeNetworkType(netType),
+      net: netType,
       type: (params.get('headerType') || 'none') as V2rayConfig['type'],
       host: params.get('host') || '',
       path: getPathValue(params, netType),

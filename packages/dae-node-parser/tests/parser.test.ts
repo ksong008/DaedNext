@@ -305,6 +305,23 @@ describe('parseV2rayUrl', () => {
     })
   })
 
+  it('normalizes Xray VLESS aliases before reading transport fields', () => {
+    const url = 'vless://uuid@example.com:443?security=tls&mode=stream-up&path=%2Fproxy&extra=%7B%7D'
+    expect(parseV2rayUrl(`${url  }&type=splithttp`)).toEqual(parseV2rayUrl(`${url  }&type=xhttp`))
+    expect(parseV2rayUrl(`${url  }&type=splithttp`)).toMatchObject({
+      net: 'xhttp',
+      xhttpMode: 'stream-up',
+      xhttpExtra: '{}',
+      path: '/proxy',
+    })
+    expect(parseV2rayUrl(`${url  }&type=raw`)).toMatchObject({ net: 'tcp' })
+    expect(parseV2rayUrl(`${url  }&type=mkcp&seed=mux-seed`)).toMatchObject({ net: 'kcp', path: 'mux-seed' })
+  })
+
+  it.each(['hysteria', 'xdrive', 'unsupported', '__proto__'])('does not import VLESS %s as TCP', (type) => {
+    expect(parseNodeUrl(`vless://uuid@example.com:443?type=${  type}`)).toBeNull()
+  })
+
   it('should parse VLESS URL with WebSocket', () => {
     const result = parseV2rayUrl(
       'vless://uuid@example.com:443?type=ws&security=tls&host=example.com&path=%2Fws#ws-vless',
