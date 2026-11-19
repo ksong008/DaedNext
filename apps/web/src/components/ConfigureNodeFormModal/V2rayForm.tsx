@@ -61,6 +61,9 @@ const VLESS_NETWORK_OPTIONS = [
   { label: 'gRPC', value: 'grpc' },
   { label: 'HTTPUpgrade', value: 'httpupgrade' },
   { label: 'XHTTP', value: 'xhttp' },
+  { label: 'mKCP', value: 'kcp' },
+  { label: 'Xray Hysteria', value: 'hysteria' },
+  { label: 'XDrive local', value: 'xdrive' },
   { label: 'Meek', value: 'meek' },
 ]
 
@@ -104,12 +107,19 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
     !supportsVlessEncryptionNetwork(formValues.net || 'tcp')
   const supportsFlow =
     formValues.protocol === 'vless' &&
-    (formValues.net === 'tcp' || (vlessEncryption.enabled && supportsVlessEncryptionNetwork(formValues.net)))
+    (formValues.net === 'tcp' ||
+      (vlessEncryption.enabled && ['ws', 'httpupgrade', 'grpc', 'xhttp'].includes(formValues.net)))
   const supportsMux =
     formValues.protocol === 'vless' &&
     supportsVlessMux(formValues.net, formValues.tls, formValues.flow, vlessEncryption.enabled)
   const pathLabel =
-    formValues.net === 'meek' ? 'Meek URL' : formValues.net === 'grpc' ? 'ServiceName' : t('configureNode.path')
+    formValues.net === 'xdrive'
+      ? 'Storage folder'
+      : formValues.net === 'meek'
+        ? 'Meek URL'
+        : formValues.net === 'grpc'
+          ? 'ServiceName'
+          : t('configureNode.path')
 
   const setProtocol = (protocol: V2rayFormValues['protocol']) => {
     setValue('protocol', protocol)
@@ -131,10 +141,26 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
   const setNetwork = (net: V2rayFormValues['net']) => {
     setValue('net', net)
     if (net !== 'tcp') {
-      if (!vlessEncryption.enabled || !supportsVlessEncryptionNetwork(net)) setValue('flow', 'none')
+      if (!vlessEncryption.enabled || !['ws', 'httpupgrade', 'grpc', 'xhttp'].includes(net)) setValue('flow', 'none')
       setValue('type', 'none')
     }
     if (!supportsVlessMux(net, formValues.tls, formValues.flow, vlessEncryption.enabled)) setValue('mux', false)
+    if (net === 'hysteria') {
+      setValue('tls', 'tls')
+      setValue('alpn', 'h3')
+      setValue('fp', '')
+      setValue('ech', '')
+    }
+    if (net === 'xdrive') {
+      setValue('tls', 'none')
+      setValue('mux', true)
+      setValue('path', '')
+    }
+    if (net === 'kcp') {
+      setValue('path', '')
+      setValue('fp', '')
+      setValue('ech', '')
+    }
     if (formValues.protocol === 'vmess' && (net === 'grpc' || net === 'h2')) {
       setValue('tls', 'tls')
     }
@@ -355,6 +381,14 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
         />
       )}
 
+      {formValues.net === 'hysteria' && (
+        <Input
+          label="Hysteria Auth"
+          type="password"
+          value={formValues.hysteriaAuth ?? ''}
+          onChange={(event) => setValue('hysteriaAuth', event.target.value)}
+        />
+      )}
       {supportsMux && (
         <Checkbox
           label={formValues.net === 'xhttp' || formValues.flow !== 'none' ? 'XUDP' : 'Mux'}
@@ -503,11 +537,12 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
         formValues.net === 'h2' ||
         formValues.net === 'httpupgrade' ||
         formValues.net === 'xhttp' ||
-        formValues.net === 'meek') && (
+        formValues.net === 'meek' ||
+        formValues.net === 'xdrive') && (
         <Input label={pathLabel} value={formValues.path} onChange={(e) => setValue('path', e.target.value)} />
       )}
 
-      {formValues.net === 'kcp' && (
+      {formValues.net === 'kcp' && formValues.protocol === 'vmess' && (
         <Input label="Seed" value={formValues.path} onChange={(e) => setValue('path', e.target.value)} />
       )}
 

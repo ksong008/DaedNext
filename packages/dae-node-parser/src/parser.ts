@@ -840,6 +840,10 @@ function normalizeVlessNetworkType(type: string): V2rayConfig['net'] | undefined
       return 'xhttp'
     case 'mkcp':
       return 'kcp'
+    case 'hysteria':
+      return 'hysteria'
+    case 'xdrive':
+      return 'xdrive'
     default:
       return knownNetworkType(type)
   }
@@ -857,6 +861,8 @@ function getPathValue(params: URLSearchParams, netType: string): string {
       return params.get('seed') || ''
     case 'meek':
       return params.get('url') || ''
+    case 'xdrive':
+      return params.get('remoteFolder') || ''
     default:
       return params.get('path') || ''
   }
@@ -959,6 +965,8 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
     // Get network type
     const netType = normalizeVlessNetworkType(params.get('type') ?? '')
     if (!netType) return null
+    if (netType === 'xdrive' && params.get('service') !== 'local') return null
+    if (netType === 'hysteria' && !params.get('auth')) return null
     const grpcMode = netType === 'grpc' ? parseGrpcMode(params.get('mode')) : 'gun'
     if (grpcMode === null) return null
 
@@ -1005,6 +1013,7 @@ export function parseVLessUrl(url: string): (Partial<V2rayConfig> & { protocol: 
       concurrency: parseVlessMuxConcurrency(params.get('concurrency')),
       xudpConcurrency: parseVlessMuxConcurrency(params.get('xudpConcurrency')),
       xudpProxyUDP443: parseVlessMuxUdp443(params.get('xudpProxyUDP443')),
+      hysteriaAuth: netType === 'hysteria' ? (params.get('auth') ?? '') : undefined,
       v: '',
     }
   } catch {

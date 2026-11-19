@@ -42,7 +42,7 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
 
   if (protocol === 'vless') {
     const params: Record<string, unknown> = {
-      type: net === 'h2' ? 'http' : net,
+      type: net === 'h2' ? 'http' : net === 'kcp' ? 'mkcp' : net,
       security: tls,
       host,
       headerType: type,
@@ -62,6 +62,11 @@ export function generateV2rayLink(data: V2rayGeneratorValues): string {
       if (extra) params.extra = extra
     } else if (net === 'meek') {
       params.url = path
+    } else if (net === 'hysteria') {
+      params.auth = data.hysteriaAuth
+    } else if (net === 'xdrive') {
+      params.service = 'local'
+      params.remoteFolder = path
     } else {
       params.path = path
     }

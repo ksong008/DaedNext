@@ -26,12 +26,13 @@ function isRtt(value: string | undefined): value is VlessEncryptionRtt {
 }
 
 export function supportsVlessEncryptionNetwork(network: string): boolean {
-  return ['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp'].includes(network)
+  return ['tcp', 'ws', 'grpc', 'httpupgrade', 'xhttp', 'kcp', 'hysteria', 'xdrive'].includes(network)
 }
 
 export function supportsVlessMux(network: string, security: string, flow: string, encrypted: boolean): boolean {
   if (network === 'tcp') return security !== 'none' || encrypted
-  return encrypted && (network === 'xhttp' || (flow !== 'none' && supportsVlessEncryptionNetwork(network)))
+  if (network === 'xdrive') return encrypted && security === 'none' && flow === 'none'
+  return encrypted && (network === 'xhttp' || (flow !== 'none' && ['ws', 'grpc', 'httpupgrade'].includes(network)))
 }
 
 export function hasVlessEncryptionAccountPrefix(value: string): boolean {

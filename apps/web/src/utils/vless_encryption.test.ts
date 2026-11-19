@@ -62,7 +62,9 @@ it.each([
   ['xhttp', true],
   ['h2', false],
   ['meek', false],
-  ['kcp', false],
+  ['kcp', true],
+  ['hysteria', true],
+  ['xdrive', true],
   ['unknown', false],
 ])('reports VLESS Encryption network support for %s', (network, supported) => {
   expect(supportsVlessEncryptionNetwork(network)).toBe(supported)

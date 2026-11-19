@@ -307,19 +307,32 @@ describe('parseV2rayUrl', () => {
 
   it('normalizes Xray VLESS aliases before reading transport fields', () => {
     const url = 'vless://uuid@example.com:443?security=tls&mode=stream-up&path=%2Fproxy&extra=%7B%7D'
-    expect(parseV2rayUrl(`${url  }&type=splithttp`)).toEqual(parseV2rayUrl(`${url  }&type=xhttp`))
-    expect(parseV2rayUrl(`${url  }&type=splithttp`)).toMatchObject({
+    expect(parseV2rayUrl(`${url}&type=splithttp`)).toEqual(parseV2rayUrl(`${url}&type=xhttp`))
+    expect(parseV2rayUrl(`${url}&type=splithttp`)).toMatchObject({
       net: 'xhttp',
       xhttpMode: 'stream-up',
       xhttpExtra: '{}',
       path: '/proxy',
     })
-    expect(parseV2rayUrl(`${url  }&type=raw`)).toMatchObject({ net: 'tcp' })
-    expect(parseV2rayUrl(`${url  }&type=mkcp&seed=mux-seed`)).toMatchObject({ net: 'kcp', path: 'mux-seed' })
+    expect(parseV2rayUrl(`${url}&type=raw`)).toMatchObject({ net: 'tcp' })
+    expect(parseV2rayUrl(`${url}&type=mkcp&seed=mux-seed`)).toMatchObject({ net: 'kcp', path: 'mux-seed' })
   })
 
   it.each(['hysteria', 'xdrive', 'unsupported', '__proto__'])('does not import VLESS %s as TCP', (type) => {
-    expect(parseNodeUrl(`vless://uuid@example.com:443?type=${  type}`)).toBeNull()
+    expect(parseNodeUrl(`vless://uuid@example.com:443?type=${type}`)).toBeNull()
+  })
+
+  it('retains parameters for Xray Hysteria and local XDrive links', () => {
+    const base = 'vless://uuid@example.com:443?'
+    expect(parseV2rayUrl(`${base}type=hysteria&auth=fixture&security=tls`)).toMatchObject({
+      net: 'hysteria',
+      hysteriaAuth: 'fixture',
+    })
+    expect(parseV2rayUrl(`${base}type=xdrive&service=local&remoteFolder=%2Fsrv%2Fxdrive&mux=1`)).toMatchObject({
+      net: 'xdrive',
+      path: '/srv/xdrive',
+      mux: true,
+    })
   })
 
   it('should parse VLESS URL with WebSocket', () => {

@@ -35,7 +35,7 @@ export interface V2rayConfig {
   /** VLESS Encryption account string (Xray mlkem768x25519plus.* form). */
   vlessEncryption?: string
   // Transport fields (4.3)
-  net: 'tcp' | 'kcp' | 'ws' | 'http' | 'h2' | 'grpc' | 'httpupgrade' | 'xhttp' | 'meek' // type
+  net: 'tcp' | 'kcp' | 'ws' | 'http' | 'h2' | 'grpc' | 'httpupgrade' | 'xhttp' | 'meek' | 'hysteria' | 'xdrive'
   type: 'none' | 'http' | 'srtp' | 'utp' | 'wechat-video' | 'dtls' | 'wireguard' // headerType (mKCP/TCP)
   host: string // host (WebSocket/HTTP/2/3/HTTPUpgrade/XHTTP)
   path: string // path (WebSocket/HTTP/2/3/HTTPUpgrade/XHTTP) or serviceName (gRPC) or seed (mKCP)
@@ -84,6 +84,7 @@ export interface V2rayConfig {
   concurrency?: number
   xudpConcurrency?: number
   xudpProxyUDP443?: 'reject' | 'allow' | 'skip'
+  hysteriaAuth?: string
   v: string // version (legacy)
 }
 
