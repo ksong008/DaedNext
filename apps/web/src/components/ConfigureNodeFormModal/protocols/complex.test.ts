@@ -179,6 +179,29 @@ describe('manual node protocol registry', () => {
     })
     expect(new URL(encryptedLink).searchParams.get('encryption')).toBe(encryption)
 
+    const grpcH2c = {
+      ...v2rayProtocol.defaultValues,
+      protocol: 'vless',
+      id: 'uuid',
+      add: 'example.com',
+      port: 8080,
+      net: 'grpc',
+      tls: 'none',
+      path: 'probe',
+      vlessEncryption: encryption,
+    } as const
+    expect(v2rayProtocol.schema.safeParse(grpcH2c).success).toBe(true)
+    expect(v2rayProtocol.schema.safeParse({ ...grpcH2c, vlessEncryption: 'none' }).success).toBe(false)
+    const grpcQuery = new URL(v2rayProtocol.generateLink(grpcH2c)).searchParams
+    expect(grpcQuery.get('encryption')).toBe(encryption)
+    expect(grpcQuery.get('serviceName')).toBe('probe')
+    expect(grpcQuery.get('security') ?? 'none').toBe('none')
+
+    const rawVision = { ...grpcH2c, net: 'tcp', path: '', flow: 'xtls-rprx-vision' } as const
+    expect(v2rayProtocol.schema.safeParse(rawVision).success).toBe(true)
+    expect(v2rayProtocol.schema.safeParse({ ...rawVision, vlessEncryption: 'none' }).success).toBe(false)
+    expect(new URL(v2rayProtocol.generateLink(rawVision)).searchParams.get('flow')).toBe('xtls-rprx-vision')
+
     const noEncryptionLink = v2rayProtocol.generateLink({
       ...v2rayProtocol.defaultValues,
       protocol: 'vless',

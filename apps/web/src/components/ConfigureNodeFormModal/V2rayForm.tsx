@@ -137,7 +137,12 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
     if (formValues.protocol === 'vmess' && (net === 'grpc' || net === 'h2')) {
       setValue('tls', 'tls')
     }
-    if (formValues.protocol === 'vless' && net !== 'tcp' && formValues.tls === 'none') {
+    if (
+      formValues.protocol === 'vless' &&
+      net !== 'tcp' &&
+      !(vlessEncryption.enabled && supportsVlessEncryptionNetwork(net)) &&
+      formValues.tls === 'none'
+    ) {
       setValue('tls', 'tls')
     }
   }
@@ -277,7 +282,7 @@ export function V2rayForm({ onLinkGeneration, initialValues, actionsPortal }: No
             const tls = (val || 'none') as V2rayFormValues['tls']
             setValue('tls', tls)
             if (tls !== 'tls') setValue('mux', false)
-            if (tls === 'none') setValue('flow', 'none')
+            if (tls === 'none' && !vlessEncryption.enabled) setValue('flow', 'none')
           }}
         />
       )}

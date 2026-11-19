@@ -193,7 +193,9 @@ export const v2rayProtocolSchema = v2raySchema
         message: encryptionError,
       })
     }
-    if (data.vlessEncryption.trim() !== '' && data.vlessEncryption.trim() !== 'none') {
+    const encryption = data.vlessEncryption.trim()
+    const encrypted = encryption !== '' && encryption !== 'none'
+    if (encrypted) {
       if (data.mux && data.flow !== 'none') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -217,11 +219,17 @@ export const v2rayProtocolSchema = v2raySchema
         message: 'Resident VLESS supports tcp, websocket, httpupgrade, grpc, h2, xhttp, and meek only',
       })
     }
-    if (data.tls === 'none' && (data.net !== 'tcp' || data.mux || data.flow !== 'none')) {
+    const encryptedCleartextWrapper = encrypted && ['grpc', 'ws', 'httpupgrade', 'xhttp'].includes(data.net)
+    const encryptedRawVision = encrypted && data.net === 'tcp'
+    if (
+      data.tls === 'none' &&
+      ((!encryptedCleartextWrapper && data.net !== 'tcp') || data.mux || (data.flow !== 'none' && !encryptedRawVision))
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['tls'],
-        message: 'Resident VLESS security=none admits native tcp with empty flow only',
+        message:
+          'Resident VLESS security=none requires TCP or encrypted WS, HTTPUpgrade, gRPC, or XHTTP without mux, and Vision requires encrypted TCP',
       })
     }
     if (data.net !== 'tcp' && data.flow !== 'none') {
