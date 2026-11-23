@@ -69,18 +69,19 @@ package_linux() {
   require_file "$ROOT_DIR/install/daed.service"
   require_file "$ROOT_DIR/install/daed.desktop"
   require_file "$ROOT_DIR/install/package_after_install.sh"
+  require_file "$ROOT_DIR/install/package_before_remove.sh"
   require_file "$ROOT_DIR/install/package_after_remove.sh"
   require_dir "$PACKAGE_WEB_DIR"
   require_dir "$ROOT_DIR/install/icons"
 
   rm -rf "$package_root"
   mkdir -p \
-    "$package_root/etc/daed" \
     "$package_root/usr/bin" \
     "$package_root/usr/lib/systemd/system" \
     "$package_root/usr/share/applications" \
     "$package_root/usr/share/daed/web" \
     "$package_root/usr/share/icons/hicolor"
+  install -d -m 0750 "$package_root/etc/daed"
 
   install -m 0755 "$binary" "$package_root/usr/bin/daed"
   if command -v aarch64-linux-gnu-strip >/dev/null 2>&1; then
@@ -109,8 +110,10 @@ package_linux() {
     --name daed \
     --license 'MIT AGPL' \
     --depends ca-certificates \
+    --depends iproute2 \
     --package "$deb_package" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \
+    --before-remove "$ROOT_DIR/install/package_before_remove.sh" \
     --after-remove "$ROOT_DIR/install/package_after_remove.sh" \
     -C "$package_root" \
     .
@@ -124,8 +127,12 @@ package_linux() {
     --name daed \
     --license 'MIT AGPL' \
     --depends ca-certificates \
+    --depends /usr/sbin/ip \
+    --depends /usr/sbin/tc \
+    --rpm-attr '750,root,root:/etc/daed' \
     --package "$rpm_package" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \
+    --before-remove "$ROOT_DIR/install/package_before_remove.sh" \
     --after-remove "$ROOT_DIR/install/package_after_remove.sh" \
     -C "$package_root" \
     .

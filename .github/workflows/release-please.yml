@@ -509,6 +509,7 @@ jobs:
             package-root/usr/share/applications \
             package-root/usr/share/daed/web \
             package-root/usr/share/icons/hicolor/{16x16,32x32,64x64,128x128,256x256,512x512,1024x1024}/apps
+          install -d -m 0750 package-root/etc/daed
           install -m 0755 ./${{ steps.get_filename.outputs.BUNDLE_NAME }} package-root/usr/bin/daed
           install -m 0644 ./geoip.dat package-root/usr/share/daed/geoip.dat
           install -m 0644 ./geosite.dat package-root/usr/share/daed/geosite.dat
@@ -541,11 +542,17 @@ jobs:
               rpm:aarch64|pacman:aarch64) package_arch='aarch64' ;;
               *) package_arch="$TARGET_ARCH" ;;
             esac
+            case "$package_manager" in
+              rpm) package_options=(--depends /usr/sbin/ip --depends /usr/sbin/tc --rpm-attr '750,root,root:/etc/daed') ;;
+              *) package_options=(--depends iproute2) ;;
+            esac
             fpm -s dir -t "$package_manager" -a "$package_arch" --version "$PACKAGE_VERSION" \
               --url 'https://github.com/ksong008/DaedNext' --description "DaedNext product shell for dae." \
               --maintainer "DaedNext Maintainers <noreply@github.com>" --name daed --license 'MIT AGPL' \
+              --depends ca-certificates "${package_options[@]}" \
               --package "$package_file_base.$package_manager" \
               --after-install ../install/package_after_install.sh \
+              --before-remove ../install/package_before_remove.sh \
               --after-remove ../install/package_after_remove.sh \
               -C package-root \
               .

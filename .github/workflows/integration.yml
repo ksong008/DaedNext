@@ -79,6 +79,10 @@ jobs:
         run: bash ./scripts/check_openwrt_arm64_packaging.sh
       - name: Check release source identity contract
         run: python3 -m unittest discover -s scripts/tests
+      - name: Check Linux package lifecycle
+        run: |
+          bash install/tests/package_after_install_fixture.sh
+          bash install/tests/package_after_remove_fixture.sh
 
   web-surface-lint:
     needs: workflow-lint

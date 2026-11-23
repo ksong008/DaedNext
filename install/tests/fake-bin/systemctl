@@ -4,6 +4,13 @@ if [ -n "${DAED_TEST_CALL_LOG:-}" ]; then
 fi
 
 case "${1:-}" in
+	show)
+		case "${2:-}" in
+			--property=Version) exit "${DAED_TEST_BUS_EXIT:-0}" ;;
+			--property=ActiveState) printf '%s\n' "${DAED_TEST_ACTIVE_STATE:-active}" ;;
+			*) exit 2 ;;
+		esac
+		;;
 	daemon-reload)
 		exit 0
 		;;
@@ -13,7 +20,10 @@ case "${1:-}" in
 	restart)
 		exit "${DAED_TEST_RESTART_EXIT:-0}"
 		;;
-	stop|disable)
+	stop)
+		exit "${DAED_TEST_STOP_EXIT:-0}"
+		;;
+	--root=/|disable)
 		exit 0
 		;;
 	status)

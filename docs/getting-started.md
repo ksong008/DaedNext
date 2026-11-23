@@ -94,6 +94,24 @@ sudo zypper install /tmp/installer-daed-linux-$(arch).rpm
 sudo systemctl enable --now daed
 ```
 
+### Updating an Existing DEB or RPM Installation
+
+Use the package manager's upgrade operation. For a local file, use
+`sudo apt install ./installer-daed.deb` or
+`sudo dnf upgrade ./installer-daed.rpm` as appropriate.
+
+On a running systemd host, upgrades restart an active daemon and wait for
+readiness. An inactive daemon stays inactive. If restart fails, the package hook
+reports the failure and records it in `/var/lib/daed/package-restart-required`.
+RPM can still record the new version as installed even when the scriptlet fails.
+Check `systemctl status daed.service` and `journalctl -u daed.service`, then
+restart the service once the reported error is resolved. A successful start
+clears the marker. On Debian, retrying `sudo dpkg --configure daed` also retries
+a pending restart.
+
+Uninstall stops the service before removing packaged files. The package manager
+preserves existing configurations and the state database in `/etc/daed`.
+
 ### Arch Linux
 
 #### AUR

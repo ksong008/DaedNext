@@ -3,28 +3,43 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FAKE_BIN="$ROOT/install/tests/fake-bin"
-SCRIPT="$ROOT/install/package_after_remove.sh"
-CALL_LOG="$(mktemp)"
-trap 'rm -f "$CALL_LOG"' EXIT
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+mkdir -p "$WORK/systemd" "$WORK/state"
+for hook in before after; do
+    sed -e "s|/run/systemd/system|$WORK/systemd|g" \
+        -e "s|/var/lib/daed|$WORK/state|g" \
+        "$ROOT/install/package_${hook}_remove.sh" >"$WORK/$hook"
+done
+export PATH="$FAKE_BIN:$PATH"
+export DAED_TEST_CALL_LOG="$WORK/calls"
 
-# The upgrade hooks must only reload systemd metadata.  In particular, they
-# must not stop or disable the active service or remove the resident topology.
-: >"$CALL_LOG"
-PATH="$FAKE_BIN:$PATH" DAED_TEST_CALL_LOG="$CALL_LOG" "$SCRIPT" upgrade >/dev/null
-test "$(cat "$CALL_LOG")" = "systemctl daemon-reload"
+pending="$WORK/state/package-restart-required"
+touch "$pending"
+for action in upgrade failed-upgrade abort-upgrade 1 2; do
+    : >"$DAED_TEST_CALL_LOG"
+    sh "$WORK/before" "$action"
+    sh "$WORK/after" "$action"
+    test "$(tail -n 1 "$DAED_TEST_CALL_LOG")" = "systemctl daemon-reload"
+    test "$(wc -l <"$DAED_TEST_CALL_LOG")" -eq 2
+    test -f "$pending"
+done
 
-: >"$CALL_LOG"
-PATH="$FAKE_BIN:$PATH" DAED_TEST_CALL_LOG="$CALL_LOG" "$SCRIPT" 1 >/dev/null
-test "$(cat "$CALL_LOG")" = "systemctl daemon-reload"
+: >"$DAED_TEST_CALL_LOG"
+if DAED_TEST_STOP_EXIT=1 sh "$WORK/before" remove >/dev/null 2>&1; then
+    echo "prerm accepted removal after stop failed" >&2
+    exit 1
+fi
+test "$(tail -n 1 "$DAED_TEST_CALL_LOG")" = "systemctl stop daed.service"
+test -f "$pending"
 
-# A normal removal is allowed to stop/disable the service and clean both the
-# current daens namespace and the historical dae namespace.
-: >"$CALL_LOG"
-PATH="$FAKE_BIN:$PATH" DAED_TEST_CALL_LOG="$CALL_LOG" "$SCRIPT" remove >/dev/null
-grep -Fx 'systemctl stop daed.service' "$CALL_LOG" >/dev/null
-grep -Fx 'systemctl disable daed.service' "$CALL_LOG" >/dev/null
-grep -Fx 'ip link del dae0' "$CALL_LOG" >/dev/null
-grep -Fx 'ip netns del daens' "$CALL_LOG" >/dev/null
-grep -Fx 'ip netns del dae' "$CALL_LOG" >/dev/null
-grep -Fx 'systemctl daemon-reload' "$CALL_LOG" >/dev/null
+: >"$DAED_TEST_CALL_LOG"
+sh "$WORK/before" 0
+sh "$WORK/after" 0
+test ! -e "$pending"
+test "$(cat "$DAED_TEST_CALL_LOG")" = "systemctl show --property=Version --value
+systemctl stop daed.service
+systemctl --root=/ disable daed.service
+systemctl show --property=Version --value
+systemctl daemon-reload"
 echo "package removal lifecycle fixture passed"
