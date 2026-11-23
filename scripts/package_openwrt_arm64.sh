@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+PACKAGE_WEB_DIR="${PACKAGE_WEB_DIR:-$ROOT_DIR/dist}"
+PACKAGE_GEODATA_DIR="${PACKAGE_GEODATA_DIR:-$ROOT_DIR/build/package-sources/geodata}"
 DAENEXT_ROOT="${DAENEXT_ROOT:-$(
   for directory in "$ROOT_DIR/DaeNext" "$ROOT_DIR/../DaeNext" "$ROOT_DIR/../../DaeNext"; do
     if [ -f "$directory/Cargo.toml" ]; then
@@ -97,9 +99,9 @@ build_rootfs() {
   local rootfs="$2"
 
   require_file "$binary"
-  require_file "$ROOT_DIR/build/package-sources/geodata/geoip.dat"
-  require_file "$ROOT_DIR/build/package-sources/geodata/geosite.dat"
-  require_dir "$ROOT_DIR/dist"
+  require_file "$PACKAGE_GEODATA_DIR/geoip.dat"
+  require_file "$PACKAGE_GEODATA_DIR/geosite.dat"
+  require_dir "$PACKAGE_WEB_DIR"
 
   rm -rf "$rootfs"
   mkdir -p "$rootfs/usr/bin" "$rootfs/usr/share/daed/web" \
@@ -110,9 +112,9 @@ build_rootfs() {
   elif command -v llvm-strip >/dev/null 2>&1; then
     llvm-strip "$rootfs/usr/bin/daed"
   fi
-  install -m 0644 "$ROOT_DIR/build/package-sources/geodata/geoip.dat" "$rootfs/usr/share/daed/geoip.dat"
-  install -m 0644 "$ROOT_DIR/build/package-sources/geodata/geosite.dat" "$rootfs/usr/share/daed/geosite.dat"
-  cp -a "$ROOT_DIR/dist/." "$rootfs/usr/share/daed/web/"
+  install -m 0644 "$PACKAGE_GEODATA_DIR/geoip.dat" "$rootfs/usr/share/daed/geoip.dat"
+  install -m 0644 "$PACKAGE_GEODATA_DIR/geosite.dat" "$rootfs/usr/share/daed/geosite.dat"
+  cp -a "$PACKAGE_WEB_DIR/." "$rootfs/usr/share/daed/web/"
   install -m 0755 "$ROOT_DIR/install/openwrt/daed.init" "$rootfs/etc/init.d/daed"
   install -m 0644 "$ROOT_DIR/install/openwrt/daed.config" "$rootfs/etc/config/daed"
 }

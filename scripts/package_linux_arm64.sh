@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PACKAGE_WEB_DIR="${PACKAGE_WEB_DIR:-$ROOT_DIR/dist}"
+PACKAGE_GEODATA_DIR="${PACKAGE_GEODATA_DIR:-$ROOT_DIR/build/package-sources/geodata}"
 DAENEXT_ROOT="${DAENEXT_ROOT:-$(
   for directory in "$ROOT_DIR/DaeNext" "$ROOT_DIR/../DaeNext" "$ROOT_DIR/../../DaeNext"; do
     if [ -f "$directory/Cargo.toml" ]; then
@@ -62,13 +64,13 @@ package_linux() {
   local rpm_package="$OUT_DIR/installer-daed-linux-arm64.rpm"
 
   require_file "$binary"
-  require_file "$ROOT_DIR/build/package-sources/geodata/geoip.dat"
-  require_file "$ROOT_DIR/build/package-sources/geodata/geosite.dat"
+  require_file "$PACKAGE_GEODATA_DIR/geoip.dat"
+  require_file "$PACKAGE_GEODATA_DIR/geosite.dat"
   require_file "$ROOT_DIR/install/daed.service"
   require_file "$ROOT_DIR/install/daed.desktop"
   require_file "$ROOT_DIR/install/package_after_install.sh"
   require_file "$ROOT_DIR/install/package_after_remove.sh"
-  require_dir "$ROOT_DIR/dist"
+  require_dir "$PACKAGE_WEB_DIR"
   require_dir "$ROOT_DIR/install/icons"
 
   rm -rf "$package_root"
@@ -84,11 +86,11 @@ package_linux() {
   if command -v aarch64-linux-gnu-strip >/dev/null 2>&1; then
     aarch64-linux-gnu-strip "$package_root/usr/bin/daed"
   fi
-  install -m 0644 "$ROOT_DIR/build/package-sources/geodata/geoip.dat" "$package_root/usr/share/daed/geoip.dat"
-  install -m 0644 "$ROOT_DIR/build/package-sources/geodata/geosite.dat" "$package_root/usr/share/daed/geosite.dat"
+  install -m 0644 "$PACKAGE_GEODATA_DIR/geoip.dat" "$package_root/usr/share/daed/geoip.dat"
+  install -m 0644 "$PACKAGE_GEODATA_DIR/geosite.dat" "$package_root/usr/share/daed/geosite.dat"
   install -m 0644 "$ROOT_DIR/install/daed.service" "$package_root/usr/lib/systemd/system/daed.service"
   install -m 0644 "$ROOT_DIR/install/daed.desktop" "$package_root/usr/share/applications/daed.desktop"
-  cp -a "$ROOT_DIR/dist/." "$package_root/usr/share/daed/web/"
+  cp -a "$PACKAGE_WEB_DIR/." "$package_root/usr/share/daed/web/"
 
   for icon in "$ROOT_DIR"/install/icons/*.png; do
     local size

@@ -1,11 +1,12 @@
 import json
 from pathlib import Path
 import sys
+from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from check_prebuilt_release import validate_identity
+from check_prebuilt_release import hashes, validate_identity, verified_assets
 from product_build_identity import product_features
 
 
@@ -39,6 +40,34 @@ class BuildIdentityTests(unittest.TestCase):
                      "daed rust-native product core", "daed rust-native product core=new"]:
             with self.subTest(line=line), self.assertRaises(ValueError):
                 validate_identity(line, {"core": "new", "ui": "current"})
+
+    def test_packaging_checks_release_asset_provenance(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            web = root / "web"
+            web.mkdir()
+            index = web / "index.html"
+            index.write_text("current UI")
+            web_receipt = root / "web.json"
+            web_receipt.write_text(json.dumps({"ui_head": "current", "web": hashes(web)}))
+            geodata = root / "geodata"
+            geodata.mkdir()
+            (geodata / "geoip.dat").write_text("GeoIP")
+            (geodata / "geosite.dat").write_text("GeoSite")
+            checksums = root / "geodata.SHA256SUMS"
+            checksums.write_text("".join(f"{digest}  {name}\n" for name, digest in hashes(geodata).items()))
+
+            args = (web, geodata, web_receipt, checksums)
+            self.assertEqual(verified_assets(*args, "current"), (hashes(web), hashes(geodata)))
+            with self.assertRaisesRegex(ValueError, "WebUI"):
+                verified_assets(*args, "newer")
+            index.write_text("stale UI")
+            with self.assertRaisesRegex(ValueError, "WebUI"):
+                verified_assets(*args, "current")
+            index.write_text("current UI")
+            (geodata / "geoip.dat").write_text("different GeoIP")
+            with self.assertRaisesRegex(ValueError, "Geo data"):
+                verified_assets(*args, "current")
 
 
 if __name__ == "__main__":

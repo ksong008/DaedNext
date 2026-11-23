@@ -55,9 +55,19 @@ release version, and `DAENEXT_ROOT` to select the core checkout.
 `scripts/package_prebuilt_release.sh` packages an already verified set of static
 Linux binaries without recompiling them. Place `daed-linux-x86_64-v2`,
 `daed-linux-x86_64-v3`, and `daed-linux-arm64` in `RELEASE_DIR/binaries/`.
-The package output directory must be empty. Build the current web assets into
-`dist/` and provide full `geoip.dat` and `geosite.dat` files in
-`build/package-sources/geodata/` before running:
+Build the release WebUI from a clean DaedNext checkout.
+
+```bash
+python3 scripts/check_prebuilt_release.py --build-web
+```
+
+This writes `dist/` and `build/package-sources/web-provenance.json`. Place the
+selected `geoip.dat` and `geosite.dat` in `build/package-sources/geodata/` and
+provide their expected SHA256 digests from the selected Geo release or its
+existing verified manifest in `build/package-sources/geodata.SHA256SUMS`.
+Use the usual `sha256sum` format and the two basenames.
+
+Run the packager with an empty or absent `RELEASE_DIR/packages` directory.
 
 ```bash
 RELEASE_DIR="$PWD/build/rb83/release-final" \
@@ -69,7 +79,8 @@ bash scripts/package_prebuilt_release.sh
 
 Before packaging, the script checks all three binary identities against the
 clean core and UI checkouts, package version, architecture and selected product
-features. Old or mixed binaries are rejected. ARM64 verification uses
+features, then checks the WebUI build receipt and the selected Geo digests.
+ARM64 verification uses
 `qemu-aarch64` (override with `QEMU_AARCH64`). The release directory receives
 `source-provenance.json` with source commits and hashes of binaries, web assets
 and geodata.
@@ -78,8 +89,9 @@ This requires `fpm`, RPM and DEB packaging tools, `ar`, native and ARM64 `strip`
 and apk-tools 3 with `mkpkg`. It creates six Linux DEB/RPM packages and twelve
 OpenWrt IPK/APK packages: x86_64 v2/v3 plus aarch64 generic, cortex-a53, cortex-a72,
 and cortex-a76. All ARM64 package labels use the same generic ARM64 binary.
-Intermediate package roots are temporary; packages and SHA256 manifests remain
-in the release directory. APK files are unsigned and require the target's local
+The packager publishes the complete set after generating its SHA256 manifest.
+A failed build can be retried in the same release directory. APK files are
+unsigned and require the target's local
 package trust override when installing.
 
 ## Run the Binary
