@@ -8,10 +8,11 @@ import subprocess
 
 
 def product_features(core, extra=""):
+    core = Path(core).resolve()
     metadata = json.loads(subprocess.check_output([
         "cargo", "metadata", "--locked", "--no-deps", "--format-version", "1",
-        "--manifest-path", str(Path(core) / "Cargo.toml"),
-    ], text=True))
+        "--manifest-path", str(core / "Cargo.toml"),
+    ], cwd=core, text=True))
     features = next(p["features"] for p in metadata["packages"] if p["name"] == "dae-daemon")
     pending = ["default", *filter(None, re.split(r"[,\s]+", extra))]
     enabled = set()

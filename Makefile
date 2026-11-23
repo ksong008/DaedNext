@@ -3,13 +3,9 @@ APPNAME ?= daed
 VERSION ?= 0.0.0.unknown
 DAED_SKIP_WEB_BUILD ?=
 
-.PHONY: dist daed daed-rust-native
+.PHONY: all clean dist daed daed-rust-native
 
-ifneq ($(strip $(DAED_SKIP_WEB_BUILD)),)
 all: daed
-else
-all: clean daed
-endif
 
 clean:
 	rm -rf dist && rm -rf apps/web/dist && rm -f daed
@@ -21,14 +17,13 @@ ifeq (,$(wildcard ./.git))
 endif
 dist: package.json pnpm-lock.yaml
 ifneq ($(strip $(DAED_SKIP_WEB_BUILD)),)
-	test -d dist
+	test -s dist/index.html
 else
-	$(PFLAGS) pnpm i
+	$(PFLAGS) pnpm install --frozen-lockfile
 	VITE_MOCK_MODE= TURBO_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 pnpm build
-	@if [ -d "apps/web/dist" ]; then \
-		rm -rf dist; \
-		cp -r apps/web/dist dist; \
-	fi
+	test -s apps/web/dist/index.html
+	rm -rf dist
+	cp -r apps/web/dist dist
 endif
 ## End Web
 
