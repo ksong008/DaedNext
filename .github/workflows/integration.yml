@@ -61,7 +61,7 @@ jobs:
       - name: Record core commit
         env:
           CORE_SHA: ${{ steps.core.outputs.commit }}
-        run: printf 'DaeNext core commit - `%s`\n' "$CORE_SHA" >>"$GITHUB_STEP_SUMMARY"
+        run: printf "DaeNext core commit - \`%s\`\n" "$CORE_SHA" >>"$GITHUB_STEP_SUMMARY"
 
   workflow-lint:
     timeout-minutes: 10
@@ -192,7 +192,9 @@ jobs:
       - name: Build web
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-        run: pnpm build --filter daed
+        run: |
+          pnpm build --filter daed
+          mv -T apps/web/dist dist
       - name: Build Rust native daed
         env:
           VERSION: test-${{ github.sha }}
@@ -212,7 +214,7 @@ jobs:
           cp install/daed.service artifact/
           cp install/daed.desktop artifact/
           cp -r install/icons artifact/icons
-          cp -r apps/web/dist artifact/web
+          cp -r dist artifact/web
           curl --fail --location --retry 3 --retry-delay 2 --connect-timeout 20 --show-error \
             -o artifact/geoip.dat https://github.com/v2rayA/dist-v2ray-rules-dat/raw/master/geoip.dat
           curl --fail --location --retry 3 --retry-delay 2 --connect-timeout 20 --show-error \
