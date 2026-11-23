@@ -33,6 +33,7 @@ RUST_MANIFEST ?= $(RUST_WORKSPACE)/Cargo.toml
 RUST_TARGET_DIR ?= $(RUST_WORKSPACE)/target
 RUST_TARGET ?=
 RUST_FEATURES ?= native-ebpf
+RUST_BUILD_STD ?=
 CARGO_PROFILE_RELEASE_LTO ?= fat
 CARGO_PROFILE_RELEASE_CODEGEN_UNITS ?= 1
 RUST_BIN_DIR = $(if $(RUST_TARGET),$(RUST_TARGET_DIR)/$(RUST_TARGET)/release,$(RUST_TARGET_DIR)/release)
@@ -47,6 +48,9 @@ DAED_PRODUCT_VERSION ?= daed rust-native product version=$(VERSION) ui=$(DAED_UI
 # Keep the checked feature/target selection identical to the product build.
 # Customize RUST_FEATURES/RUST_TARGET instead of bypassing the gate with raw args.
 override RUST_BUILD_ARGS = --manifest-path $(RUST_MANIFEST) --locked -p dae-daemon --bin daed --release
+ifneq ($(strip $(RUST_BUILD_STD)),)
+override RUST_BUILD_ARGS += -Z build-std=$(RUST_BUILD_STD)
+endif
 ifneq ($(strip $(RUST_TARGET)),)
 override RUST_BUILD_ARGS += --target $(RUST_TARGET)
 endif

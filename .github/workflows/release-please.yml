@@ -78,7 +78,7 @@ jobs:
       - name: Record core commit
         env:
           CORE_SHA: ${{ steps.core.outputs.commit }}
-        run: printf 'DaeNext core commit - `%s`\n' "$CORE_SHA" >>"$GITHUB_STEP_SUMMARY"
+        run: printf "DaeNext core commit - \`%s\`\n" "$CORE_SHA" >>"$GITHUB_STEP_SUMMARY"
 
   # Update screenshots when a new release is created
   update-screenshots:
@@ -354,12 +354,14 @@ jobs:
 
       - name: Setup Rust from the checked-out core
         working-directory: DaeNext
+        env:
+          RELEASE_RUST_TARGET: ${{ matrix.rust_target }}
         run: |
           set -euo pipefail
           rustup show active-toolchain
           rustup component add rust-src
-          if [ -n "${{ matrix.rust_target }}" ]; then
-            rustup target add "${{ matrix.rust_target }}"
+          if [ -n "$RELEASE_RUST_TARGET" ] && [[ "$TARGET_ARCH" != mips* ]]; then
+            rustup target add "$RELEASE_RUST_TARGET"
           fi
           cargo install bpf-linker --version 0.10.3 --locked
 
@@ -394,7 +396,7 @@ jobs:
             llvm \
             perl \
             pkg-config \
-            $cross_packages
+            $cross_packages qemu-user
 
       - name: Configure Rust cross target
         run: |
@@ -409,11 +411,16 @@ jobs:
             exit 0
           fi
           rust_target_env="${rust_target//-/_}"
-          echo "RUST_TARGET=${rust_target}" >>"${GITHUB_ENV}"
-          echo "CARGO_TARGET_${cargo_target_env}_LINKER=${linker}" >>"${GITHUB_ENV}"
-          echo "CC_${rust_target_env}=${cc}" >>"${GITHUB_ENV}"
-          echo "CXX_${rust_target_env}=${cxx}" >>"${GITHUB_ENV}"
-          echo "AR_${rust_target_env}=${ar}" >>"${GITHUB_ENV}"
+          {
+            echo "RUST_TARGET=${rust_target}"
+            echo "CARGO_TARGET_${cargo_target_env}_LINKER=${linker}"
+            echo "CC_${rust_target_env}=${cc}"
+            echo "CXX_${rust_target_env}=${cxx}"
+            echo "AR_${rust_target_env}=${ar}"
+            if [[ "$TARGET_ARCH" == mips* ]]; then
+              echo "RUST_BUILD_STD=std,panic_abort"
+            fi
+          } >>"$GITHUB_ENV"
 
       - name: Get the version
         id: get_version
@@ -423,10 +430,8 @@ jobs:
           tag=${REF}
           version=${tag%-daed-test}
           package_version="${version:1}"
-          echo "VERSION=$version" >> $GITHUB_OUTPUT
-          echo "VERSION=$version" >> $GITHUB_ENV
-          echo "PACKAGE_VERSION=$package_version" >> $GITHUB_OUTPUT
-          echo "PACKAGE_VERSION=$package_version" >> $GITHUB_ENV
+          printf 'VERSION=%s\nPACKAGE_VERSION=%s\n' "$version" "$package_version" >>"$GITHUB_OUTPUT"
+          printf 'VERSION=%s\nPACKAGE_VERSION=%s\n' "$version" "$package_version" >>"$GITHUB_ENV"
 
       - name: Get the filename
         id: get_filename
@@ -435,7 +440,7 @@ jobs:
           _NAME=$(jq --arg target "$target_key" '.[$target].friendlyName' -r < install/friendly-filenames.json)
           test "$_NAME" != "null"
           echo "target_os: $TARGET_OS, target_arch: $TARGET_ARCH, cpu_level: $CPU_LEVEL, release_name: $_NAME"
-          echo "BUNDLE_NAME=daed-$_NAME" >> $GITHUB_OUTPUT
+          echo "BUNDLE_NAME=daed-$_NAME" >>"$GITHUB_OUTPUT"
 
       - uses: actions/download-artifact@v8
         with:
@@ -445,12 +450,16 @@ jobs:
       - name: make
         env:
           RUST_WORKSPACE: ${{ github.workspace }}/DaeNext
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          DAED_SKIP_WEB_BUILD: 1
+          OUTPUT: bundled/${{ steps.get_filename.outputs.BUNDLE_NAME }}
         run: |
           mkdir -p ./bundled/
-          export VERSION=${{ steps.get_version.outputs.VERSION }}
-          export DAED_SKIP_WEB_BUILD=1
-          export OUTPUT=bundled/${{ steps.get_filename.outputs.BUNDLE_NAME }}
-          make
+          if [ -n "${RUST_BUILD_STD:-}" ]; then
+            RUSTC_BOOTSTRAP=1 make RUST_BUILD_STD="$RUST_BUILD_STD"
+          else
+            make
+          fi
           cp ./install/daed.service ./bundled/
           cp ./install/daed.desktop ./bundled/
           cp -r ./install/icons/ ./bundled/
@@ -472,6 +481,9 @@ jobs:
         run: ./bundled/${{ steps.get_filename.outputs.BUNDLE_NAME }} --version
 
       - name: Build Linux packages
+        env:
+          TARGET_LINKER: ${{ matrix.linker }}
+          BUNDLE_NAME: ${{ steps.get_filename.outputs.BUNDLE_NAME }}
         run: |
           set -euo pipefail
           mkdir -p ./output_packages/
@@ -480,7 +492,17 @@ jobs:
           target_key="${TARGET_OS}-${TARGET_ARCH}${CPU_LEVEL:+-${CPU_LEVEL}}"
           package_file_base="daed-${target_key}"
           pushd bundled || exit 1
-          ./${{ steps.get_filename.outputs.BUNDLE_NAME }} --version | grep -F 'bpf-btf'
+          emulator=()
+          if [ -n "${RUST_TARGET:-}" ]; then
+            case "$TARGET_ARCH" in
+              x86_32) qemu_arch=i386 ;;
+              mipsle) qemu_arch=mipsel ;;
+              mips64le) qemu_arch=mips64el ;;
+              *) qemu_arch="$TARGET_ARCH" ;;
+            esac
+            emulator=("qemu-$qemu_arch" -L "/usr/${TARGET_LINKER%-gcc}")
+          fi
+          "${emulator[@]}" "./$BUNDLE_NAME" --version | grep -F 'bpf-btf'
           rm -rf package-root
           mkdir -p package-root/usr/bin \
             package-root/usr/lib/systemd/system \
@@ -519,7 +541,7 @@ jobs:
               rpm:aarch64|pacman:aarch64) package_arch='aarch64' ;;
               *) package_arch="$TARGET_ARCH" ;;
             esac
-            fpm -s dir -t "$package_manager" -a $package_arch --version "$PACKAGE_VERSION" \
+            fpm -s dir -t "$package_manager" -a "$package_arch" --version "$PACKAGE_VERSION" \
               --url 'https://github.com/ksong008/DaedNext' --description "DaedNext product shell for dae." \
               --maintainer "DaedNext Maintainers <noreply@github.com>" --name daed --license 'MIT AGPL' \
               --package "$package_file_base.$package_manager" \
@@ -542,7 +564,7 @@ jobs:
           if [ "$ARCH_PACMAN" == 'pacman' ];then
             cp "bundled/$package_file_base.pacman" ./output_packages/installer-${{ steps.get_filename.outputs.BUNDLE_NAME }}.pkg.tar.zst
           fi
-          ls ./output_packages/ | grep -E ".deb|.rpm|.pkg.tar.zst"
+          ls ./output_packages/
 
       - name: Upload artifact - packages
         uses: actions/upload-artifact@v7
@@ -584,8 +606,8 @@ jobs:
           parallel_exec() {
               local func_name="$1"
               shift
-              export -f "$func_name"
-              echo "$@" | tr ' ' '\n' | xargs -P 8 -I {} bash -c 'set -e; '"$func_name"' "$@"' _ {}
+              export -f "${func_name?}"
+              printf '%s\0' "$@" | xargs -0 -P 8 -I {} bash -ec "\"\$1\" \"\$2\"" _ "$func_name" {}
           }
 
           release_file_list="$(mktemp)"
@@ -645,8 +667,8 @@ jobs:
               zip -9r "../${dir}.zip" "$dir" && echo "✓ Created ${dir}.zip"
           }
           cd release
-          dirs=$(ls -d daed-linux* web)
-          parallel_exec create_zip $dirs
+          dirs=(daed-linux* web)
+          parallel_exec create_zip "${dirs[@]}"
           cd ..
 
           # Verify all zip files
@@ -658,22 +680,25 @@ jobs:
               unzip -t "${dir}.zip" > /dev/null 2>&1 || { echo "✗ ${dir}.zip is corrupted"; exit 1; }
               echo "✓ Verified ${dir}.zip"
           }
-          parallel_exec verify_zip $dirs
+          parallel_exec verify_zip "${dirs[@]}"
 
           # Generate checksums in parallel
           generate_dgst() {
               local package="$1"
-              echo "$(md5 -q "$package")  $package  md5" >> "$package.dgst"
-              echo "$(shasum -a 1 "$package")  sha1" >> "$package.dgst"
-              echo "$(shasum -a 256 "$package")  sha256" >> "$package.dgst"
-              echo "$(shasum -a 512 "$package")  sha512" >> "$package.dgst"
+              {
+                echo "$(md5 -q "$package")  $package  md5"
+                echo "$(shasum -a 1 "$package")  sha1"
+                echo "$(shasum -a 256 "$package")  sha256"
+                echo "$(shasum -a 512 "$package")  sha512"
+              } > "$package.dgst"
               echo "✓ Generated checksums for $package"
           }
-          packages=$(ls | grep -E "\.deb$|\.pkg\.tar\.zst$|\.rpm$|\.zip$")
-          parallel_exec generate_dgst $packages
+          shopt -s nullglob
+          packages=(*.deb *.pkg.tar.zst *.rpm *.zip)
+          parallel_exec generate_dgst "${packages[@]}"
 
           echo "Show files are going to upload..."
-          ls -lh | grep -E ".deb|.pkg.tar.zst|.rpm|.zip"
+          ls -lh -- "${packages[@]}" ./*.dgst
 
       - name: Ensure GitHub release exists
         shell: bash
@@ -708,8 +733,8 @@ jobs:
           parallel_exec() {
               local func_name="$1"
               shift
-              export -f "$func_name"
-              echo "$@" | tr ' ' '\n' | xargs -P 8 -I {} bash -c 'set -e; '"$func_name"' "$@"' _ {}
+              export -f "${func_name?}"
+              printf '%s\0' "$@" | xargs -0 -P 8 -I {} bash -ec "\"\$1\" \"\$2\"" _ "$func_name" {}
           }
 
           upload_file() {
@@ -719,12 +744,13 @@ jobs:
           }
           export TAG_NAME
 
-          files=$(ls | grep -E "\.deb$|\.pkg\.tar\.zst$|\.rpm$|\.zip$|\.dgst$")
-          parallel_exec upload_file $files
+          shopt -s nullglob
+          files=(*.deb *.pkg.tar.zst *.rpm *.zip *.dgst)
+          parallel_exec upload_file "${files[@]}"
 
   # Publish container image when release is created
   publish-container-image:
-    needs: [release-please, build-web]
+    needs: [release-please, build-web, resolve-daenext-ref]
     if: ${{ needs.release-please.outputs.publish_extras == 'true' }}
     runs-on: ubuntu-22.04
     timeout-minutes: 90
@@ -735,6 +761,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.release-please.outputs.checkout_ref }}
+          persist-credentials: false
+
+      - uses: actions/checkout@v6
+        with:
+          repository: ksong008/DaeNext
+          ref: ${{ needs.resolve-daenext-ref.outputs.daenext_ref }}
+          path: DaeNext
           persist-credentials: false
 
       - uses: actions/download-artifact@v8
@@ -748,8 +781,7 @@ jobs:
           REF: ${{ needs.release-please.outputs.tag_name }}
         run: |
           tag=${REF:1}
-          echo "IMAGE=ksong008/daednext" >> $GITHUB_OUTPUT
-          echo "TAG=$tag" >> $GITHUB_OUTPUT
+          printf 'IMAGE=ksong008/daednext\nTAG=%s\n' "$tag" >>"$GITHUB_OUTPUT"
 
       - uses: docker/setup-qemu-action@v4
 

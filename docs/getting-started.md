@@ -165,7 +165,9 @@ docker compose up -d
 ### Build from Source
 
 ```bash
-git clone https://github.com/ksong008/DaedNext --recursive
+git clone --branch work/boringssl https://github.com/ksong008/DaedNext
+cd DaedNext
+git clone --branch work/boringssl https://github.com/ksong008/DaeNext DaeNext
 docker build -t daed .
 ```
 

@@ -1,24 +1,21 @@
-FROM node:alpine AS build-web
+FROM node:22-alpine AS build-web
 
 WORKDIR /build
 
 COPY . .
 
 RUN corepack enable
-RUN corepack prepare pnpm@latest --activate
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
 
 FROM rust:1-bookworm AS build-daed
 
 RUN \
-    apt-get update; apt-get install -y ca-certificates cmake git make perl pkg-config llvm-15 clang-15; \
-    ln -sf /usr/bin/clang-15 /usr/bin/clang; \
-    ln -sf /usr/bin/llvm-strip-15 /usr/bin/llvm-strip; \
+    apt-get update && apt-get install -y ca-certificates cmake git make perl pkg-config python3 libelf-dev llvm-15 clang-15 && \
+    ln -sf /usr/bin/clang-15 /usr/bin/clang && \
+    ln -sf /usr/bin/llvm-strip-15 /usr/bin/llvm-strip && \
     apt-get clean autoclean && apt-get autoremove -y && rm -rf /var/lib/{apt,dpkg,cache,log}/
-RUN rustup toolchain install nightly --profile minimal --component rust-src
-RUN cargo install bpf-linker --version 0.10.3 --locked
 
 ARG DAED_VERSION=self-build
 
@@ -27,7 +24,9 @@ WORKDIR /build
 COPY . .
 COPY --from=build-web /build/apps/web/dist /build/dist
 
-RUN DAED_SKIP_WEB_BUILD=1 RUST_WORKSPACE=/build/DaeNext make APPNAME=daed VERSION=$DAED_VERSION OUTPUT=/build/daed daed-rust-native
+RUN cd DaeNext && rustup show active-toolchain && rustup component add rust-src && \
+    cargo install bpf-linker --version 0.10.3 --locked
+RUN DAED_SKIP_WEB_BUILD=1 RUST_WORKSPACE=/build/DaeNext make APPNAME=daed VERSION="$DAED_VERSION" OUTPUT=/build/daed daed-rust-native
 
 
 FROM debian:bookworm-slim

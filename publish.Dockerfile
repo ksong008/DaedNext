@@ -5,12 +5,10 @@ ARG DAED_VERSION
 FROM rust:1-bookworm AS build
 
 RUN \
-    apt-get update && apt-get install -y ca-certificates cmake git make perl pkg-config llvm-15 clang-15 && \
+    apt-get update && apt-get install -y ca-certificates cmake git make perl pkg-config python3 libelf-dev llvm-15 clang-15 && \
     ln -sf /usr/bin/clang-15 /usr/bin/clang && \
     ln -sf /usr/bin/llvm-strip-15 /usr/bin/llvm-strip && \
     apt-get clean autoclean && apt-get autoremove -y && rm -rf /var/lib/{apt,dpkg,cache,log}/
-RUN rustup toolchain install nightly --profile minimal --component rust-src
-RUN cargo install bpf-linker --version 0.10.3 --locked
 
 ARG DAED_VERSION
 
@@ -18,8 +16,10 @@ WORKDIR /build
 
 COPY . .
 
+RUN cd DaeNext && rustup show active-toolchain && rustup component add rust-src && \
+    cargo install bpf-linker --version 0.10.3 --locked
 RUN rm -rf dist && cp -r apps/web/dist dist && \
-    DAED_SKIP_WEB_BUILD=1 RUST_WORKSPACE=/build/DaeNext make APPNAME=daed VERSION=$DAED_VERSION OUTPUT=/build/daed daed-rust-native
+    DAED_SKIP_WEB_BUILD=1 RUST_WORKSPACE=/build/DaeNext make APPNAME=daed VERSION="$DAED_VERSION" OUTPUT=/build/daed daed-rust-native
 
 
 FROM debian:bookworm-slim AS prod
