@@ -112,6 +112,20 @@ a pending restart.
 Uninstall stops the service before removing packaged files. The package manager
 preserves existing configurations and the state database in `/etc/daed`.
 
+### Updating or Removing an OpenWrt Installation
+
+An upgrade restarts an active daed service and waits for readiness. If the
+restart fails, fix the service error and run `opkg configure daed` on an
+IPK installation or `/etc/init.d/daed package_restart` on an APK installation.
+
+APK 3.0.5 can remove package files even when its removal hook reports an error.
+Run `/etc/init.d/daed package_remove && apk del daed` to make successful service
+stop and DNS cleanup a condition of removing the package. On IPK installations,
+`opkg remove daed` enforces this condition directly.
+
+The default `/etc/daed/` state directory is included in OpenWrt firmware backups.
+Add a custom state directory to `/etc/sysupgrade.conf`.
+
 ### Arch Linux
 
 #### AUR

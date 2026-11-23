@@ -51,32 +51,6 @@ version_from_workspace() {
   sed -n 's/^version = "\([^"]\+\)"/\1/p' "$DAENEXT_ROOT/Cargo.toml" | head -n 1
 }
 
-write_prerm() {
-  local path="$1"
-  cat >"$path" <<'EOF'
-#!/bin/sh
-set -e
-
-case "${1:-}" in
-	upgrade)
-		exit 0
-		;;
-esac
-
-if [ -z "${IPKG_INSTROOT:-}" ] && [ -x /etc/init.d/daed ]; then
-	/etc/init.d/daed stop >/dev/null 2>&1 || true
-	case "${1:-}" in
-		remove|deinstall|purge)
-			/etc/init.d/daed disable >/dev/null 2>&1 || true
-			;;
-	esac
-fi
-
-exit 0
-EOF
-  chmod 0755 "$path"
-}
-
 build_daed() {
   require_dir "$DAENEXT_ROOT"
   mkdir -p "$OUT_DIR"
@@ -105,7 +79,8 @@ build_rootfs() {
 
   rm -rf "$rootfs"
   mkdir -p "$rootfs/usr/bin" "$rootfs/usr/share/daed/web" \
-    "$rootfs/etc/init.d" "$rootfs/etc/config" "$rootfs/etc/daed"
+    "$rootfs/etc/init.d" "$rootfs/etc/config" "$rootfs/etc/daed" \
+    "$rootfs/lib/upgrade/keep.d"
   install -m 0755 "$binary" "$rootfs/usr/bin/daed"
   if command -v "${STRIP_TOOL:-aarch64-linux-gnu-strip}" >/dev/null 2>&1; then
     "${STRIP_TOOL:-aarch64-linux-gnu-strip}" "$rootfs/usr/bin/daed"
@@ -117,6 +92,7 @@ build_rootfs() {
   cp -a "$PACKAGE_WEB_DIR/." "$rootfs/usr/share/daed/web/"
   install -m 0755 "$ROOT_DIR/install/openwrt/daed.init" "$rootfs/etc/init.d/daed"
   install -m 0644 "$ROOT_DIR/install/openwrt/daed.config" "$rootfs/etc/config/daed"
+  install -m 0644 "$ROOT_DIR/install/openwrt/daed.keep" "$rootfs/lib/upgrade/keep.d/daed"
 }
 
 build_ipk() {
@@ -140,7 +116,7 @@ Description: DaedNext Rust-native daemon for OpenWrt $package_arch with jemalloc
 EOF
   printf '/etc/config/daed\n' >"$control_dir/conffiles"
   install -m 0755 "$ROOT_DIR/install/openwrt/post-install.sh" "$control_dir/postinst"
-  write_prerm "$control_dir/prerm"
+  install -m 0755 "$ROOT_DIR/install/openwrt/pre-remove.sh" "$control_dir/prerm"
 
   local work
   work="${control_dir}.work"
@@ -149,8 +125,8 @@ EOF
   printf '2.0\n' >"$work/debian-binary"
   tar --sort=name --owner=0 --group=0 --numeric-owner -czf "$work/control.tar.gz" -C "$control_dir" .
   tar --sort=name --owner=0 --group=0 --numeric-owner -czf "$work/data.tar.gz" -C "$rootfs" .
-  rm -f "$package"
-  (cd "$work" && ar r "$package" debian-binary control.tar.gz data.tar.gz >/dev/null)
+  tar --owner=0 --group=0 --numeric-owner -czf "$package" -C "$work" \
+    ./debian-binary ./data.tar.gz ./control.tar.gz
 }
 
 build_apk() {
@@ -163,23 +139,33 @@ build_apk() {
   mkdir -p "$scripts_dir"
   install -m 0755 "$ROOT_DIR/install/openwrt/post-install.sh" "$scripts_dir/post-install"
   install -m 0755 "$ROOT_DIR/install/openwrt/post-install.sh" "$scripts_dir/post-upgrade"
-  write_prerm "$scripts_dir/pre-uninstall"
+  install -m 0755 "$ROOT_DIR/install/openwrt/pre-remove.sh" "$scripts_dir/pre-deinstall"
 
-  run_apk mkpkg \
-    --files "$rootfs" \
-    --output "$package" \
-    --info name:daed \
-    --info version:"$PACKAGE_VERSION-r$PACKAGE_RELEASE" \
-    --info arch:"$package_arch" \
-    --info description:"DaedNext Rust-native daemon for OpenWrt $package_arch with jemalloc." \
-    --info license:AGPL-3.0-only \
-    --info origin:DaeNext \
-    --info depends:ca-bundle \
-    --info maintainer:'DaedNext Maintainers <noreply@github.com>' \
-    --info url:https://github.com/ksong008/DaeNext \
-    --script post-install:"$scripts_dir/post-install" \
-    --script post-upgrade:"$scripts_dir/post-upgrade" \
-    --script pre-deinstall:"$scripts_dir/pre-uninstall"
+  (
+    local metadata="$rootfs/lib/apk/packages"
+    local config_hash
+    mkdir -p "$metadata"
+    trap 'rm -f "$metadata/daed.conffiles" "$metadata/daed.conffiles_static"
+          rmdir "$metadata" "$rootfs/lib/apk" 2>/dev/null || true' EXIT
+    printf '/etc/config/daed\n' >"$metadata/daed.conffiles"
+    config_hash="$(sha256sum <"$rootfs/etc/config/daed")"
+    printf '/etc/config/daed %s\n' "${config_hash%% *}" >"$metadata/daed.conffiles_static"
+    run_apk mkpkg \
+      --files "$rootfs" \
+      --output "$package" \
+      --info name:daed \
+      --info version:"$PACKAGE_VERSION-r$PACKAGE_RELEASE" \
+      --info arch:"$package_arch" \
+      --info description:"DaedNext Rust-native daemon for OpenWrt $package_arch with jemalloc." \
+      --info license:AGPL-3.0-only \
+      --info origin:DaeNext \
+      --info depends:ca-bundle \
+      --info maintainer:'DaedNext Maintainers <noreply@github.com>' \
+      --info url:https://github.com/ksong008/DaeNext \
+      --script post-install:"$scripts_dir/post-install" \
+      --script post-upgrade:"$scripts_dir/post-upgrade" \
+      --script pre-deinstall:"$scripts_dir/pre-deinstall"
+  )
 }
 
 main() {

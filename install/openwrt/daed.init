@@ -12,7 +12,11 @@ DEFAULT_WEB_ROOT=/usr/share/daed/web
 DEFAULT_LOG_DIR=/tmp/log/daed
 DEFAULT_RELOAD_READY_TIMEOUT=2s
 DEFAULT_RELOAD_RECOVERY_TIMEOUT=30s
-RESOLV_DAE="/tmp/resolv.conf.daed"
+RESOLV_CONF=/tmp/resolv.conf
+RESOLV_DAE=/run/daed/resolv.conf
+RESOLV_MOUNT_ID=/run/daed/resolv.mount-id
+LEGACY_RESOLV_DAE=/tmp/resolv.conf.daed
+PACKAGE_RESTART_REQUIRED=/etc/daed/.package-restart-required
 
 load_daed_config() {
 	config_load daed
@@ -54,12 +58,26 @@ validate_daed_runtime_config() {
 	"$PROG" validate -c "$config_dir" --state "$state" --runtime
 }
 
+resolv_mount_id() {
+	# fdinfo identifies the visible mount even when several mounts share the path.
+	(
+		local path="$1" mount_id
+		exec 9<"$path"
+		mount_id="$(awk '$1 == "mnt_id:" { print $2 }' /proc/self/fdinfo/9)" || exit 1
+		awk -v id="$mount_id" -v path="$path" '$1 == id && $5 == path { print $1 }' /proc/self/mountinfo
+	) 2>/dev/null
+}
+
 hijack_resolv_conf() {
-	grep -q ' /tmp/resolv\.conf ' /proc/mounts && return 0
+	local target mount_id resolv_file dns_list dns LOGICAL_WAN
+	target="$(readlink -f "$RESOLV_CONF")" || return 1
+	mount_id="$(resolv_mount_id "$target")" || return 1
+	[ -z "$mount_id" ] || return 0
 
-	grep -E '^(search|domain) ' /tmp/resolv.conf >"$RESOLV_DAE" 2>/dev/null
+	resolv_file="$(mktemp /run/daed/resolv.XXXXXX)" || return 1
+	# grep returns 1 when there are no search or domain entries.
+	grep -E '^(search|domain) ' "$target" >"$resolv_file" || true
 
-	local dns_list LOGICAL_WAN
 	. /lib/functions/network.sh
 	network_find_wan LOGICAL_WAN 2>/dev/null
 	if [ -n "$LOGICAL_WAN" ]; then
@@ -73,19 +91,51 @@ hijack_resolv_conf() {
 
 	[ -z "$dns_list" ] && dns_list="119.29.29.29 223.5.5.5"
 
-	for dns in $dns_list; do
-		echo "nameserver $dns" >>"$RESOLV_DAE"
-	done
-
-	mount --bind "$RESOLV_DAE" /tmp/resolv.conf
-	mount -o remount,ro,bind /tmp/resolv.conf
+	if ! (
+		for dns in $dns_list; do
+			printf 'nameserver %s\n' "$dns" || exit 1
+		done
+	) >>"$resolv_file" || ! chmod 0644 "$resolv_file" ||
+		! mv -f "$resolv_file" "$RESOLV_DAE"; then
+		rm -f "$resolv_file"
+		return 1
+	fi
+	rm -f "$RESOLV_MOUNT_ID" || return 1
+	if ! mount --bind "$RESOLV_DAE" "$target"; then
+		rm -f "$RESOLV_DAE"
+		return 1
+	fi
+	if mount_id="$(resolv_mount_id "$target")" && [ -n "$mount_id" ] &&
+		[ "$RESOLV_DAE" -ef "$target" ] &&
+		printf '%s\n' "$mount_id" >"$RESOLV_MOUNT_ID" &&
+		mount -o remount,ro,bind "$target"; then
+		return 0
+	fi
+	restore_resolv_conf
+	return 1
 }
 
 restore_resolv_conf() {
-	grep -q ' /tmp/resolv\.conf ' /proc/mounts || return 0
-	mount -o remount,rw,bind /tmp/resolv.conf 2>/dev/null
-	umount /tmp/resolv.conf 2>/dev/null
-	rm -f "$RESOLV_DAE"
+	local target mount_id source recorded_id
+	[ -e "$RESOLV_CONF" ] || return 0
+	target="$(readlink -f "$RESOLV_CONF")" || return 1
+	mount_id="$(resolv_mount_id "$target")" || return 1
+	[ -n "$mount_id" ] || return 0
+
+	if [ "$RESOLV_DAE" -ef "$target" ]; then
+		source="$RESOLV_DAE"
+		if [ -s "$RESOLV_MOUNT_ID" ]; then
+			read -r recorded_id <"$RESOLV_MOUNT_ID" || return 1
+			[ "$mount_id" = "$recorded_id" ] || return 0
+		fi
+	elif [ ! -L "$LEGACY_RESOLV_DAE" ] && [ "$LEGACY_RESOLV_DAE" -ef "$target" ]; then
+		source="$LEGACY_RESOLV_DAE"
+	else
+		return 0
+	fi
+
+	umount "$target" || return 1
+	rm -f "$source" "$RESOLV_MOUNT_ID"
 }
 
 start_service() {
@@ -143,6 +193,69 @@ start_service() {
 
 stop_service() {
 	restore_resolv_conf
+}
+
+extra_command "package_restart" "Restart daed after a package update or retry a failed restart"
+extra_command "package_remove" "Stop daed and disable autostart before package removal"
+
+package_service_info() {
+	ubus call service list '{"name":"daed"}'
+}
+
+package_stop() {
+	local service_info="$1" timeout=10 instance_timeout
+	if [ -n "$(jsonfilter -s "$service_info" -e '@.daed')" ]; then
+		for instance_timeout in $(jsonfilter -s "$service_info" -e '@.daed.instances[*].term_timeout'); do
+			if [ "$instance_timeout" -gt "$timeout" ]; then
+				timeout="$instance_timeout"
+			fi
+		done
+		ubus call service delete '{"name":"daed"}' || return 1
+		# procd sends SIGTERM asynchronously and retains the PID until exit.
+		timeout=$((timeout + 5))
+		while :; do
+			service_info="$(package_service_info)" || return 1
+			[ -n "$(jsonfilter -s "$service_info" -e '@.daed.instances[*].pid')" ] || break
+			if [ "$timeout" -eq 0 ]; then
+				echo "Timed out waiting for daed to stop." >&2
+				return 1
+			fi
+			sleep 1
+			timeout=$((timeout - 1))
+		done
+	fi
+	restore_resolv_conf
+}
+
+package_restart() {
+	local service_info
+	procd_lock
+	service_info="$(package_service_info)" || return 1
+	if [ ! -e "$PACKAGE_RESTART_REQUIRED" ] &&
+		[ -z "$(jsonfilter -s "$service_info" -e '@.daed.instances')" ]; then
+		return 0
+	fi
+
+	touch "$PACKAGE_RESTART_REQUIRED" || return 1
+	if ! package_stop "$service_info" || ! start ||
+		! "$PROG" wait-ready --timeout "${DAED_PACKAGE_READY_TIMEOUT:-60s}"; then
+		echo "daed package restart failed. Retry with /etc/init.d/daed package_restart." >&2
+		return 1
+	fi
+	rm -f "$PACKAGE_RESTART_REQUIRED" || return 1
+	echo "Restarted daed service and verified readiness after package installation."
+}
+
+package_remove() {
+	local service_info
+	procd_lock
+	service_info="$(package_service_info)" || return 1
+	if ! package_stop "$service_info"; then
+		echo "Failed to stop daed or restore its DNS mount before package removal." >&2
+		return 1
+	fi
+	disable || return 1
+	rm -f "$PACKAGE_RESTART_REQUIRED"
 }
 
 reload_service() {

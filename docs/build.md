@@ -85,7 +85,7 @@ ARM64 verification uses
 `source-provenance.json` with source commits and hashes of binaries, web assets
 and geodata.
 
-This requires `fpm`, RPM and DEB packaging tools, `ar`, native and ARM64 `strip`,
+This requires `fpm`, RPM and DEB packaging tools, native and ARM64 `strip`,
 and apk-tools 3 with `mkpkg`. It creates six Linux DEB/RPM packages and twelve
 OpenWrt IPK/APK packages: x86_64 v2/v3 plus aarch64 generic, cortex-a53, cortex-a72,
 and cortex-a76. All ARM64 package labels use the same generic ARM64 binary.
