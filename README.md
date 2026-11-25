@@ -64,6 +64,11 @@
 Please refer to the [Quick Start Guide](./docs/getting-started.md) to install
 and run daed.
 
+The default native eBPF service runs without the `ip` and `tc` commands,
+including when it uses the TC netlink backend. These commands are useful for
+manual troubleshooting and are required by development fixtures and legacy
+diagnostics that invoke them.
+
 Once daed is running, open the dashboard at:
 
 ```text
