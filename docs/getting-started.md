@@ -46,6 +46,11 @@ daed --help
 
 ## 🐧 Linux Distribution Packages
 
+The native eBPF service configures the network through Linux kernel interfaces.
+You can install and run it on a system without the `ip` and `tc` commands.
+The development network fixtures and legacy command-backend diagnostics use
+those tools when invoked.
+
 ### Debian / Ubuntu
 
 ```bash

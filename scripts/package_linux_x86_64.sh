@@ -92,7 +92,6 @@ package_flavor() {
     --name daed \
     --license 'MIT AGPL' \
     --depends ca-certificates \
-    --depends iproute2 \
     --package "$package_base.deb" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \
     --before-remove "$ROOT_DIR/install/package_before_remove.sh" \
@@ -109,8 +108,6 @@ package_flavor() {
     --name daed \
     --license 'MIT AGPL' \
     --depends ca-certificates \
-    --depends /usr/sbin/ip \
-    --depends /usr/sbin/tc \
     --rpm-attr '750,root,root:/etc/daed' \
     --package "$package_base.rpm" \
     --after-install "$ROOT_DIR/install/package_after_install.sh" \

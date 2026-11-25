@@ -543,8 +543,8 @@ jobs:
               *) package_arch="$TARGET_ARCH" ;;
             esac
             case "$package_manager" in
-              rpm) package_options=(--depends /usr/sbin/ip --depends /usr/sbin/tc --rpm-attr '750,root,root:/etc/daed') ;;
-              *) package_options=(--depends iproute2) ;;
+              rpm) package_options=(--rpm-attr '750,root,root:/etc/daed') ;;
+              *) package_options=() ;;
             esac
             fpm -s dir -t "$package_manager" -a "$package_arch" --version "$PACKAGE_VERSION" \
               --url 'https://github.com/ksong008/DaedNext' --description "DaedNext product shell for dae." \
